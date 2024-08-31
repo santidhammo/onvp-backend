@@ -1,0 +1,1 @@
+DROP TABLE page_access_policies;

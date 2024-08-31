@@ -1,0 +1,1 @@
+DROP TABLE workgroup_role_associations;
