@@ -35,26 +35,6 @@ impl AsExpression<Int4> for Role {
     }
 }
 
-// impl<DB: Backend> ToSql<Int4, DB> for Role {
-//     fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, DB>) -> diesel::serialize::Result {
-//         ToSql::to_sql(&(*self as i32), out)
-//     }
-// }
-
-// impl<DB: Backend> FromSql<Int4, DB> for Role {
-//     fn from_sql(bytes: DB::RawValue<'_>) -> diesel::deserialize::Result<Self> {
-//         let step1 = i32::from_sql(bytes.into())?;
-//         if step1 < 0 || step1 > u8::MAX as i32 {
-//             Err(role::Error::new(role::ErrorKind::ByteConversion)).into()
-//         } else {
-//             match Self::try_from(step1 as u8) {
-//                 Ok(step2) => Ok(step2),
-//                 Err(e) => Err(e.into()),
-//             }
-//         }
-//     }
-// }
-
 pub mod role {
     use std::fmt::{Debug, Display, Formatter};
 
