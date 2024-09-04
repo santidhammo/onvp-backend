@@ -1,1 +1,1 @@
--- This file should undo anything in `up.sql`
+DROP TABLE workgroup_member_relationships;

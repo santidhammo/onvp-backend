@@ -1,7 +1,7 @@
 use diesel::expression::AsExpression;
 use diesel::internal::derives::as_expression::Bound;
 use diesel::sql_types::Int4;
-use diesel::FromSqlRow;
+use diesel::{Expression, FromSqlRow};
 
 #[derive(Debug, Clone, Copy, FromSqlRow, Eq, PartialEq)]
 #[diesel(sql_type = Int4)]

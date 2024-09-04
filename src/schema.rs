@@ -34,8 +34,8 @@ diesel::table! {
         id -> Int4,
         member_details_id -> Int4,
         member_address_details_id -> Int4,
-        musical_instrument_id -> Int4,
-        picture_asset_id -> Varchar,
+        musical_instrument_id -> Nullable<Int4>,
+        picture_asset_id -> Nullable<Varchar>,
         allow_privacy_info_sharing -> Bool,
     }
 }

@@ -5,5 +5,5 @@ CREATE TABLE member_details (
     last_name VARCHAR NOT NULL,
     email_address VARCHAR NOT NULL,
     phone_number VARCHAR NOT NULL,
-    CHECK (phone_number ~ E'^\+[0-9]+$')
+    CHECK (phone_number ~ '^\+[0-9]+$')
 )

@@ -2,8 +2,8 @@ CREATE TABLE members (
     id SERIAL PRIMARY KEY,
     member_details_id INT NOT NULL,
     member_address_details_id INT NOT NULL,
-    musical_instrument_id INT NOT NULL,
-    picture_asset_id VARCHAR NOT NULL,
+    musical_instrument_id INT NULL,
+    picture_asset_id VARCHAR NULL,
     -- If set, other members are allowed to see the details of the member. The member should have given written
     -- permission in accordance with the Digital Privacy Information Act (DPIA). The default value therefore is
     -- set to false, to make sure that a conscientious decision is made.
