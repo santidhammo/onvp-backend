@@ -1,13 +1,16 @@
+use crate::model::members::MemberAddressDetails;
 use crate::model::members::{Member, MemberDetails};
-use crate::model::FirstOperator;
+use crate::model::setup::FirstOperator;
 use crate::schema::member_address_details;
 use crate::schema::member_details;
 use crate::schema::member_role_associations;
 use crate::schema::members;
 use crate::security::Role;
 use crate::DbPool;
+use chrono::TimeDelta;
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, PooledConnection};
+use std::ops::Add;
 
 pub fn has_operators(pool: &DbPool) -> Result<bool, String> {
     let mut conn = get_connection(pool)?;
@@ -21,8 +24,11 @@ pub fn has_operators(pool: &DbPool) -> Result<bool, String> {
     Ok(count != 0)
 }
 
-pub fn create_first_operator(pool: &DbPool, operator: &FirstOperator) -> Result<(), String> {
-    use crate::model::members::MemberAddressDetails;
+pub fn create_first_operator(
+    pool: &DbPool,
+    operator: &FirstOperator,
+    activation_string: &str,
+) -> Result<(), String> {
     let mut conn = get_connection(pool)?;
     conn.transaction::<_, diesel::result::Error, _>(|conn| {
         let data = MemberAddressDetails {
@@ -40,7 +46,6 @@ pub fn create_first_operator(pool: &DbPool, operator: &FirstOperator) -> Result<
 
         let data = MemberDetails {
             id: None,
-            user_name: operator.user_name.clone(),
             first_name: operator.first_name.clone(),
             last_name: operator.last_name.clone(),
             email_address: operator.email_address.clone(),
@@ -59,6 +64,10 @@ pub fn create_first_operator(pool: &DbPool, operator: &FirstOperator) -> Result<
             musical_instrument_id: None,
             picture_asset_id: None,
             allow_privacy_info_sharing: false,
+            activated: Some(false),
+            activation_string: Some(activation_string.to_string()),
+            activation_time: Some(chrono::Utc::now().add(TimeDelta::minutes(30)).naive_utc()),
+            creation_time: Some(chrono::Utc::now().naive_utc()),
         };
 
         let member_id: i32 = diesel::insert_into(members::dsl::members)

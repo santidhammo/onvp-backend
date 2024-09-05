@@ -1,11 +1,9 @@
-use crate::model::members::Member;
-use crate::model::FirstOperator;
+use crate::model::setup::FirstOperator;
 use crate::{dal, DbPool};
-use actix_web::error::BlockingError;
 use actix_web::web::Json;
 use actix_web::{get, post, web, HttpResponse, Responder};
-use diesel::Connection;
-use serde::{Deserialize, Serialize};
+use rand::distributions::{Alphanumeric, DistString};
+use rand::thread_rng;
 
 pub const CONTEXT: &str = "/api/members";
 
@@ -17,14 +15,7 @@ pub const CONTEXT: &str = "/api/members";
 )]
 #[get("/list")]
 pub async fn list() -> impl Responder {
-    let members = vec![Member {
-        id: None,
-        member_details_id: 1,
-        member_address_details_id: 1,
-        musical_instrument_id: Some(1),
-        picture_asset_id: Some("hello".to_owned()),
-        allow_privacy_info_sharing: true,
-    }];
+    let members: Vec<crate::model::members::Member> = vec![];
     HttpResponse::Ok().json(members)
 }
 
@@ -44,20 +35,25 @@ pub async fn operator_check(pool: web::Data<DbPool>) -> impl Responder {
     }
 }
 
-/// Creates the first operator if no operators are found within the application.
+/// Set up the first operator
 ///
-/// The first operator should contain enough information to create a member with the operator role
-/// and it's associated details and address details.
+/// The first operator should contain enough information to create a member with the operator role,
+/// and the associated details, including the address details, such that the system can be started.
+/// The whole operation is performed using two steps:
+/// 1. Enter the data into the database;
+/// 2. Let the frontend navigate to the account activation step using a **TOTP** solution.
+///
+/// ⚠️ If an operator already exists, this API call (for obvious reasons) becomes invalid.
 #[utoipa::path(
     context_path = CONTEXT,
     responses(
-        (status = 200, description = "Created a new first operator"),
+        (status = 200, description = "Created a new first operator", body=[String]),
         (status = 400, description = "Bad Request", body=[String]),
         (status = 500, description = "Internal server error", body=[String])
     )
 )]
-#[post("/create_first_operator")]
-pub async fn create_first_operator(
+#[post("/setup_first_operator")]
+pub async fn setup_first_operator(
     pool: web::Data<DbPool>,
     first_operator: Json<FirstOperator>,
 ) -> impl Responder {
@@ -68,10 +64,13 @@ pub async fn create_first_operator(
         Err(e) => return HttpResponse::InternalServerError().json(e.to_string()),
     };
 
+    let validation_string = Alphanumeric.sample_string(&mut thread_rng(), 32);
+
     if !has_operators {
-        let result = dal::members::create_first_operator(&pool, &first_operator);
+        let result =
+            dal::members::create_first_operator(&pool, &first_operator, &validation_string);
         match result {
-            Ok(_) => HttpResponse::Ok().body(()),
+            Ok(_) => HttpResponse::Ok().json(validation_string),
             Err(e) => HttpResponse::InternalServerError().json(e.to_string()),
         }
     } else {

@@ -14,7 +14,6 @@ diesel::table! {
 diesel::table! {
     member_details (id) {
         id -> Int4,
-        user_name -> Varchar,
         first_name -> Varchar,
         last_name -> Varchar,
         email_address -> Varchar,
@@ -36,6 +35,10 @@ diesel::table! {
         member_address_details_id -> Int4,
         musical_instrument_id -> Nullable<Int4>,
         picture_asset_id -> Nullable<Varchar>,
+        activated -> Bool,
+        creation_time -> Timestamp,
+        activation_string -> Varchar,
+        activation_time -> Timestamp,
         allow_privacy_info_sharing -> Bool,
     }
 }

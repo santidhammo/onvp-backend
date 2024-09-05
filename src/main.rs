@@ -1,5 +1,4 @@
 use actix_web::middleware::Logger;
-use actix_web::web::service;
 use actix_web::{web, App, HttpServer};
 use diesel::{r2d2, PgConnection};
 use dotenv::dotenv;
@@ -26,11 +25,11 @@ async fn main() -> Result<(), impl Error> {
         paths(
             api::members::operator_check,
             api::members::list,
-            api::members::create_first_operator,
+            api::members::setup_first_operator,
         ),
         components(
             schemas(model::members::Member),
-            schemas(model::FirstOperator),
+            schemas(model::setup::FirstOperator),
         ),
         tags(
             (name = "api::members", description = "Member management endpoints")
@@ -48,7 +47,7 @@ async fn main() -> Result<(), impl Error> {
                 web::scope(api::members::CONTEXT)
                     .service(api::members::list)
                     .service(api::members::operator_check)
-                    .service(api::members::create_first_operator),
+                    .service(api::members::setup_first_operator),
             )
             .service(RapiDoc::with_openapi("/docs/openapi.json", ApiDoc::openapi()).path("/docs"))
     })

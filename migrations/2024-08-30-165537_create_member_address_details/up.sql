@@ -6,5 +6,5 @@ CREATE TABLE member_address_details (
     postal_code VARCHAR,
     domicile VARCHAR NOT NULL
     CHECK (house_number > 0)
-    CHECK (postal_code ~ E'^[0-9][0-9][0-9][0-9][A-Z][A-Z]$')
+    CHECK (postal_code ~ '^[0-9][0-9][0-9][0-9][A-Z][A-Z]$')
 );
