@@ -1,19 +1,11 @@
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
-use diesel::{r2d2, PgConnection};
 use dotenv::dotenv;
+use onvp_backend::{api, model};
 use std::error::Error;
 use std::net::Ipv4Addr;
 use utoipa::OpenApi;
 use utoipa_rapidoc::RapiDoc;
-
-mod api;
-mod dal;
-pub(crate) mod model;
-mod schema;
-mod security;
-
-type DbPool = r2d2::Pool<r2d2::ConnectionManager<PgConnection>>;
 
 #[actix_web::main]
 async fn main() -> Result<(), impl Error> {
@@ -23,7 +15,7 @@ async fn main() -> Result<(), impl Error> {
     #[derive(OpenApi)]
     #[openapi(
         paths(
-            api::members::operator_check,
+            api::setup::should_setup,
             api::members::list,
             api::members::setup_first_operator,
         ),
@@ -37,7 +29,7 @@ async fn main() -> Result<(), impl Error> {
     )]
     struct ApiDoc;
 
-    let pool = initialize_db_pool();
+    let pool = onvp_backend::initialize_db_pool();
 
     HttpServer::new(move || {
         App::new()
@@ -46,20 +38,12 @@ async fn main() -> Result<(), impl Error> {
             .service(
                 web::scope(api::members::CONTEXT)
                     .service(api::members::list)
-                    .service(api::members::operator_check)
                     .service(api::members::setup_first_operator),
             )
+            .service(web::scope(api::setup::CONTEXT).service(api::setup::should_setup))
             .service(RapiDoc::with_openapi("/docs/openapi.json", ApiDoc::openapi()).path("/docs"))
     })
     .bind((Ipv4Addr::UNSPECIFIED, 8080))?
     .run()
     .await
-}
-
-fn initialize_db_pool() -> DbPool {
-    let conn_spec = std::env::var("DATABASE_URL").expect("DATABASE_URL should be set");
-    let manager = r2d2::ConnectionManager::<PgConnection>::new(conn_spec);
-    r2d2::Pool::builder()
-        .build(manager)
-        .expect("database URL should be a valid URL towards PostgreSQL database")
 }

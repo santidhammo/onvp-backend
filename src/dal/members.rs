@@ -6,14 +6,13 @@ use crate::schema::member_details;
 use crate::schema::member_role_associations;
 use crate::schema::members;
 use crate::security::Role;
-use crate::DbPool;
+use crate::{dal, DbPool};
 use chrono::TimeDelta;
 use diesel::prelude::*;
-use diesel::r2d2::{ConnectionManager, PooledConnection};
 use std::ops::Add;
 
 pub fn has_operators(pool: &DbPool) -> Result<bool, String> {
-    let mut conn = get_connection(pool)?;
+    let mut conn = dal::get_connection(pool)?;
 
     let count: i64 = member_role_associations::dsl::member_role_associations
         .filter(member_role_associations::dsl::system_role.eq(Role::Operator))
@@ -29,7 +28,7 @@ pub fn create_first_operator(
     operator: &FirstOperator,
     activation_string: &str,
 ) -> Result<(), String> {
-    let mut conn = get_connection(pool)?;
+    let mut conn = dal::get_connection(pool)?;
     conn.transaction::<_, diesel::result::Error, _>(|conn| {
         let data = MemberAddressDetails {
             id: None,
@@ -58,16 +57,16 @@ pub fn create_first_operator(
             .get_result(conn)?;
 
         let data = Member {
-            id: None,
+            id: 0,
             member_address_details_id: mad_id,
             member_details_id: md_id,
             musical_instrument_id: None,
             picture_asset_id: None,
             allow_privacy_info_sharing: false,
-            activated: Some(false),
-            activation_string: Some(activation_string.to_string()),
-            activation_time: Some(chrono::Utc::now().add(TimeDelta::minutes(30)).naive_utc()),
-            creation_time: Some(chrono::Utc::now().naive_utc()),
+            activated: false,
+            activation_string: activation_string.to_string(),
+            activation_time: chrono::Utc::now().add(TimeDelta::minutes(30)).naive_utc(),
+            creation_time: chrono::Utc::now().naive_utc(),
         };
 
         let member_id: i32 = diesel::insert_into(members::dsl::members)
@@ -84,10 +83,4 @@ pub fn create_first_operator(
         Ok(())
     })
     .map_err(|e| format!("Error running transaction: {e}"))
-}
-
-fn get_connection(
-    pool: &DbPool,
-) -> Result<PooledConnection<ConnectionManager<PgConnection>>, String> {
-    Ok(pool.get().map_err(|e| e.to_string())?)
 }

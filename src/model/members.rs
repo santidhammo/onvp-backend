@@ -7,14 +7,15 @@ use utoipa::ToSchema;
 #[diesel(table_name = crate::schema::members)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Member {
-    #[serde(skip_serializing)]
-    pub id: Option<i32>,
-
-    #[schema(example = 1)]
-    pub member_address_details_id: i32,
+    #[serde(skip_serializing, default)]
+    #[diesel(skip_insertion)]
+    pub id: i32,
 
     #[schema(example = 1)]
     pub member_details_id: i32,
+
+    #[schema(example = 1)]
+    pub member_address_details_id: i32,
 
     #[schema(example = 1)]
     pub musical_instrument_id: Option<i32>,
@@ -22,20 +23,20 @@ pub struct Member {
     #[schema(example = "xyz.png")]
     pub picture_asset_id: Option<String>,
 
+    #[serde(skip_serializing, default)]
+    pub activated: bool,
+
+    #[serde(skip_serializing)]
+    pub creation_time: chrono::NaiveDateTime,
+
+    #[serde(skip, default)]
+    pub activation_string: String,
+
+    #[serde(skip, default)]
+    pub activation_time: chrono::NaiveDateTime,
+
     #[schema(example = false)]
     pub allow_privacy_info_sharing: bool,
-
-    #[serde(skip_serializing)]
-    pub activated: Option<bool>,
-
-    #[serde(skip)]
-    pub activation_string: Option<String>,
-
-    #[serde(skip)]
-    pub activation_time: Option<chrono::NaiveDateTime>,
-
-    #[serde(skip_serializing)]
-    pub creation_time: Option<chrono::NaiveDateTime>,
 }
 
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug, Insertable, Queryable, Identifiable)]

@@ -19,22 +19,6 @@ pub async fn list() -> impl Responder {
     HttpResponse::Ok().json(members)
 }
 
-#[utoipa::path(
-    context_path = CONTEXT,
-    responses(
-        (status = 200, description = "Returns whether or not operators are available", body=[bool]),
-        (status = 500, description = "Internal server error", body=[String])
-    )
-)]
-#[get("/operator_check")]
-pub async fn operator_check(pool: web::Data<DbPool>) -> impl Responder {
-    let has_operators_result = dal::members::has_operators(&pool);
-    match has_operators_result {
-        Ok(result) => HttpResponse::Ok().json(result),
-        Err(e) => HttpResponse::InternalServerError().json(e.to_string()),
-    }
-}
-
 /// Set up the first operator
 ///
 /// The first operator should contain enough information to create a member with the operator role,
@@ -49,7 +33,7 @@ pub async fn operator_check(pool: web::Data<DbPool>) -> impl Responder {
     responses(
         (status = 200, description = "Created a new first operator", body=[String]),
         (status = 400, description = "Bad Request", body=[String]),
-        (status = 500, description = "Internal server error", body=[String])
+        (status = 500, description = "Internal backend error", body=[String])
     )
 )]
 #[post("/setup_first_operator")]
