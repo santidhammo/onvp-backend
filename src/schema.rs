@@ -6,7 +6,7 @@ diesel::table! {
         street -> Varchar,
         house_number -> Int4,
         house_number_postfix -> Nullable<Varchar>,
-        postal_code -> Nullable<Varchar>,
+        postal_code -> Varchar,
         domicile -> Varchar,
     }
 }

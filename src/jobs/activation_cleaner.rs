@@ -2,9 +2,9 @@ use diesel::{BoolExpressionMethods, Connection, ExpressionMethods, QueryDsl, Run
 use dotenv::dotenv;
 use log::info;
 use onvp_backend::dal::get_connection;
-use onvp_backend::initialize_db_pool;
 use onvp_backend::model::members::Member;
 use onvp_backend::schema::members;
+use onvp_backend::{dal, initialize_db_pool};
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -28,13 +28,21 @@ fn main() -> Result<(), Box<dyn Error>> {
             .iter()
             .map(|member| {
                 info!("Deleting member: {}", member.id);
+
                 let result = diesel::delete(member).execute(conn);
                 if let Ok(_) = result {
                     deleted += 1
                 };
+                dal::members::delete_member_details_by_id(conn, member.member_details_id)?;
+                dal::members::delete_member_address_details_by_id(
+                    conn,
+                    member.member_address_details_id,
+                )?;
+
                 result
             })
             .filter(|r| r.is_err())
+            .map(|r| r.unwrap_err())
             .nth(0);
 
         match first_error {
@@ -42,10 +50,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 info!("Deleted: {deleted} members");
                 Ok(())
             }
-            Some(qr) => match qr {
-                Ok(_) => Ok(()),
-                Err(e) => Err(e),
-            },
+            Some(e) => Err(e),
         }
     })?;
 

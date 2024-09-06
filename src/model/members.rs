@@ -44,7 +44,9 @@ pub struct Member {
 #[diesel(table_name = crate::schema::member_details)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct MemberDetails {
-    pub id: Option<i32>,
+    #[serde(skip_serializing, default)]
+    #[diesel(skip_insertion)]
+    pub id: i32,
 
     #[schema(example = "John")]
     pub first_name: String,
@@ -64,7 +66,9 @@ pub struct MemberDetails {
 #[diesel(table_name = crate::schema::member_address_details)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct MemberAddressDetails {
-    pub id: Option<i32>,
+    #[serde(skip_serializing, default)]
+    #[diesel(skip_insertion)]
+    pub id: i32,
 
     #[schema(example = "Orchestra Street")]
     pub street: String,
