@@ -1,5 +1,3 @@
-mod create_otp_key;
-
 use dotenv::dotenv;
 use onvp_backend::commands;
 use onvp_backend::initialize_db_pool;
