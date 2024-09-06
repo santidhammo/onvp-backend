@@ -1,3 +1,7 @@
+use aes_gcm::aead::consts::U12;
+use aes_gcm::aead::generic_array::GenericArray;
+use base64::engine::general_purpose;
+use base64::Engine;
 use diesel::{Identifiable, Insertable, Queryable};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -37,6 +41,22 @@ pub struct Member {
 
     #[schema(example = false)]
     pub allow_privacy_info_sharing: bool,
+
+    #[serde(skip, default)]
+    pub nonce: String,
+}
+
+impl Member {
+    pub fn decoded_nonce(&self) -> Result<GenericArray<u8, U12>, String> {
+        let decoded = general_purpose::STANDARD
+            .decode(&self.nonce)
+            .map_err(|e| e.to_string())?;
+
+        let buffer: [u8; 12] = decoded[..]
+            .try_into()
+            .map_err(|_| "Not enough decoded bytes in Nonce".to_owned())?;
+        GenericArray::try_from(buffer).map_err(|e| e.to_string())
+    }
 }
 
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug, Insertable, Queryable, Identifiable)]

@@ -1,3 +1,4 @@
+use crate::dal::get_connection;
 use crate::model::members::MemberAddressDetails;
 use crate::model::members::{Member, MemberDetails};
 use crate::model::setup::FirstOperator;
@@ -5,8 +6,9 @@ use crate::schema::member_address_details;
 use crate::schema::member_details;
 use crate::schema::member_role_associations;
 use crate::schema::members;
-use crate::security::Role;
+use crate::security::{generate_encoded_nonce, Role};
 use crate::{dal, DbPool};
+use actix_web::web::Data;
 use chrono::TimeDelta;
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, PooledConnection};
@@ -68,6 +70,7 @@ pub fn create_first_operator(
             activation_string: activation_string.to_string(),
             activation_time: chrono::Utc::now().add(TimeDelta::minutes(30)).naive_utc(),
             creation_time: chrono::Utc::now().naive_utc(),
+            nonce: generate_encoded_nonce(),
         };
 
         let member_id: i32 = diesel::insert_into(members::dsl::members)
@@ -84,6 +87,40 @@ pub fn create_first_operator(
         Ok(())
     })
     .map_err(|e| format!("Error running transaction: {e}"))
+}
+
+pub fn get_member_by_activation_string(
+    pool: &DbPool,
+    activation_string: &str,
+) -> Result<Member, String> {
+    let conn = &mut dal::get_connection(pool)?;
+    let activated_filter = members::activated.eq(false);
+    let activation_time_filter = members::activation_time.gt(chrono::Utc::now().naive_utc());
+    let activation_string_filter = members::activation_string.eq(activation_string);
+
+    members::table
+        .select(members::all_columns)
+        .filter(
+            activated_filter
+                .and(activation_time_filter)
+                .and(activation_string_filter),
+        )
+        .first::<Member>(conn)
+        .map_err(|e| e.to_string())
+}
+
+pub fn get_member_details_by_id(
+    pool: &DbPool,
+    member_details_id: &i32,
+) -> Result<MemberDetails, String> {
+    let conn = &mut dal::get_connection(pool)?;
+    let id_filter = member_details::id.eq(member_details_id);
+
+    member_details::table
+        .select(member_details::all_columns)
+        .filter(id_filter)
+        .first::<MemberDetails>(conn)
+        .map_err(|e| e.to_string())
 }
 
 pub fn delete_member_address_details_by_id(
@@ -124,4 +161,14 @@ pub fn delete_member_details_by_id(
         Some(first_error) => Err(first_error),
         None => Ok(()),
     }
+}
+
+pub fn activate(pool: &Data<DbPool>, member: &Member) -> Result<(), String> {
+    let conn = &mut get_connection(pool)?;
+    diesel::update(members::dsl::members)
+        .filter(members::id.eq(member.id))
+        .set(members::dsl::activated.eq(true))
+        .execute(conn)
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }

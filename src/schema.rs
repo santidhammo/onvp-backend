@@ -40,6 +40,7 @@ diesel::table! {
         activation_string -> Varchar,
         activation_time -> Timestamp,
         allow_privacy_info_sharing -> Bool,
+        nonce -> Varchar,
     }
 }
 

@@ -1,23 +1,19 @@
+use crate::dal::get_connection;
+use crate::model::members::Member;
+use crate::schema::members;
+use crate::{dal, schema, DbPool};
 use diesel::{BoolExpressionMethods, Connection, ExpressionMethods, QueryDsl, RunQueryDsl};
-use dotenv::dotenv;
 use log::info;
-use onvp_backend::dal::get_connection;
-use onvp_backend::model::members::Member;
-use onvp_backend::schema::members;
-use onvp_backend::{dal, initialize_db_pool};
 use std::error::Error;
 
-fn main() -> Result<(), Box<dyn Error>> {
-    env_logger::init();
-    dotenv().ok();
-    let pool = initialize_db_pool();
+pub fn clean_late_non_activated_members(pool: &DbPool) -> Result<(), Box<dyn Error>> {
     let mut conn = get_connection(&pool)?;
 
     conn.transaction::<_, diesel::result::Error, _>(|conn| {
-        let activated_filter = members::dsl::activated.eq(false);
+        let activated_filter = schema::members::activated.eq(false);
         let activation_time_elapsed_filter =
-            members::dsl::activation_time.lt(chrono::Utc::now().naive_utc());
-        let result = members::dsl::members
+            schema::members::activation_time.lt(chrono::Utc::now().naive_utc());
+        let result = schema::members::table
             .select(members::all_columns)
             .filter(activated_filter.and(activation_time_elapsed_filter))
             .load::<Member>(conn)?;
@@ -53,6 +49,5 @@ fn main() -> Result<(), Box<dyn Error>> {
             Some(e) => Err(e),
         }
     })?;
-
     Ok(())
 }

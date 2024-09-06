@@ -12,6 +12,7 @@ CREATE TABLE members (
     -- permission in accordance with the Digital Privacy Information Act (DPIA). The default value therefore is
     -- set to false, to make sure that a conscientious decision is made.
     allow_privacy_info_sharing BOOLEAN NOT NULL DEFAULT FALSE,
+    nonce VARCHAR NOT NULL,
     CONSTRAINT fk_member_details FOREIGN KEY (member_details_id) REFERENCES member_details(id),
     CONSTRAINT fk_member_address_details FOREIGN KEY (member_address_details_id) REFERENCES member_address_details(id),
     CONSTRAINT fk_musical_instrument FOREIGN KEY (musical_instrument_id) REFERENCES musical_instruments(id)
