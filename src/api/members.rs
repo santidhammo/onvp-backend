@@ -1,11 +1,13 @@
+use crate::dal::DbConnection;
 use crate::model::members::Member;
-use crate::model::security::TokenData;
+use crate::model::security::{LoginData, TokenData};
 use crate::security::OTP_CIPHER;
-use crate::{dal, security, DbPool};
-use actix_web::web::Data;
+use crate::{dal, result, security, Error};
+use actix_jwt_auth_middleware::{AuthError, AuthResult, TokenSigner};
+use actix_web::web::{Data, Json};
 use actix_web::{get, post, web, HttpResponse, Responder};
 use aes_gcm::aead::Aead;
-use log::warn;
+use jwt_compact::alg::Ed25519;
 use std::ops::Deref;
 use totp_rs::TOTP;
 
@@ -30,29 +32,19 @@ pub async fn list() -> impl Responder {
     context_path = CONTEXT,
     responses(
         (status = 200, description = "The activation code (in QR form)", body=[String]),
-        (status = 400, description = "Bad Request", body=[String]),
-        (status = 500, description = "Internal backend error", body=[String])
+        (status = 400, description = "Bad Request"),
+        (status = 500, description = "Internal backend error")
     )
 )]
 #[get("/activation/code/{activation_string}")]
 pub async fn activation_code(
-    pool: web::Data<DbPool>,
+    pool: Data<dal::DbPool>,
     activation_string: web::Path<String>,
-) -> impl Responder {
-    let member = match dal::members::get_member_by_activation_string(&pool, &activation_string) {
-        Ok(member) => member,
-        Err(e) => return HttpResponse::InternalServerError().json(e.to_string()),
-    };
-
-    let totp = match get_member_totp(&pool, &member) {
-        Ok(value) => value,
-        Err(value) => return HttpResponse::InternalServerError().json(value),
-    };
-
-    match totp.get_qr_base64() {
-        Ok(qr) => HttpResponse::Ok().json(qr),
-        Err(e) => HttpResponse::InternalServerError().json(e.to_string()),
-    }
+) -> Result<Json<String>, Error> {
+    let mut conn = dal::connect(&pool)?;
+    let member = dal::members::get_member_by_activation_string(&mut conn, &activation_string)?;
+    let totp = get_member_totp(&mut conn, &member)?;
+    Ok(Json(generate_qr_code(totp)?))
 }
 
 /// Activate a member
@@ -70,51 +62,62 @@ pub async fn activation_code(
 )]
 #[post("/activation/activate")]
 pub async fn activate(
-    pool: web::Data<DbPool>,
+    pool: Data<dal::DbPool>,
     activation_data: web::Json<TokenData>,
-) -> impl Responder {
-    let mut member = match dal::members::get_member_by_activation_string(
-        &pool,
+) -> Result<Json<()>, Error> {
+    let mut conn = dal::connect(&pool)?;
+    let member = dal::members::get_member_by_activation_string(
+        &mut conn,
         &activation_data.activation_string,
-    ) {
-        Ok(member) => member,
-        Err(e) => {
-            warn!("Error when processing activation: {e}");
-            return HttpResponse::BadRequest().json(());
-        }
-    };
-
-    let totp = match get_member_totp(&pool, &member) {
-        Ok(value) => value,
-        Err(value) => return HttpResponse::InternalServerError().json(value),
-    };
-
-    match totp.check_current(&activation_data.token) {
-        Ok(true) => match dal::members::activate(&pool, &mut member) {
-            Ok(_) => HttpResponse::Ok().json(()),
-            Err(_) => HttpResponse::BadRequest().json(()),
-        },
-        Ok(false) | Err(_) => HttpResponse::BadRequest().json(()),
-    }
+    )?;
+    let totp = get_member_totp(&mut conn, &member)?;
+    totp.check_current(&activation_data.token)?;
+    Ok(Json(()))
 }
 
-fn get_member_totp(pool: &Data<DbPool>, member: &Member) -> Result<TOTP, String> {
-    let nonce = match member.decoded_nonce() {
-        Ok(nonce) => nonce,
-        Err(e) => return Err(e),
+/// Login a member
+///
+/// Logs in the member using the OTP code, then creates a JWT token out of that, which can be
+/// further verified against the software issuing the token.
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "Logged in successfully"),
+        (status = 400, description = "Bad Request", body=[String]),
+        (status = 500, description = "Internal Server Error", body=[String])
+    )
+)]
+#[post("/login")]
+pub async fn login(
+    pool: Data<dal::DbPool>,
+    login_data: Json<LoginData>,
+    token_signer: Data<TokenSigner<Member, Ed25519>>,
+) -> AuthResult<HttpResponse> {
+    let mut conn = match dal::connect(&pool) {
+        Ok(conn) => conn,
+        Err(_) => return Err(AuthError::NoToken),
     };
+    let member =
+        match dal::members::get_member_by_email_address(&mut conn, &login_data.email_address) {
+            Ok(member) => member,
+            Err(_) => return Err(AuthError::NoToken),
+        };
+    Ok(HttpResponse::Ok()
+        .cookie(token_signer.create_access_cookie(&member)?)
+        .cookie(token_signer.create_refresh_cookie(&member)?)
+        .json(()))
+}
 
+fn get_member_totp(conn: &mut DbConnection, member: &Member) -> Result<TOTP, Error> {
+    let nonce = member.decoded_nonce()?;
     let activation_bytes = member.activation_string.as_bytes();
     let otp_cipher = OTP_CIPHER.deref();
-    let cipher_text = match otp_cipher.encrypt(&nonce, activation_bytes) {
-        Ok(cipher_text) => cipher_text,
-        Err(e) => return Err(e.to_string()),
-    };
+    let cipher_text = otp_cipher.encrypt(&nonce, activation_bytes)?;
+    let details = dal::members::get_member_details_by_id(conn, &member.id)?;
+    security::generate_totp(cipher_text, details.email_address)
+}
 
-    let email_address = match dal::members::get_member_details_by_id(&pool, &member.id) {
-        Ok(details) => details.email_address,
-        Err(e) => return Err(e.to_string()),
-    };
-
-    security::generate_totp(cipher_text, email_address).map_err(|e| e.to_string())
+fn generate_qr_code(totp: TOTP) -> Result<String, result::Error> {
+    totp.get_qr_base64()
+        .map_err(|e| result::Error::qr_code_generation(e))
 }

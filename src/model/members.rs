@@ -1,3 +1,4 @@
+use crate::Error;
 use aes_gcm::aead::consts::U12;
 use aes_gcm::aead::generic_array::GenericArray;
 use base64::engine::general_purpose;
@@ -47,15 +48,14 @@ pub struct Member {
 }
 
 impl Member {
-    pub fn decoded_nonce(&self) -> Result<GenericArray<u8, U12>, String> {
-        let decoded = general_purpose::STANDARD
-            .decode(&self.nonce)
-            .map_err(|e| e.to_string())?;
+    pub fn decoded_nonce(&self) -> Result<GenericArray<u8, U12>, Error> {
+        let decoded = general_purpose::STANDARD.decode(&self.nonce)?;
 
-        let buffer: [u8; 12] = decoded[..]
-            .try_into()
-            .map_err(|_| "Not enough decoded bytes in Nonce".to_owned())?;
-        GenericArray::try_from(buffer).map_err(|e| e.to_string())
+        let buffer: [u8; 12] = decoded[..].try_into().map_err(|_| {
+            Error::insufficient_bytes("Not enough bytes available in base64 decoded Nonce")
+        })?;
+        GenericArray::try_from(buffer)
+            .map_err(|_| Error::insufficient_bytes("Not enough decoded bytes in Nonce"))
     }
 }
 
@@ -79,6 +79,16 @@ pub struct MemberDetails {
 
     #[schema(example = "+99999999999")]
     pub phone_number: String,
+}
+
+impl MemberDetails {
+    pub(crate) fn name(&self) -> String {
+        let mut s = String::new();
+        s.push_str(&self.first_name);
+        s.push_str(" ");
+        s.push_str(&self.last_name);
+        s
+    }
 }
 
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug, Insertable, Queryable, Identifiable)]

@@ -1,38 +1,33 @@
-use crate::dal::get_connection;
+use crate::dal::DbConnection;
 use crate::model::members::MemberAddressDetails;
 use crate::model::members::{Member, MemberDetails};
+use crate::model::security::Role;
 use crate::model::setup::FirstOperator;
 use crate::schema::member_address_details;
 use crate::schema::member_details;
 use crate::schema::member_role_associations;
 use crate::schema::members;
-use crate::security::{generate_encoded_nonce, Role};
-use crate::{dal, DbPool};
-use actix_web::web::Data;
+use crate::security::generate_encoded_nonce;
+use crate::{dal, Error};
 use chrono::TimeDelta;
 use diesel::prelude::*;
-use diesel::r2d2::{ConnectionManager, PooledConnection};
 use std::ops::Add;
 
-pub fn has_operators(pool: &DbPool) -> Result<bool, String> {
-    let mut conn = dal::get_connection(pool)?;
-
+pub fn has_operators(conn: &mut dal::DbConnection) -> Result<bool, Error> {
     let count: i64 = member_role_associations::dsl::member_role_associations
         .filter(member_role_associations::dsl::system_role.eq(Role::Operator))
         .count()
-        .get_result(&mut conn)
-        .map_err(|e| e.to_string())?;
+        .get_result(conn)?;
 
     Ok(count != 0)
 }
 
 pub fn create_first_operator(
-    pool: &DbPool,
+    conn: &mut DbConnection,
     operator: &FirstOperator,
     activation_string: &str,
-) -> Result<(), String> {
-    let mut conn = dal::get_connection(pool)?;
-    conn.transaction::<_, diesel::result::Error, _>(|conn| {
+) -> Result<(), Error> {
+    conn.transaction::<_, Error, _>(|conn| {
         let data = MemberAddressDetails {
             id: 0,
             street: operator.street.clone(),
@@ -79,54 +74,77 @@ pub fn create_first_operator(
             .get_result(conn)?;
 
         diesel::insert_into(member_role_associations::dsl::member_role_associations)
-            .values([(
+            .values((
                 member_role_associations::dsl::member_id.eq(member_id),
                 member_role_associations::dsl::system_role.eq(Role::Operator),
-            )])
+            ))
             .execute(conn)?;
         Ok(())
     })
-    .map_err(|e| format!("Error running transaction: {e}"))
+    .map_err(|e| e.into())
 }
 
 pub fn get_member_by_activation_string(
-    pool: &DbPool,
+    conn: &mut DbConnection,
     activation_string: &str,
-) -> Result<Member, String> {
-    let conn = &mut dal::get_connection(pool)?;
+) -> Result<Member, Error> {
     let activated_filter = members::activated.eq(false);
     let activation_time_filter = members::activation_time.gt(chrono::Utc::now().naive_utc());
     let activation_string_filter = members::activation_string.eq(activation_string);
 
-    members::table
+    Ok(members::table
         .select(members::all_columns)
         .filter(
             activated_filter
                 .and(activation_time_filter)
                 .and(activation_string_filter),
         )
-        .first::<Member>(conn)
-        .map_err(|e| e.to_string())
+        .first::<Member>(conn)?)
+}
+
+pub fn get_member_by_email_address(
+    conn: &mut DbConnection,
+    email_address: &str,
+) -> Result<Member, Error> {
+    let member_details = get_member_details_by_email_address(conn, email_address)?;
+
+    let activated_filter = members::activated.eq(true);
+    let details_filter = members::member_details_id.eq(member_details.id);
+
+    Ok(members::table
+        .select(members::all_columns)
+        .filter(activated_filter.and(details_filter))
+        .first::<Member>(conn)?)
 }
 
 pub fn get_member_details_by_id(
-    pool: &DbPool,
+    conn: &mut DbConnection,
     member_details_id: &i32,
-) -> Result<MemberDetails, String> {
-    let conn = &mut dal::get_connection(pool)?;
+) -> Result<MemberDetails, Error> {
     let id_filter = member_details::id.eq(member_details_id);
 
-    member_details::table
+    Ok(member_details::table
         .select(member_details::all_columns)
         .filter(id_filter)
-        .first::<MemberDetails>(conn)
-        .map_err(|e| e.to_string())
+        .first::<MemberDetails>(conn)?)
+}
+
+pub fn get_member_details_by_email_address(
+    conn: &mut DbConnection,
+    email_address: &str,
+) -> Result<MemberDetails, Error> {
+    let email_address_filter = member_details::email_address.eq(email_address);
+
+    Ok(member_details::table
+        .select(member_details::all_columns)
+        .filter(email_address_filter)
+        .first::<MemberDetails>(conn)?)
 }
 
 pub fn delete_member_address_details_by_id(
-    conn: &mut PooledConnection<ConnectionManager<PgConnection>>,
+    conn: &mut DbConnection,
     member_address_details_id: i32,
-) -> Result<(), diesel::result::Error> {
+) -> Result<(), Error> {
     let details = member_details::dsl::member_details
         .select(member_details::all_columns)
         .filter(member_details::id.eq(member_address_details_id))
@@ -138,15 +156,15 @@ pub fn delete_member_address_details_by_id(
         .map(|r| r.unwrap_err())
         .nth(0);
     match maybe_first_error {
-        Some(first_error) => Err(first_error),
+        Some(first_error) => Err(first_error.into()),
         None => Ok(()),
     }
 }
 
 pub fn delete_member_details_by_id(
-    conn: &mut PooledConnection<ConnectionManager<PgConnection>>,
+    conn: &mut DbConnection,
     member_details_id: i32,
-) -> Result<(), diesel::result::Error> {
+) -> Result<(), Error> {
     let address_details = member_address_details::dsl::member_address_details
         .select(member_address_details::all_columns)
         .filter(member_address_details::id.eq(member_details_id))
@@ -158,17 +176,15 @@ pub fn delete_member_details_by_id(
         .map(|r| r.unwrap_err())
         .nth(0);
     match maybe_first_error {
-        Some(first_error) => Err(first_error),
+        Some(first_error) => Err(first_error.into()),
         None => Ok(()),
     }
 }
 
-pub fn activate(pool: &Data<DbPool>, member: &Member) -> Result<(), String> {
-    let conn = &mut get_connection(pool)?;
+pub fn activate(conn: &mut DbConnection, member: &Member) -> Result<(), Error> {
     diesel::update(members::dsl::members)
         .filter(members::id.eq(member.id))
         .set(members::dsl::activated.eq(true))
-        .execute(conn)
-        .map_err(|e| e.to_string())?;
+        .execute(conn)?;
     Ok(())
 }

@@ -1,3 +1,5 @@
+mod generate_jwt_keys;
+
 use aes_gcm::aead::OsRng;
 use aes_gcm::{Aes256Gcm, KeyInit};
 use std::error::Error;

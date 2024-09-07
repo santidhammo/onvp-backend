@@ -8,6 +8,7 @@ edition = "2021"
 chrono = { version = "0.4.38", features = ["serde"] }
 diesel = { version = "2.2.3", features = ["postgres", "r2d2", "chrono"] }
 actix-web = { version = "4.9.0", features = ["rustls", "compress-gzip"] }
+actix-jwt-auth-middleware = { version = "0.5.0" }
 aes-gcm = { version = "0.10.3" }
 utoipa = { version = "4.2.3", features = ["actix_extras"] }
 utoipa-rapidoc = { version = "4.0.0", features = ["actix-web"] }
@@ -19,7 +20,9 @@ rand = "0.8.5"
 log = "0.4.22"
 base64 = "0.22.1"
 totp-rs = { version = "5.6.0", features = ["gen_secret", "otpauth", "qr"] }
-
+r2d2 = { version = "0.8.10" }
+jwt-compact = { version = "0.8.0", features = ["ed25519-compact"] }
+ed25519-compact = { version = "2.1.1" }
 
 [[bin]]
 name = "onvp-backend"
@@ -32,3 +35,7 @@ path = "src/cli/jobs/activation_cleaner.rs"
 [[bin]]
 name = "onvp-top-keygen"
 path = "src/cli/security/generate_otp_key.rs"
+
+[[bin]]
+name = "onvp-jwt-keygen"
+path = "src/cli/security/generate_jwt_keys.rs"

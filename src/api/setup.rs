@@ -1,7 +1,7 @@
 use crate::model::setup::FirstOperator;
-use crate::{dal, DbPool};
+use crate::{dal, Error};
 use actix_web::web::Json;
-use actix_web::{get, post, web, HttpResponse, Responder};
+use actix_web::{get, post, web};
 use rand::distributions::{Alphanumeric, DistString};
 use rand::thread_rng;
 
@@ -19,12 +19,9 @@ pub const CONTEXT: &str = "/api/setup";
     )
 )]
 #[get("/should_setup")]
-pub async fn should_setup(pool: web::Data<DbPool>) -> impl Responder {
-    let has_operators_result = dal::members::has_operators(&pool);
-    match has_operators_result {
-        Ok(result) => HttpResponse::Ok().json(!result),
-        Err(e) => HttpResponse::InternalServerError().json(e.to_string()),
-    }
+pub async fn should_setup(pool: web::Data<dal::DbPool>) -> Result<Json<bool>, Error> {
+    let mut conn = dal::connect(&pool)?;
+    dal::members::has_operators(&mut conn).map(|v| Json(v))
 }
 
 /// Set up the first operator
@@ -46,26 +43,18 @@ pub async fn should_setup(pool: web::Data<DbPool>) -> impl Responder {
 )]
 #[post("/setup_first_operator")]
 pub async fn setup_first_operator(
-    pool: web::Data<DbPool>,
+    pool: web::Data<dal::DbPool>,
     first_operator: Json<FirstOperator>,
-) -> impl Responder {
+) -> Result<Json<String>, Error> {
+    let mut conn = dal::connect(&pool)?;
     // First check if there are already operators:
-    let has_operators_result = dal::members::has_operators(&pool);
-    let has_operators = match has_operators_result {
-        Ok(result) => result,
-        Err(e) => return HttpResponse::InternalServerError().json(e.to_string()),
-    };
-
+    let has_operators = dal::members::has_operators(&mut conn)?;
     let validation_string = Alphanumeric.sample_string(&mut thread_rng(), 32);
 
     if !has_operators {
-        let result =
-            dal::members::create_first_operator(&pool, &first_operator, &validation_string);
-        match result {
-            Ok(_) => HttpResponse::Ok().json(validation_string),
-            Err(e) => HttpResponse::InternalServerError().json(e.to_string()),
-        }
+        dal::members::create_first_operator(&mut conn, &first_operator, &validation_string)?;
+        Ok(Json(validation_string))
     } else {
-        HttpResponse::BadRequest().body(())
+        Err(Error::bad_request())
     }
 }

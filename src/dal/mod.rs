@@ -1,11 +1,28 @@
-use crate::DbPool;
+use crate::Error;
+use actix_web::web::Data;
+use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, PooledConnection};
 use diesel::PgConnection;
 
 pub mod members;
 
-pub fn get_connection(
-    pool: &DbPool,
-) -> Result<PooledConnection<ConnectionManager<PgConnection>>, String> {
-    Ok(pool.get().map_err(|e| e.to_string())?)
+pub fn connect(
+    pool: &Data<DbPool>,
+) -> Result<PooledConnection<ConnectionManager<DbConnection>>, Error> {
+    pool.get().map_err(|e| crate::Error::from(e))
+}
+
+pub type DbPool = r2d2::Pool<ConnectionManager<DbConnection>>;
+
+#[derive(diesel::MultiConnection)]
+pub enum DbConnection {
+    Postgres(PgConnection),
+}
+
+pub fn initialize_db_pool() -> DbPool {
+    let conn_spec = std::env::var("DATABASE_URL").expect("DATABASE_URL should be set");
+    let manager = ConnectionManager::<DbConnection>::new(conn_spec);
+    r2d2::Pool::builder()
+        .build(manager)
+        .expect("database URL should be a valid URL towards PostgreSQL database")
 }
