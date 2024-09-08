@@ -3,11 +3,14 @@ use crate::model::members::Member;
 use crate::model::security::{LoginData, TokenData};
 use crate::security::OTP_CIPHER;
 use crate::{dal, result, security, Error};
-use actix_jwt_auth_middleware::{AuthError, AuthResult, TokenSigner};
+use actix_jwt_auth_middleware::TokenSigner;
+use actix_web::cookie::SameSite;
+use actix_web::dev::ConnectionInfo;
 use actix_web::web::{Data, Json};
 use actix_web::{get, post, web, HttpResponse, Responder};
 use aes_gcm::aead::Aead;
 use jwt_compact::alg::Ed25519;
+use log::info;
 use std::ops::Deref;
 use totp_rs::TOTP;
 
@@ -92,19 +95,21 @@ pub async fn login(
     pool: Data<dal::DbPool>,
     login_data: Json<LoginData>,
     token_signer: Data<TokenSigner<Member, Ed25519>>,
-) -> AuthResult<HttpResponse> {
-    let mut conn = match dal::connect(&pool) {
-        Ok(conn) => conn,
-        Err(_) => return Err(AuthError::NoToken),
-    };
-    let member =
-        match dal::members::get_member_by_email_address(&mut conn, &login_data.email_address) {
-            Ok(member) => member,
-            Err(_) => return Err(AuthError::NoToken),
-        };
+    info: ConnectionInfo,
+) -> Result<HttpResponse, Error> {
+    info!("Attempting member login: {}", &login_data.email_address);
+    let mut conn = dal::connect(&pool)?;
+    let member = dal::members::get_member_by_email_address(&mut conn, &login_data.email_address)?;
+
+    let mut access_cookie = token_signer.create_access_cookie(&member)?;
+    let mut refresh_cookie = token_signer.create_refresh_cookie(&member)?;
+
+    access_cookie.set_same_site(SameSite::Strict);
+    refresh_cookie.set_same_site(SameSite::Strict);
+
     Ok(HttpResponse::Ok()
-        .cookie(token_signer.create_access_cookie(&member)?)
-        .cookie(token_signer.create_refresh_cookie(&member)?)
+        .cookie(access_cookie)
+        .cookie(refresh_cookie)
         .json(()))
 }
 

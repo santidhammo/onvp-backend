@@ -1,3 +1,4 @@
+use actix_jwt_auth_middleware::AuthError;
 use actix_web::body::BoxBody;
 use actix_web::http::{header, StatusCode};
 use actix_web::web::BytesMut;
@@ -190,6 +191,14 @@ impl From<TotpUrlError> for Error {
     fn from(value: TotpUrlError) -> Self {
         Self {
             kind: ErrorKind::TOTP(value.to_string()),
+        }
+    }
+}
+
+impl From<AuthError> for Error {
+    fn from(_: AuthError) -> Self {
+        Self {
+            kind: ErrorKind::BadRequest,
         }
     }
 }

@@ -46,16 +46,16 @@ pub async fn run_api_server() -> std::io::Result<()> {
 
     let pool = dal::initialize_db_pool();
 
+    let token_signer = TokenSigner::new()
+        .signing_key(secret_key.clone())
+        .algorithm(Ed25519)
+        .build()
+        .expect("Token Signer should be initialized");
+
     Ok(HttpServer::new(move || {
         let authority = Authority::<Member, Ed25519, _, _>::new()
             .refresh_authorizer(|| async move { Ok(()) })
-            .token_signer(Some(
-                TokenSigner::new()
-                    .signing_key(secret_key.clone())
-                    .algorithm(Ed25519)
-                    .build()
-                    .expect("Token Signer should be initialized"),
-            ))
+            .token_signer(Some(token_signer.clone()))
             .verifying_key(public_key)
             .build()
             .expect("Token Verifier should be initialized");
@@ -63,6 +63,7 @@ pub async fn run_api_server() -> std::io::Result<()> {
         App::new()
             .wrap(Logger::default())
             .app_data(web::Data::new(pool.clone()))
+            .app_data(web::Data::new(token_signer.clone()))
             .service(
                 web::scope(members::CONTEXT)
                     .service(members::list)

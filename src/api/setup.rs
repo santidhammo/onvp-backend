@@ -21,7 +21,7 @@ pub const CONTEXT: &str = "/api/setup";
 #[get("/should_setup")]
 pub async fn should_setup(pool: web::Data<dal::DbPool>) -> Result<Json<bool>, Error> {
     let mut conn = dal::connect(&pool)?;
-    dal::members::has_operators(&mut conn).map(|v| Json(v))
+    dal::members::has_operators(&mut conn).map(|v| Json(!v))
 }
 
 /// Set up the first operator
