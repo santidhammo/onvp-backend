@@ -1,6 +1,6 @@
 use crate::dal::DbConnection;
 use crate::model::members::Member;
-use crate::model::security::{LoginData, TokenData};
+use crate::model::security::{LoginData, Role, TokenData, UserClaims};
 use crate::security::OTP_CIPHER;
 use crate::{dal, result, security, Error};
 use actix_jwt_auth_middleware::TokenSigner;
@@ -11,6 +11,7 @@ use actix_web::{get, post, web, HttpResponse, Responder};
 use aes_gcm::aead::Aead;
 use jwt_compact::alg::Ed25519;
 use log::info;
+use std::collections::HashSet;
 use std::ops::Deref;
 use totp_rs::TOTP;
 
@@ -94,15 +95,16 @@ pub async fn activate(
 pub async fn login(
     pool: Data<dal::DbPool>,
     login_data: Json<LoginData>,
-    token_signer: Data<TokenSigner<Member, Ed25519>>,
-    info: ConnectionInfo,
+    token_signer: Data<TokenSigner<UserClaims, Ed25519>>,
 ) -> Result<HttpResponse, Error> {
     info!("Attempting member login: {}", &login_data.email_address);
     let mut conn = dal::connect(&pool)?;
     let member = dal::members::get_member_by_email_address(&mut conn, &login_data.email_address)?;
+    let member_roles = dal::members::get_member_roles_by_member_id(&mut conn, &member.id)?;
+    let claim = UserClaims::new(&login_data.email_address, &member_roles);
 
-    let mut access_cookie = token_signer.create_access_cookie(&member)?;
-    let mut refresh_cookie = token_signer.create_refresh_cookie(&member)?;
+    let mut access_cookie = token_signer.create_access_cookie(&claim)?;
+    let mut refresh_cookie = token_signer.create_refresh_cookie(&claim)?;
 
     access_cookie.set_same_site(SameSite::Strict);
     refresh_cookie.set_same_site(SameSite::Strict);

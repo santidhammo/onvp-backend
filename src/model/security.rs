@@ -1,8 +1,10 @@
-use crate::result;
+use crate::{result, Error};
 use actix_jwt_auth_middleware::FromRequest;
+use diesel::backend::Backend;
+use diesel::deserialize::FromSql;
 use diesel::expression::AsExpression;
 use diesel::internal::derives::as_expression::Bound;
-use diesel::sql_types::Int4;
+use diesel::sql_types::{Int4, Integer};
 use diesel::FromSqlRow;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -35,12 +37,21 @@ pub struct LoginData {
 }
 
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug, FromRequest)]
-struct UserClaims {
-    id: u32,
-    role: Role,
+pub struct UserClaims {
+    pub email_address: String,
+    pub roles: Vec<Role>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, FromSqlRow, Eq, PartialEq, ToSchema)]
+impl UserClaims {
+    pub(crate) fn new(email_address: &str, roles: &Vec<Role>) -> Self {
+        Self {
+            email_address: email_address.to_string(),
+            roles: roles.clone(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, FromSqlRow, Eq, PartialEq, ToSchema, Hash)]
 #[diesel(sql_type = Int4)]
 #[repr(u8)]
 pub enum Role {
@@ -48,6 +59,21 @@ pub enum Role {
     Member = 0x1,
     OrchestraCommittee = 0x2,
     Operator = 0xFF,
+}
+
+impl<DB> FromSql<Integer, DB> for Role
+where
+    DB: Backend,
+    i32: FromSql<Integer, DB>,
+{
+    fn from_sql(bytes: DB::RawValue<'_>) -> diesel::deserialize::Result<Self> {
+        let v = i32::from_sql(bytes)?;
+        if v > u8::MAX as i32 || v < 0 {
+            Err(format!("Could not expand variant into role: {}", v).into())
+        } else {
+            Role::try_from(v as u8).map_err(|e| e.into())
+        }
+    }
 }
 
 impl TryFrom<u8> for Role {
@@ -58,8 +84,11 @@ impl TryFrom<u8> for Role {
             0 => Ok(Self::Public),
             1 => Ok(Self::Member),
             2 => Ok(Self::OrchestraCommittee),
-            3..=0xFE => Err(result::Error::byte_conversion(value)),
-            _ => Ok(Self::Operator),
+            0xFF => Ok(Self::Operator),
+            x => Err(Error::byte_conversion(format!(
+                "Could not expand variant into role: {}",
+                x
+            ))),
         }
     }
 }

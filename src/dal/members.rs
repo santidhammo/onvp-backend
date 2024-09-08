@@ -3,17 +3,15 @@ use crate::model::members::MemberAddressDetails;
 use crate::model::members::{Member, MemberDetails};
 use crate::model::security::Role;
 use crate::model::setup::FirstOperator;
-use crate::schema::member_address_details;
-use crate::schema::member_details;
-use crate::schema::member_role_associations;
-use crate::schema::members;
+use crate::schema::*;
 use crate::security::generate_encoded_nonce;
-use crate::{dal, Error};
+use crate::{dal, Error, Result};
 use chrono::TimeDelta;
 use diesel::prelude::*;
+use std::collections::HashSet;
 use std::ops::Add;
 
-pub fn has_operators(conn: &mut dal::DbConnection) -> Result<bool, Error> {
+pub fn has_operators(conn: &mut dal::DbConnection) -> Result<bool> {
     let count: i64 = member_role_associations::dsl::member_role_associations
         .filter(member_role_associations::dsl::system_role.eq(Role::Operator))
         .count()
@@ -26,7 +24,7 @@ pub fn create_first_operator(
     conn: &mut DbConnection,
     operator: &FirstOperator,
     activation_string: &str,
-) -> Result<(), Error> {
+) -> Result<()> {
     conn.transaction::<_, Error, _>(|conn| {
         let data = MemberAddressDetails {
             id: 0,
@@ -87,7 +85,7 @@ pub fn create_first_operator(
 pub fn get_member_by_activation_string(
     conn: &mut DbConnection,
     activation_string: &str,
-) -> Result<Member, Error> {
+) -> Result<Member> {
     let activated_filter = members::activated.eq(false);
     let activation_time_filter = members::activation_time.gt(chrono::Utc::now().naive_utc());
     let activation_string_filter = members::activation_string.eq(activation_string);
@@ -102,10 +100,7 @@ pub fn get_member_by_activation_string(
         .first::<Member>(conn)?)
 }
 
-pub fn get_member_by_email_address(
-    conn: &mut DbConnection,
-    email_address: &str,
-) -> Result<Member, Error> {
+pub fn get_member_by_email_address(conn: &mut DbConnection, email_address: &str) -> Result<Member> {
     let member_details = get_member_details_by_email_address(conn, email_address)?;
 
     let activated_filter = members::activated.eq(true);
@@ -120,7 +115,7 @@ pub fn get_member_by_email_address(
 pub fn get_member_details_by_id(
     conn: &mut DbConnection,
     member_details_id: &i32,
-) -> Result<MemberDetails, Error> {
+) -> Result<MemberDetails> {
     let id_filter = member_details::id.eq(member_details_id);
 
     Ok(member_details::table
@@ -132,7 +127,7 @@ pub fn get_member_details_by_id(
 pub fn get_member_details_by_email_address(
     conn: &mut DbConnection,
     email_address: &str,
-) -> Result<MemberDetails, Error> {
+) -> Result<MemberDetails> {
     let email_address_filter = member_details::email_address.eq(email_address);
 
     Ok(member_details::table
@@ -144,7 +139,7 @@ pub fn get_member_details_by_email_address(
 pub fn delete_member_address_details_by_id(
     conn: &mut DbConnection,
     member_address_details_id: i32,
-) -> Result<(), Error> {
+) -> Result<()> {
     let details = member_details::dsl::member_details
         .select(member_details::all_columns)
         .filter(member_details::id.eq(member_address_details_id))
@@ -161,10 +156,7 @@ pub fn delete_member_address_details_by_id(
     }
 }
 
-pub fn delete_member_details_by_id(
-    conn: &mut DbConnection,
-    member_details_id: i32,
-) -> Result<(), Error> {
+pub fn delete_member_details_by_id(conn: &mut DbConnection, member_details_id: i32) -> Result<()> {
     let address_details = member_address_details::dsl::member_address_details
         .select(member_address_details::all_columns)
         .filter(member_address_details::id.eq(member_details_id))
@@ -181,7 +173,37 @@ pub fn delete_member_details_by_id(
     }
 }
 
-pub fn activate(conn: &mut DbConnection, member: &Member) -> Result<(), Error> {
+pub(crate) fn get_member_roles_by_member_id(
+    conn: &mut DbConnection,
+    member_id: &i32,
+) -> Result<Vec<Role>> {
+    let mut roles = member_role_associations::dsl::member_role_associations
+        .select(member_role_associations::system_role)
+        .filter(member_role_associations::member_id.eq(member_id))
+        .load::<Role>(conn)?;
+
+    let workgroup_ids = workgroup_member_relationships::dsl::workgroup_member_relationships
+        .select(workgroup_member_relationships::workgroup_id)
+        .filter(workgroup_member_relationships::member_id.eq(member_id))
+        .load::<i32>(conn)?;
+
+    for workgroup_id in workgroup_ids {
+        let workgroup_roles = workgroup_role_associations::dsl::workgroup_role_associations
+            .select(workgroup_role_associations::system_role)
+            .filter(workgroup_role_associations::workgroup_id.eq(workgroup_id))
+            .load::<Role>(conn)?;
+
+        roles.extend(workgroup_roles);
+    }
+    roles.push(Role::Public);
+    roles.push(Role::Member);
+
+    let result: HashSet<Role> = HashSet::from_iter(roles);
+
+    Ok(result.iter().map(|v| *v).collect())
+}
+
+pub fn activate(conn: &mut DbConnection, member: &Member) -> Result<()> {
     diesel::update(members::dsl::members)
         .filter(members::id.eq(member.id))
         .set(members::dsl::activated.eq(true))

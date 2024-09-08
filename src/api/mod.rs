@@ -4,6 +4,7 @@ use actix_web::{web, App, HttpServer};
 use ed25519_compact::{KeyPair, PublicKey, SecretKey};
 use jwt_compact::alg::Ed25519;
 use log::info;
+use std::collections::HashSet;
 use std::env;
 use std::fs::File;
 use std::io::Read;
@@ -15,7 +16,7 @@ use utoipa_rapidoc::RapiDoc;
 pub mod members;
 pub mod setup;
 
-use crate::model::members::Member;
+use crate::model::security::{Role, UserClaims};
 use crate::{dal, model};
 
 #[derive(OpenApi)]
@@ -53,7 +54,7 @@ pub async fn run_api_server() -> std::io::Result<()> {
         .expect("Token Signer should be initialized");
 
     Ok(HttpServer::new(move || {
-        let authority = Authority::<Member, Ed25519, _, _>::new()
+        let authority = Authority::<UserClaims, Ed25519, _, _>::new()
             .refresh_authorizer(|| async move { Ok(()) })
             .token_signer(Some(token_signer.clone()))
             .verifying_key(public_key)

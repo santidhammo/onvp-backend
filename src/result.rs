@@ -94,9 +94,9 @@ struct PreparedError {
 pub type Result<T> = std::result::Result<T, Error>;
 
 impl Error {
-    pub fn byte_conversion(the_byte: u8) -> Error {
+    pub fn byte_conversion<T: ToString>(s: T) -> Error {
         Self {
-            kind: ErrorKind::ByteConversion(the_byte.to_string()),
+            kind: ErrorKind::ByteConversion(s.to_string()),
         }
     }
 
