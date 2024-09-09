@@ -4,14 +4,13 @@ use crate::model::security::{LoginData, Role, TokenData, UserClaims};
 use crate::security::OTP_CIPHER;
 use crate::{dal, result, security, Error};
 use actix_jwt_auth_middleware::TokenSigner;
-use actix_web::cookie::SameSite;
-use actix_web::dev::ConnectionInfo;
+use actix_web::cookie::time::OffsetDateTime;
+use actix_web::cookie::{Cookie, Expiration, SameSite};
 use actix_web::web::{Data, Json};
 use actix_web::{get, post, web, HttpResponse, Responder};
 use aes_gcm::aead::Aead;
 use jwt_compact::alg::Ed25519;
 use log::info;
-use std::collections::HashSet;
 use std::ops::Deref;
 use totp_rs::TOTP;
 
@@ -113,6 +112,93 @@ pub async fn login(
         .cookie(access_cookie)
         .cookie(refresh_cookie)
         .json(()))
+}
+
+/// Check login status
+///
+/// Checks if the member has already logged in
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "Logged in successfully"),
+        (status = 500, description = "Internal Server Error", body=[String])
+    )
+)]
+#[get("/check_login_status")]
+pub async fn check_login_status() -> Json<()> {
+    Json(())
+}
+
+/// Logout a member
+///
+/// Logs out a member, if already logged in
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "Logged in successfully"),
+        (status = 500, description = "Internal Server Error", body=[String])
+    )
+)]
+#[get("/logout")]
+pub async fn logout() -> HttpResponse {
+    let access_cookie = Cookie::build("access_token".to_string(), "")
+        .secure(true)
+        .same_site(SameSite::Strict)
+        .expires(Expiration::DateTime(OffsetDateTime::UNIX_EPOCH))
+        .finish();
+
+    let refresh_cookie = Cookie::build("refresh_token".to_string(), "")
+        .secure(true)
+        .same_site(SameSite::Strict)
+        .expires(Expiration::DateTime(OffsetDateTime::UNIX_EPOCH))
+        .finish();
+
+    HttpResponse::Ok()
+        .cookie(access_cookie)
+        .cookie(refresh_cookie)
+        .json(())
+}
+
+/// Logged in member name
+///
+/// Gets the name of the logged in member
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "The member name", body=[String]),
+        (status = 500, description = "Internal Server Error", body=[String])
+    )
+)]
+#[get("/logged_in_name")]
+pub async fn logged_in_name(
+    user_claims: UserClaims,
+    pool: Data<dal::DbPool>,
+) -> Result<Json<String>, Error> {
+    let mut conn = dal::connect(&pool)?;
+    let member_details =
+        dal::members::get_member_details_by_email_address(&mut conn, &user_claims.email_address)?;
+    let name = format!("{} {}", member_details.first_name, member_details.last_name)
+        .trim()
+        .to_string();
+    Ok(Json(name))
+}
+
+/// Is logged in member an operator
+///
+/// Returns if the logged in member is an operator
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "The member name"),
+        (status = 400, description = "Bad Request", body=[String])
+    )
+)]
+#[get("/logged_in_is_operator")]
+pub async fn logged_in_is_operator(user_claims: UserClaims) -> Result<Json<()>, Error> {
+    match user_claims.has_role(Role::Operator) {
+        true => Ok(Json(())),
+        false => Err(Error::bad_request()),
+    }
 }
 
 fn get_member_totp(conn: &mut DbConnection, member: &Member) -> Result<TOTP, Error> {

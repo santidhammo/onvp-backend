@@ -1,10 +1,10 @@
+use actix_jwt_auth_middleware::use_jwt::UseJWTOnScope;
 use actix_jwt_auth_middleware::{Authority, TokenSigner};
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
 use ed25519_compact::{KeyPair, PublicKey, SecretKey};
 use jwt_compact::alg::Ed25519;
 use log::info;
-use std::collections::HashSet;
 use std::env;
 use std::fs::File;
 use std::io::Read;
@@ -16,7 +16,7 @@ use utoipa_rapidoc::RapiDoc;
 pub mod members;
 pub mod setup;
 
-use crate::model::security::{Role, UserClaims};
+use crate::model::security::UserClaims;
 use crate::{dal, model};
 
 #[derive(OpenApi)]
@@ -28,6 +28,10 @@ use crate::{dal, model};
         members::activation_code,
         members::activate,
         members::login,
+        members::check_login_status,
+        members::logout,
+        members::logged_in_name,
+        members::logged_in_is_operator,
     ),
     components(
         schemas(model::members::Member),
@@ -70,7 +74,15 @@ pub async fn run_api_server() -> std::io::Result<()> {
                     .service(members::list)
                     .service(members::activation_code)
                     .service(members::activate)
-                    .service(members::login),
+                    .service(members::login)
+                    .use_jwt(
+                        authority,
+                        web::scope("")
+                            .service(members::check_login_status)
+                            .service(members::logout)
+                            .service(members::logged_in_name)
+                            .service(members::logged_in_is_operator),
+                    ),
             )
             .service(
                 web::scope(setup::CONTEXT)

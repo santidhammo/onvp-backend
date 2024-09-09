@@ -43,11 +43,21 @@ pub struct UserClaims {
 }
 
 impl UserClaims {
-    pub(crate) fn new(email_address: &str, roles: &Vec<Role>) -> Self {
+    pub fn new(email_address: &str, roles: &Vec<Role>) -> Self {
         Self {
             email_address: email_address.to_string(),
             roles: roles.clone(),
         }
+    }
+
+    /// Checks if the user claims contain the given role
+    pub fn has_role(&self, role: Role) -> bool {
+        for intern in &self.roles {
+            if intern == &role {
+                return true;
+            }
+        }
+        false
     }
 }
 
