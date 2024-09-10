@@ -24,7 +24,6 @@ use crate::{dal, model};
     paths(
         setup::should_setup,
         setup::setup_first_operator,
-        members::list,
         members::activation_code,
         members::activate,
         members::login,
@@ -32,6 +31,7 @@ use crate::{dal, model};
         members::logout,
         members::logged_in_name,
         members::logged_in_is_operator,
+        members::search,
     ),
     components(
         schemas(model::members::Member),
@@ -71,7 +71,6 @@ pub async fn run_api_server() -> std::io::Result<()> {
             .app_data(web::Data::new(token_signer.clone()))
             .service(
                 web::scope(members::CONTEXT)
-                    .service(members::list)
                     .service(members::activation_code)
                     .service(members::activate)
                     .service(members::login)
@@ -81,7 +80,8 @@ pub async fn run_api_server() -> std::io::Result<()> {
                             .service(members::check_login_status)
                             .service(members::logout)
                             .service(members::logged_in_name)
-                            .service(members::logged_in_is_operator),
+                            .service(members::logged_in_is_operator)
+                            .service(members::search),
                     ),
             )
             .service(

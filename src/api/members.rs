@@ -16,17 +16,20 @@ use totp_rs::TOTP;
 
 pub const CONTEXT: &str = "/api/members";
 
+/// Searches for members by first name, last name and/or email address
 #[utoipa::path(
     context_path = CONTEXT,
     responses(
-        (status = 200, description = "Receive a list of members", body=[Member])
+        (status = 200, description = "A list of matching members", body=[Vec<MemberDetail>]),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal Server Error", body=[String])
     )
 )]
-#[get("/list")]
-pub async fn list() -> impl Responder {
+#[get("/search_user")]
+pub async fn search() -> impl Responder {
     let members: Vec<Member> = vec![];
     HttpResponse::Ok().json(members)
-}
+}k
 
 /// Generate an activation code
 ///
