@@ -1,6 +1,6 @@
 use crate::dal::DbConnection;
-use crate::model::members::MemberAddressDetails;
-use crate::model::members::{Member, MemberDetails};
+use crate::model::generic::SearchResult;
+use crate::model::members::{Member, MemberAddressDetail, MemberDetail};
 use crate::model::security::Role;
 use crate::model::setup::FirstOperator;
 use crate::schema::*;
@@ -26,7 +26,7 @@ pub fn create_first_operator(
     activation_string: &str,
 ) -> Result<()> {
     conn.transaction::<_, Error, _>(|conn| {
-        let data = MemberAddressDetails {
+        let data = MemberAddressDetail {
             id: 0,
             street: operator.street.clone(),
             house_number: operator.house_number.clone(),
@@ -39,7 +39,7 @@ pub fn create_first_operator(
             .returning(member_address_details::dsl::id)
             .get_result(conn)?;
 
-        let data = MemberDetails {
+        let data = MemberDetail {
             id: 0,
             first_name: operator.first_name.clone(),
             last_name: operator.last_name.clone(),
@@ -115,25 +115,25 @@ pub fn get_member_by_email_address(conn: &mut DbConnection, email_address: &str)
 pub fn get_member_details_by_id(
     conn: &mut DbConnection,
     member_details_id: &i32,
-) -> Result<MemberDetails> {
+) -> Result<MemberDetail> {
     let id_filter = member_details::id.eq(member_details_id);
 
     Ok(member_details::table
         .select(member_details::all_columns)
         .filter(id_filter)
-        .first::<MemberDetails>(conn)?)
+        .first::<MemberDetail>(conn)?)
 }
 
 pub fn get_member_details_by_email_address(
     conn: &mut DbConnection,
     email_address: &str,
-) -> Result<MemberDetails> {
+) -> Result<MemberDetail> {
     let email_address_filter = member_details::email_address.eq(email_address);
 
     Ok(member_details::table
         .select(member_details::all_columns)
         .filter(email_address_filter)
-        .first::<MemberDetails>(conn)?)
+        .first::<MemberDetail>(conn)?)
 }
 
 pub fn delete_member_address_details_by_id(
@@ -143,7 +143,7 @@ pub fn delete_member_address_details_by_id(
     let details = member_details::dsl::member_details
         .select(member_details::all_columns)
         .filter(member_details::id.eq(member_address_details_id))
-        .load::<MemberDetails>(conn)?;
+        .load::<MemberDetail>(conn)?;
     let maybe_first_error = details
         .iter()
         .map(|detail| diesel::delete(detail).execute(conn))
@@ -160,7 +160,7 @@ pub fn delete_member_details_by_id(conn: &mut DbConnection, member_details_id: i
     let address_details = member_address_details::dsl::member_address_details
         .select(member_address_details::all_columns)
         .filter(member_address_details::id.eq(member_details_id))
-        .load::<MemberAddressDetails>(conn)?;
+        .load::<MemberAddressDetail>(conn)?;
     let maybe_first_error = address_details
         .iter()
         .map(|detail| diesel::delete(detail).execute(conn))
@@ -209,4 +209,44 @@ pub fn activate(conn: &mut DbConnection, member: &Member) -> Result<()> {
         .set(members::dsl::activated.eq(true))
         .execute(conn)?;
     Ok(())
+}
+
+pub(crate) fn search_member_details<'p>(
+    conn: &mut DbConnection,
+    search_string: &String,
+    page_size: usize,
+    page_offset: usize,
+) -> Result<SearchResult<MemberDetail>> {
+    let like_search_string = dal::create_like_string(search_string);
+
+    conn.transaction::<SearchResult<MemberDetail>, Error, _>(|conn| {
+        // ILIKE is only supported on PostgreSQL
+        match conn {
+            DbConnection::PostgreSQL(ref mut conn) => {
+                let filter = member_details::first_name
+                    .ilike(&like_search_string)
+                    .or(member_details::last_name.ilike(&like_search_string))
+                    .or(member_details::email_address.ilike(&like_search_string));
+
+                let total_count: usize = member_details::dsl::member_details
+                    .filter(filter)
+                    .count()
+                    .get_result::<i64>(conn)? as usize;
+
+                let rows: Vec<MemberDetail> = member_details::dsl::member_details
+                    .select(member_details::all_columns)
+                    .filter(filter)
+                    .order_by(member_details::last_name)
+                    .limit(page_size as i64)
+                    .offset(page_offset as i64)
+                    .load(conn)?;
+
+                Ok(SearchResult {
+                    total_count,
+                    page_offset,
+                    rows,
+                })
+            }
+        }
+    })
 }

@@ -1,13 +1,14 @@
 use crate::dal::DbConnection;
-use crate::model::members::Member;
+use crate::model::generic::{SearchParams, SearchResult};
+use crate::model::members::{Member, MemberDetail};
 use crate::model::security::{LoginData, Role, TokenData, UserClaims};
 use crate::security::OTP_CIPHER;
-use crate::{dal, result, security, Error};
+use crate::{dal, security, Error};
 use actix_jwt_auth_middleware::TokenSigner;
 use actix_web::cookie::time::OffsetDateTime;
 use actix_web::cookie::{Cookie, Expiration, SameSite};
-use actix_web::web::{Data, Json};
-use actix_web::{get, post, web, HttpResponse, Responder};
+use actix_web::web::{Data, Json, Query};
+use actix_web::{get, post, web, HttpResponse};
 use aes_gcm::aead::Aead;
 use jwt_compact::alg::Ed25519;
 use log::info;
@@ -16,20 +17,41 @@ use totp_rs::TOTP;
 
 pub const CONTEXT: &str = "/api/members";
 
-/// Searches for members by first name, last name and/or email address
+/// Searches for members
+///
+/// Searches on first name, last name and/or email address matching the given query. If no query
+/// is given, results in a Bad Request
 #[utoipa::path(
     context_path = CONTEXT,
     responses(
-        (status = 200, description = "A list of matching members", body=[Vec<MemberDetail>]),
+        (status = 200, description = "A list of matching members", body=[SearchResult<MemberDetail>]),
+        (status = 400, description = "Bad Request"),
         (status = 401, description = "Unauthorized"),
         (status = 500, description = "Internal Server Error", body=[String])
+    ),
+    params(
+        ("q" = String, Query, description = "Part of the first name, last name and/or email address"),
+        ("p" = Option<String>, Query, description = "The page offset to use (counting from 0)")
     )
 )]
 #[get("/search_user")]
-pub async fn search() -> impl Responder {
-    let members: Vec<Member> = vec![];
-    HttpResponse::Ok().json(members)
-}k
+pub async fn search<'p>(
+    pool: Data<dal::DbPool>,
+    search_params: Query<SearchParams>,
+) -> Result<Json<SearchResult<MemberDetail>>, Error> {
+    let mut conn = dal::connect(&pool)?;
+    let query = search_params.query.as_ref().ok_or(Error::bad_request())?;
+    // The query should not be empty
+    if query.is_empty() {
+        return Err(Error::bad_request());
+    }
+    Ok(Json(dal::members::search_member_details(
+        &mut conn,
+        query,
+        20,
+        search_params.page_offset,
+    )?))
+}
 
 /// Generate an activation code
 ///
@@ -69,7 +91,7 @@ pub async fn activation_code(
 #[post("/activation/activate")]
 pub async fn activate(
     pool: Data<dal::DbPool>,
-    activation_data: web::Json<TokenData>,
+    activation_data: Json<TokenData>,
 ) -> Result<Json<()>, Error> {
     let mut conn = dal::connect(&pool)?;
     let member = dal::members::get_member_by_activation_string(
@@ -213,7 +235,7 @@ fn get_member_totp(conn: &mut DbConnection, member: &Member) -> Result<TOTP, Err
     security::generate_totp(cipher_text, details.email_address)
 }
 
-fn generate_qr_code(totp: TOTP) -> Result<String, result::Error> {
+fn generate_qr_code(totp: TOTP) -> Result<String, Error> {
     totp.get_qr_base64()
-        .map_err(|e| result::Error::qr_code_generation(e))
+        .map_err(|e| Error::qr_code_generation(e))
 }

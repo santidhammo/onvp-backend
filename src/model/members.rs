@@ -63,7 +63,7 @@ impl Member {
 #[serde(rename_all = "camelCase")]
 #[diesel(table_name = crate::schema::member_details)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct MemberDetails {
+pub struct MemberDetail {
     #[serde(skip_serializing, default)]
     #[diesel(skip_insertion)]
     pub id: i32,
@@ -81,7 +81,7 @@ pub struct MemberDetails {
     pub phone_number: String,
 }
 
-impl MemberDetails {
+impl MemberDetail {
     pub(crate) fn name(&self) -> String {
         let mut s = String::new();
         s.push_str(&self.first_name);
@@ -95,7 +95,7 @@ impl MemberDetails {
 #[serde(rename_all = "camelCase")]
 #[diesel(table_name = crate::schema::member_address_details)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct MemberAddressDetails {
+pub struct MemberAddressDetail {
     #[serde(skip_serializing, default)]
     #[diesel(skip_insertion)]
     pub id: i32,

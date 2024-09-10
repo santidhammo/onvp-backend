@@ -149,6 +149,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "actix-state-guards"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21ddcc6c924c734d333a32bece796dcc8190af9d401411d76c8dbb6612b9ef31"
+dependencies = [
+ "actix-web",
+]
+
+[[package]]
 name = "actix-tls"
 version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1359,6 +1368,7 @@ name = "onvp-backend"
 version = "0.1.0"
 dependencies = [
  "actix-jwt-auth-middleware",
+ "actix-state-guards",
  "actix-web",
  "aes-gcm",
  "base64",

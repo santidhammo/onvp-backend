@@ -16,7 +16,7 @@ pub type DbPool = r2d2::Pool<ConnectionManager<DbConnection>>;
 
 #[derive(diesel::MultiConnection)]
 pub enum DbConnection {
-    Postgres(PgConnection),
+    PostgreSQL(PgConnection),
 }
 
 pub fn initialize_db_pool() -> DbPool {
@@ -25,4 +25,20 @@ pub fn initialize_db_pool() -> DbPool {
     r2d2::Pool::builder()
         .build(manager)
         .expect("database URL should be a valid URL towards PostgreSQL database")
+}
+
+fn create_like_string<T: ToString>(search_string: T) -> String {
+    let search_string = search_string.to_string();
+    let search_string = if !search_string.starts_with("%") {
+        format!("%{search_string}")
+    } else {
+        search_string.clone()
+    };
+
+    let search_string = if !search_string.ends_with("%") {
+        format!("{search_string}%")
+    } else {
+        search_string.clone()
+    };
+    search_string
 }

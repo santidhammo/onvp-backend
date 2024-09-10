@@ -1,4 +1,6 @@
-use crate::result;
+use crate::model::security::{Role, UserClaims};
+use crate::result::Result;
+use crate::Error;
 use aes_gcm::aead::OsRng;
 use aes_gcm::{AeadCore, Aes256Gcm, Key, KeyInit};
 use base64::{engine::general_purpose, Engine as _};
@@ -20,7 +22,7 @@ pub fn generate_encoded_nonce() -> String {
     general_purpose::STANDARD.encode(&nonce)
 }
 
-pub fn generate_totp(cipher_text: Vec<u8>, email_address: String) -> Result<TOTP, result::Error> {
+pub fn generate_totp(cipher_text: Vec<u8>, email_address: String) -> Result<TOTP> {
     Ok(TOTP::new(
         Algorithm::SHA1,
         6,
@@ -30,4 +32,12 @@ pub fn generate_totp(cipher_text: Vec<u8>, email_address: String) -> Result<TOTP
         Some("ONVP".to_owned()),
         email_address,
     )?)
+}
+
+pub fn operator_state_guard(claims: &UserClaims) -> Result<()> {
+    if claims.has_role(Role::Operator) {
+        Ok(())
+    } else {
+        Err(Error::bad_request())
+    }
 }

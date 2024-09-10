@@ -1,5 +1,6 @@
 use actix_jwt_auth_middleware::use_jwt::UseJWTOnScope;
 use actix_jwt_auth_middleware::{Authority, TokenSigner};
+use actix_state_guards::UseStateGuardOnScope;
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
 use ed25519_compact::{KeyPair, PublicKey, SecretKey};
@@ -17,7 +18,7 @@ pub mod members;
 pub mod setup;
 
 use crate::model::security::UserClaims;
-use crate::{dal, model};
+use crate::{dal, model, security};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -34,7 +35,10 @@ use crate::{dal, model};
         members::search,
     ),
     components(
+        schemas(model::generic::SearchParams),
+        schemas(model::generic::SearchResult<model::members::MemberDetail>),
         schemas(model::members::Member),
+        schemas(model::members::MemberDetail),
         schemas(model::setup::FirstOperator),
         schemas(model::security::TokenData),
         schemas(model::security::LoginData),
@@ -81,7 +85,12 @@ pub async fn run_api_server() -> std::io::Result<()> {
                             .service(members::logout)
                             .service(members::logged_in_name)
                             .service(members::logged_in_is_operator)
-                            .service(members::search),
+                            .use_state_guard(
+                                |claims: UserClaims| async move {
+                                    security::operator_state_guard(&claims)
+                                },
+                                web::scope("").service(members::search),
+                            ),
                     ),
             )
             .service(

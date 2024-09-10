@@ -23,6 +23,7 @@ totp-rs = { version = "5.6.0", features = ["gen_secret", "otpauth", "qr"] }
 r2d2 = { version = "0.8.10" }
 jwt-compact = { version = "0.8.0", features = ["ed25519-compact"] }
 ed25519-compact = { version = "2.1.1" }
+actix-state-guards = "0.1.0"
 
 [[bin]]
 name = "onvp-backend"
