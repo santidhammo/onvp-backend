@@ -32,7 +32,7 @@ use crate::{dal, model, security};
         members::logout,
         members::logged_in_name,
         members::logged_in_is_operator,
-        members::search,
+        members::search_member_details,
     ),
     components(
         schemas(model::generic::SearchParams),
@@ -89,7 +89,7 @@ pub async fn run_api_server() -> std::io::Result<()> {
                                 |claims: UserClaims| async move {
                                     security::operator_state_guard(&claims)
                                 },
-                                web::scope("").service(members::search),
+                                web::scope("").service(members::search_member_details),
                             ),
                     ),
             )

@@ -34,8 +34,8 @@ pub const CONTEXT: &str = "/api/members";
         ("p" = Option<String>, Query, description = "The page offset to use (counting from 0)")
     )
 )]
-#[get("/search_user")]
-pub async fn search<'p>(
+#[get("/search_member_details")]
+pub async fn search_member_details<'p>(
     pool: Data<dal::DbPool>,
     search_params: Query<SearchParams>,
 ) -> Result<Json<SearchResult<MemberDetail>>, Error> {
@@ -45,6 +45,7 @@ pub async fn search<'p>(
     if query.is_empty() {
         return Err(Error::bad_request());
     }
+
     Ok(Json(dal::members::search_member_details(
         &mut conn,
         query,

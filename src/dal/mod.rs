@@ -42,3 +42,10 @@ fn create_like_string<T: ToString>(search_string: T) -> String {
     };
     search_string
 }
+
+/// The total count of pages is the total_count divided by page_size, and if the
+/// rest is > 0, one more.
+fn calculate_page_count(page_size: usize, total_count: usize) -> usize {
+    let page_count = (total_count / page_size) + if (total_count % page_size) != 0 { 1 } else { 0 };
+    page_count
+}

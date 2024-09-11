@@ -22,5 +22,6 @@ pub struct SearchParams {
 pub struct SearchResult<T: Serialize> {
     pub total_count: usize,
     pub page_offset: usize,
+    pub page_count: usize,
     pub rows: Vec<T>,
 }

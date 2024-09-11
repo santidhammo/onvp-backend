@@ -244,6 +244,7 @@ pub(crate) fn search_member_details<'p>(
                 Ok(SearchResult {
                     total_count,
                     page_offset,
+                    page_count: dal::calculate_page_count(page_size, total_count),
                     rows,
                 })
             }
