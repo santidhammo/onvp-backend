@@ -3,6 +3,7 @@ use actix_web::body::BoxBody;
 use actix_web::http::{header, StatusCode};
 use actix_web::web::BytesMut;
 use actix_web::{HttpResponse, ResponseError};
+use jwt_compact::{ParseError, ValidationError};
 use r2d2;
 use serde::Serialize;
 use std::fmt::{Debug, Display, Formatter, Write};
@@ -197,6 +198,22 @@ impl From<TotpUrlError> for Error {
 
 impl From<AuthError> for Error {
     fn from(_: AuthError) -> Self {
+        Self {
+            kind: ErrorKind::BadRequest,
+        }
+    }
+}
+
+impl From<ParseError> for Error {
+    fn from(_: ParseError) -> Self {
+        Self {
+            kind: ErrorKind::BadRequest,
+        }
+    }
+}
+
+impl From<ValidationError> for Error {
+    fn from(_: ValidationError) -> Self {
         Self {
             kind: ErrorKind::BadRequest,
         }

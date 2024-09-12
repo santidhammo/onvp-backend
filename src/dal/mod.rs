@@ -1,14 +1,11 @@
 use crate::Error;
-use actix_web::web::Data;
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, PooledConnection};
 use diesel::PgConnection;
 
 pub mod members;
 
-pub fn connect(
-    pool: &Data<DbPool>,
-) -> Result<PooledConnection<ConnectionManager<DbConnection>>, Error> {
+pub fn connect(pool: &DbPool) -> Result<PooledConnection<ConnectionManager<DbConnection>>, Error> {
     pool.get().map_err(|e| crate::Error::from(e))
 }
 

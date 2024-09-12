@@ -11,6 +11,7 @@ use std::fs::File;
 use std::io::Read;
 use std::net::Ipv4Addr;
 use std::path::Path;
+use std::time::Duration;
 use utoipa::OpenApi;
 use utoipa_rapidoc::RapiDoc;
 
@@ -58,6 +59,8 @@ pub async fn run_api_server() -> std::io::Result<()> {
     let token_signer = TokenSigner::new()
         .signing_key(secret_key.clone())
         .algorithm(Ed25519)
+        .access_token_lifetime(Duration::from_secs(3 * 60))
+        .refresh_token_lifetime(Duration::from_secs(10 * 60))
         .build()
         .expect("Token Signer should be initialized");
 

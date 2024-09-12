@@ -1,20 +1,24 @@
-use crate::dal::DbConnection;
+//! This file contains the API to manage members and to perform the necessary log in, log out and
+//! token refreshing routines for a member.
+
 use crate::model::generic::{SearchParams, SearchResult};
 use crate::model::members::{Member, MemberDetail};
 use crate::model::security::{LoginData, Role, TokenData, UserClaims};
 use crate::security::OTP_CIPHER;
-use crate::{dal, security, Error};
+use crate::{dal, security, Error, Result};
 use actix_jwt_auth_middleware::TokenSigner;
 use actix_web::cookie::time::OffsetDateTime;
 use actix_web::cookie::{Cookie, Expiration, SameSite};
 use actix_web::web::{Data, Json, Query};
-use actix_web::{get, post, web, HttpResponse};
+use actix_web::{get, post, web, HttpRequest, HttpResponse};
 use aes_gcm::aead::Aead;
 use jwt_compact::alg::Ed25519;
+use jwt_compact::UntrustedToken;
 use log::info;
 use std::ops::Deref;
 use totp_rs::TOTP;
 
+/// This is the context of this part of the API
 pub const CONTEXT: &str = "/api/members";
 
 /// Searches for members
@@ -38,7 +42,7 @@ pub const CONTEXT: &str = "/api/members";
 pub async fn search_member_details<'p>(
     pool: Data<dal::DbPool>,
     search_params: Query<SearchParams>,
-) -> Result<Json<SearchResult<MemberDetail>>, Error> {
+) -> Result<Json<SearchResult<MemberDetail>>> {
     let mut conn = dal::connect(&pool)?;
     let query = search_params.query.as_ref().ok_or(Error::bad_request())?;
     // The query should not be empty
@@ -69,7 +73,7 @@ pub async fn search_member_details<'p>(
 pub async fn activation_code(
     pool: Data<dal::DbPool>,
     activation_string: web::Path<String>,
-) -> Result<Json<String>, Error> {
+) -> Result<Json<String>> {
     let mut conn = dal::connect(&pool)?;
     let member = dal::members::get_member_by_activation_string(&mut conn, &activation_string)?;
     let totp = get_member_totp(&mut conn, &member)?;
@@ -93,7 +97,7 @@ pub async fn activation_code(
 pub async fn activate(
     pool: Data<dal::DbPool>,
     activation_data: Json<TokenData>,
-) -> Result<Json<()>, Error> {
+) -> Result<Json<()>> {
     let mut conn = dal::connect(&pool)?;
     let member = dal::members::get_member_by_activation_string(
         &mut conn,
@@ -121,23 +125,9 @@ pub async fn login(
     pool: Data<dal::DbPool>,
     login_data: Json<LoginData>,
     token_signer: Data<TokenSigner<UserClaims, Ed25519>>,
-) -> Result<HttpResponse, Error> {
+) -> Result<HttpResponse> {
     info!("Attempting member login: {}", &login_data.email_address);
-    let mut conn = dal::connect(&pool)?;
-    let member = dal::members::get_member_by_email_address(&mut conn, &login_data.email_address)?;
-    let member_roles = dal::members::get_member_roles_by_member_id(&mut conn, &member.id)?;
-    let claim = UserClaims::new(&login_data.email_address, &member_roles);
-
-    let mut access_cookie = token_signer.create_access_cookie(&claim)?;
-    let mut refresh_cookie = token_signer.create_refresh_cookie(&claim)?;
-
-    access_cookie.set_same_site(SameSite::Strict);
-    refresh_cookie.set_same_site(SameSite::Strict);
-
-    Ok(HttpResponse::Ok()
-        .cookie(access_cookie)
-        .cookie(refresh_cookie)
-        .json(()))
+    login_or_renew(&pool, &login_data.email_address, &token_signer)
 }
 
 /// Check login status
@@ -151,8 +141,45 @@ pub async fn login(
     )
 )]
 #[get("/check_login_status")]
-pub async fn check_login_status() -> Json<()> {
-    Json(())
+pub async fn check_login_status(
+    pool: Data<dal::DbPool>,
+    user_claims: UserClaims,
+    http_request: HttpRequest,
+    token_signer: Data<TokenSigner<UserClaims, Ed25519>>,
+) -> Result<HttpResponse> {
+    info!("Refreshing member login: {}", &user_claims.email_address);
+    let origin_access_cookie = http_request
+        .cookie("access_token")
+        .ok_or(Error::bad_request())?;
+    let origin_refresh_cookie = http_request
+        .cookie("refresh_token")
+        .ok_or(Error::bad_request())?;
+
+    // Convert cookies to the associated tokens. Verification is already done at this point in time,
+    // it is only necessary to refresh the situation appropriately.
+    let origin_access_token = UntrustedToken::new(origin_access_cookie.value())?;
+    let origin_refresh_token = UntrustedToken::new(origin_refresh_cookie.value())?;
+
+    // If the refresh token nearly expires, the login procedure is transparently performed, to
+    // ensure that user roles are still the same. If the access token nearly expires, then a new
+    // access token is simply created, otherwise nothing is done.
+    if security::token_nearly_expires(origin_refresh_token)? {
+        info!(
+            "Refreshing tokens for member: {}",
+            &user_claims.email_address
+        );
+        login_or_renew(&pool, &user_claims.email_address, &token_signer)
+    } else if security::token_nearly_expires(origin_access_token)? {
+        info!(
+            "Create new access token for member: {}",
+            &user_claims.email_address
+        );
+        Ok(HttpResponse::Ok()
+            .cookie(token_signer.create_access_cookie(&user_claims)?)
+            .json(()))
+    } else {
+        Ok(HttpResponse::Ok().json(()))
+    }
 }
 
 /// Logout a member
@@ -199,7 +226,7 @@ pub async fn logout() -> HttpResponse {
 pub async fn logged_in_name(
     user_claims: UserClaims,
     pool: Data<dal::DbPool>,
-) -> Result<Json<String>, Error> {
+) -> Result<Json<String>> {
     let mut conn = dal::connect(&pool)?;
     let member_details =
         dal::members::get_member_details_by_email_address(&mut conn, &user_claims.email_address)?;
@@ -220,14 +247,36 @@ pub async fn logged_in_name(
     )
 )]
 #[get("/logged_in_is_operator")]
-pub async fn logged_in_is_operator(user_claims: UserClaims) -> Result<Json<()>, Error> {
+pub async fn logged_in_is_operator(user_claims: UserClaims) -> Result<Json<()>> {
     match user_claims.has_role(Role::Operator) {
         true => Ok(Json(())),
         false => Err(Error::bad_request()),
     }
 }
 
-fn get_member_totp(conn: &mut DbConnection, member: &Member) -> Result<TOTP, Error> {
+fn login_or_renew(
+    pool: &dal::DbPool,
+    email_address: &str,
+    token_signer: &TokenSigner<UserClaims, Ed25519>,
+) -> Result<HttpResponse> {
+    let mut conn = dal::connect(pool)?;
+    let member = dal::members::get_member_by_email_address(&mut conn, email_address)?;
+    let member_roles = dal::members::get_member_roles_by_member_id(&mut conn, &member.id)?;
+    let user_claims = UserClaims::new(&email_address, &member_roles);
+
+    let mut access_cookie = token_signer.create_access_cookie(&user_claims)?;
+    let mut refresh_cookie = token_signer.create_refresh_cookie(&user_claims)?;
+
+    access_cookie.set_same_site(SameSite::Strict);
+    refresh_cookie.set_same_site(SameSite::Strict);
+
+    Ok(HttpResponse::Ok()
+        .cookie(access_cookie)
+        .cookie(refresh_cookie)
+        .json(()))
+}
+
+fn get_member_totp(conn: &mut dal::DbConnection, member: &Member) -> Result<TOTP> {
     let nonce = member.decoded_nonce()?;
     let activation_bytes = member.activation_string.as_bytes();
     let otp_cipher = OTP_CIPHER.deref();
@@ -236,7 +285,7 @@ fn get_member_totp(conn: &mut DbConnection, member: &Member) -> Result<TOTP, Err
     security::generate_totp(cipher_text, details.email_address)
 }
 
-fn generate_qr_code(totp: TOTP) -> Result<String, Error> {
+fn generate_qr_code(totp: TOTP) -> Result<String> {
     totp.get_qr_base64()
         .map_err(|e| Error::qr_code_generation(e))
 }
