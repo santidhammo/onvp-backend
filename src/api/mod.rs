@@ -40,6 +40,7 @@ use crate::{dal, model, security};
         schemas(model::generic::SearchResult<model::members::MemberDetail>),
         schemas(model::members::Member),
         schemas(model::members::MemberDetail),
+        schemas(model::members::MemberWithDetail),
         schemas(model::setup::FirstOperator),
         schemas(model::security::TokenData),
         schemas(model::security::LoginData),

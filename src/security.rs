@@ -59,3 +59,19 @@ pub fn token_nearly_expires(token: UntrustedToken) -> Result<bool> {
     let high_water_mark = expiration.add(-delta);
     Ok(high_water_mark.le(&Utc::now()))
 }
+
+pub static MEMBER_ACTIVATION_MINUTES: LazyLock<TimeDelta> = LazyLock::new(|| {
+    let key = env::var("MEMBER_ACTIVATION_MINUTES").expect("MEMBER_ACTIVATION_MINUTES must be set");
+    let value = key
+        .parse::<u32>()
+        .expect("MEMBER_ACTIVATION_MINUTES must be integer");
+    TimeDelta::minutes(value as i64)
+});
+pub static FIRST_OPERATOR_ACTIVATION_MINUTES: LazyLock<TimeDelta> = LazyLock::new(|| {
+    let key = env::var("FIRST_OPERATOR_ACTIVATION_MINUTES")
+        .expect("FIRST_OPERATOR_ACTIVATION_MINUTES must be set");
+    let value = key
+        .parse::<u32>()
+        .expect("FIRST_OPERATOR_ACTIVATION_MINUTES must be integer");
+    TimeDelta::minutes(value as i64)
+});

@@ -3,16 +3,18 @@ use aes_gcm::aead::consts::U12;
 use aes_gcm::aead::generic_array::GenericArray;
 use base64::engine::general_purpose;
 use base64::Engine;
-use diesel::{Identifiable, Insertable, Queryable};
+use diesel::{Identifiable, Insertable, Queryable, Selectable};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-#[derive(Serialize, Deserialize, ToSchema, Clone, Debug, Insertable, Queryable, Identifiable)]
+#[derive(
+    Serialize, Deserialize, ToSchema, Clone, Debug, Insertable, Queryable, Identifiable, Selectable,
+)]
 #[serde(rename_all = "camelCase")]
 #[diesel(table_name = crate::schema::members)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Member {
-    #[serde(skip_serializing, default)]
+    #[serde(default)]
     #[diesel(skip_insertion)]
     pub id: i32,
 
@@ -28,7 +30,7 @@ pub struct Member {
     #[schema(example = "xyz.png")]
     pub picture_asset_id: Option<String>,
 
-    #[serde(skip_serializing, default)]
+    #[serde(default)]
     pub activated: bool,
 
     #[serde(skip_serializing)]
@@ -59,12 +61,14 @@ impl Member {
     }
 }
 
-#[derive(Serialize, Deserialize, ToSchema, Clone, Debug, Insertable, Queryable, Identifiable)]
+#[derive(
+    Serialize, Deserialize, ToSchema, Clone, Debug, Insertable, Queryable, Identifiable, Selectable,
+)]
 #[serde(rename_all = "camelCase")]
 #[diesel(table_name = crate::schema::member_details)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct MemberDetail {
-    #[serde(skip_serializing, default)]
+    #[serde(default)]
     #[diesel(skip_insertion)]
     pub id: i32,
 
@@ -91,12 +95,14 @@ impl MemberDetail {
     }
 }
 
-#[derive(Serialize, Deserialize, ToSchema, Clone, Debug, Insertable, Queryable, Identifiable)]
+#[derive(
+    Serialize, Deserialize, ToSchema, Clone, Debug, Insertable, Queryable, Identifiable, Selectable,
+)]
 #[serde(rename_all = "camelCase")]
 #[diesel(table_name = crate::schema::member_address_details)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct MemberAddressDetail {
-    #[serde(skip_serializing, default)]
+    #[serde(default)]
     #[diesel(skip_insertion)]
     pub id: i32,
 
@@ -114,4 +120,49 @@ pub struct MemberAddressDetail {
 
     #[schema(example = "Tubaton")]
     pub domicile: String,
+}
+
+#[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct MemberWithDetail {
+    #[serde(default)]
+    pub id: i32,
+
+    #[schema(example = 1)]
+    pub musical_instrument_id: Option<i32>,
+
+    #[schema(example = "xyz.png")]
+    pub picture_asset_id: Option<String>,
+
+    #[serde(default)]
+    pub activated: bool,
+
+    #[schema(example = "John")]
+    pub first_name: String,
+
+    #[schema(example = "Doe")]
+    pub last_name: String,
+
+    #[schema(example = "john@doe.void")]
+    pub email_address: String,
+
+    #[schema(example = "+99999999999")]
+    pub phone_number: String,
+}
+
+impl From<&(Member, MemberDetail)> for MemberWithDetail {
+    fn from((member, member_detail): &(Member, MemberDetail)) -> Self {
+        let member = member.clone();
+        let member_detail = member_detail.clone();
+        Self {
+            id: member.id,
+            musical_instrument_id: member.musical_instrument_id,
+            picture_asset_id: member.picture_asset_id,
+            activated: member.activated,
+            first_name: member_detail.first_name,
+            last_name: member_detail.last_name,
+            email_address: member_detail.email_address,
+            phone_number: member_detail.phone_number,
+        }
+    }
 }

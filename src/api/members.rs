@@ -2,7 +2,7 @@
 //! token refreshing routines for a member.
 
 use crate::model::generic::{SearchParams, SearchResult};
-use crate::model::members::{Member, MemberDetail};
+use crate::model::members::{Member, MemberWithDetail};
 use crate::model::security::{LoginData, Role, TokenData, UserClaims};
 use crate::security::OTP_CIPHER;
 use crate::{dal, security, Error, Result};
@@ -28,7 +28,7 @@ pub const CONTEXT: &str = "/api/members";
 #[utoipa::path(
     context_path = CONTEXT,
     responses(
-        (status = 200, description = "A list of matching members", body=[SearchResult<MemberDetail>]),
+        (status = 200, description = "A list of matching members", body=[SearchResult<MemberWithDetail>]),
         (status = 400, description = "Bad Request"),
         (status = 401, description = "Unauthorized"),
         (status = 500, description = "Internal Server Error", body=[String])
@@ -42,7 +42,7 @@ pub const CONTEXT: &str = "/api/members";
 pub async fn search_member_details<'p>(
     pool: Data<dal::DbPool>,
     search_params: Query<SearchParams>,
-) -> Result<Json<SearchResult<MemberDetail>>> {
+) -> Result<Json<SearchResult<MemberWithDetail>>> {
     let mut conn = dal::connect(&pool)?;
     let query = search_params.query.as_ref().ok_or(Error::bad_request())?;
     // The query should not be empty
@@ -50,12 +50,14 @@ pub async fn search_member_details<'p>(
         return Err(Error::bad_request());
     }
 
-    Ok(Json(dal::members::search_member_details(
-        &mut conn,
-        query,
-        20,
-        search_params.page_offset,
-    )?))
+    Ok(Json(
+        dal::members::find_members_with_details_by_search_string(
+            &mut conn,
+            query,
+            20,
+            search_params.page_offset,
+        )?,
+    ))
 }
 
 /// Generate an activation code
@@ -105,6 +107,7 @@ pub async fn activate(
     )?;
     let totp = get_member_totp(&mut conn, &member)?;
     totp.check_current(&activation_data.token)?;
+    dal::members::activate(&mut conn, &member)?;
     Ok(Json(()))
 }
 
@@ -127,7 +130,27 @@ pub async fn login(
     token_signer: Data<TokenSigner<UserClaims, Ed25519>>,
 ) -> Result<HttpResponse> {
     info!("Attempting member login: {}", &login_data.email_address);
-    login_or_renew(&pool, &login_data.email_address, &token_signer)
+    let mut conn = dal::connect(&pool)?;
+    let totp = match pre_login(&mut conn, &login_data) {
+        Ok(totp) => totp,
+        Err(_) => return Ok(HttpResponse::Forbidden().finish()),
+    };
+
+    let is_current = match totp.check_current(&login_data.token) {
+        Ok(checked) => checked,
+        Err(_) => return Ok(HttpResponse::Forbidden().finish()),
+    };
+
+    if is_current {
+        login_or_renew(&mut conn, &login_data.email_address, &token_signer)
+    } else {
+        Ok(HttpResponse::Forbidden().finish())
+    }
+}
+
+fn pre_login(conn: &mut dal::DbConnection, login_data: &Json<LoginData>) -> Result<TOTP> {
+    let member = dal::members::get_member_by_email_address(conn, &login_data.email_address)?;
+    Ok(get_member_totp(conn, &member)?)
 }
 
 /// Check login status
@@ -168,7 +191,8 @@ pub async fn check_login_status(
             "Refreshing tokens for member: {}",
             &user_claims.email_address
         );
-        login_or_renew(&pool, &user_claims.email_address, &token_signer)
+        let mut conn = dal::connect(&pool)?;
+        login_or_renew(&mut conn, &user_claims.email_address, &token_signer)
     } else if security::token_nearly_expires(origin_access_token)? {
         info!(
             "Create new access token for member: {}",
@@ -255,13 +279,12 @@ pub async fn logged_in_is_operator(user_claims: UserClaims) -> Result<Json<()>> 
 }
 
 fn login_or_renew(
-    pool: &dal::DbPool,
+    conn: &mut dal::DbConnection,
     email_address: &str,
     token_signer: &TokenSigner<UserClaims, Ed25519>,
 ) -> Result<HttpResponse> {
-    let mut conn = dal::connect(pool)?;
-    let member = dal::members::get_member_by_email_address(&mut conn, email_address)?;
-    let member_roles = dal::members::get_member_roles_by_member_id(&mut conn, &member.id)?;
+    let member = dal::members::get_member_by_email_address(conn, email_address)?;
+    let member_roles = dal::members::get_member_roles_by_member_id(conn, &member.id)?;
     let user_claims = UserClaims::new(&email_address, &member_roles);
 
     let mut access_cookie = token_signer.create_access_cookie(&user_claims)?;

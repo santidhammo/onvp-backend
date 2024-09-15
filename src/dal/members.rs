@@ -1,15 +1,14 @@
 use crate::dal::DbConnection;
 use crate::model::generic::SearchResult;
-use crate::model::members::{Member, MemberAddressDetail, MemberDetail};
+use crate::model::members::{Member, MemberAddressDetail, MemberDetail, MemberWithDetail};
 use crate::model::security::Role;
 use crate::model::setup::FirstOperator;
 use crate::schema::*;
-use crate::security::generate_encoded_nonce;
+use crate::security::FIRST_OPERATOR_ACTIVATION_MINUTES;
 use crate::{dal, Error, Result};
 use chrono::TimeDelta;
 use diesel::prelude::*;
 use std::collections::HashSet;
-use std::ops::Add;
 
 pub fn has_operators(conn: &mut dal::DbConnection) -> Result<bool> {
     let count: i64 = member_role_associations::dsl::member_role_associations
@@ -26,7 +25,7 @@ pub fn create_first_operator(
     activation_string: &str,
 ) -> Result<()> {
     conn.transaction::<_, Error, _>(|conn| {
-        let data = MemberAddressDetail {
+        let member_address_detail = MemberAddressDetail {
             id: 0,
             street: operator.street.clone(),
             house_number: operator.house_number.clone(),
@@ -34,12 +33,8 @@ pub fn create_first_operator(
             postal_code: operator.postal_code.clone(),
             domicile: operator.domicile.clone(),
         };
-        let mad_id: i32 = diesel::insert_into(member_address_details::dsl::member_address_details)
-            .values(&data)
-            .returning(member_address_details::dsl::id)
-            .get_result(conn)?;
 
-        let data = MemberDetail {
+        let member_detail = MemberDetail {
             id: 0,
             first_name: operator.first_name.clone(),
             last_name: operator.last_name.clone(),
@@ -47,24 +42,39 @@ pub fn create_first_operator(
             phone_number: operator.phone_number.clone(),
         };
 
+        create_inactive_member(
+            conn,
+            member_address_detail,
+            member_detail,
+            activation_string,
+            *FIRST_OPERATOR_ACTIVATION_MINUTES,
+            Role::Operator,
+        )
+    })
+    .map_err(|e| e.into())
+}
+
+pub fn create_inactive_member(
+    conn: &mut DbConnection,
+    member_address_detail: MemberAddressDetail,
+    member_detail: MemberDetail,
+    activation_string: &str,
+    activation_delta: TimeDelta,
+    role: Role,
+) -> Result<()> {
+    conn.transaction::<_, Error, _>(|conn| {
+        let mad_id: i32 = diesel::insert_into(member_address_details::dsl::member_address_details)
+            .values(&member_address_detail)
+            .returning(member_address_details::dsl::id)
+            .get_result(conn)?;
+
         let md_id: i32 = diesel::insert_into(member_details::dsl::member_details)
-            .values(&data)
+            .values(&member_detail)
             .returning(member_details::dsl::id)
             .get_result(conn)?;
 
-        let data = Member {
-            id: 0,
-            member_address_details_id: mad_id,
-            member_details_id: md_id,
-            musical_instrument_id: None,
-            picture_asset_id: None,
-            allow_privacy_info_sharing: false,
-            activated: false,
-            activation_string: activation_string.to_string(),
-            activation_time: chrono::Utc::now().add(TimeDelta::minutes(30)).naive_utc(),
-            creation_time: chrono::Utc::now().naive_utc(),
-            nonce: generate_encoded_nonce(),
-        };
+        let data =
+            internal::create_member_record(activation_string, mad_id, md_id, activation_delta);
 
         let member_id: i32 = diesel::insert_into(members::dsl::members)
             .values(&data)
@@ -74,12 +84,11 @@ pub fn create_first_operator(
         diesel::insert_into(member_role_associations::dsl::member_role_associations)
             .values((
                 member_role_associations::dsl::member_id.eq(member_id),
-                member_role_associations::dsl::system_role.eq(Role::Operator),
+                member_role_associations::dsl::system_role.eq(role),
             ))
             .execute(conn)?;
         Ok(())
     })
-    .map_err(|e| e.into())
 }
 
 pub fn get_member_by_activation_string(
@@ -211,17 +220,17 @@ pub fn activate(conn: &mut DbConnection, member: &Member) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn search_member_details<'p>(
+pub fn find_members_with_details_by_search_string(
     conn: &mut DbConnection,
     search_string: &String,
     page_size: usize,
     page_offset: usize,
-) -> Result<SearchResult<MemberDetail>> {
+) -> Result<SearchResult<MemberWithDetail>> {
     let like_search_string = dal::create_like_string(search_string);
 
-    conn.transaction::<SearchResult<MemberDetail>, Error, _>(|conn| {
+    conn.transaction::<SearchResult<MemberWithDetail>, Error, _>(|conn| {
         // ILIKE is only supported on PostgreSQL
-        match conn {
+        let (total_count, member_details) = match conn {
             DbConnection::PostgreSQL(ref mut conn) => {
                 let filter = member_details::first_name
                     .ilike(&like_search_string)
@@ -233,21 +242,74 @@ pub(crate) fn search_member_details<'p>(
                     .count()
                     .get_result::<i64>(conn)? as usize;
 
-                let rows: Vec<MemberDetail> = member_details::dsl::member_details
-                    .select(member_details::all_columns)
+                let member_details: Vec<(Member, MemberDetail)> = members::table
+                    .inner_join(member_details::table)
                     .filter(filter)
                     .order_by(member_details::last_name)
                     .limit(page_size as i64)
                     .offset(page_offset as i64)
+                    .select((Member::as_select(), MemberDetail::as_select()))
                     .load(conn)?;
 
-                Ok(SearchResult {
-                    total_count,
-                    page_offset,
-                    page_count: dal::calculate_page_count(page_size, total_count),
-                    rows,
-                })
+                (total_count, member_details)
             }
-        }
+
+            DbConnection::SQLite(ref mut conn) => {
+                let filter = member_details::first_name
+                    .like(&like_search_string)
+                    .or(member_details::last_name.like(&like_search_string))
+                    .or(member_details::email_address.like(&like_search_string));
+
+                let total_count: usize = member_details::dsl::member_details
+                    .filter(filter)
+                    .count()
+                    .get_result::<i64>(conn)? as usize;
+
+                let member_details: Vec<(Member, MemberDetail)> = members::table
+                    .inner_join(member_details::table)
+                    .filter(filter)
+                    .order_by(member_details::last_name)
+                    .limit(page_size as i64)
+                    .offset(page_offset as i64)
+                    .select((Member::as_select(), MemberDetail::as_select()))
+                    .load(conn)?;
+
+                (total_count, member_details)
+            }
+        };
+        Ok(SearchResult {
+            total_count,
+            page_offset,
+            page_count: dal::calculate_page_count(page_size, total_count),
+            rows: member_details.iter().map(MemberWithDetail::from).collect(),
+        })
     })
+}
+
+mod internal {
+    use crate::model::members::Member;
+    use crate::security::generate_encoded_nonce;
+    use chrono::TimeDelta;
+    use std::ops::Add;
+    pub(super) fn create_member_record(
+        activation_string: &str,
+        mad_id: i32,
+        md_id: i32,
+        activation_delta: TimeDelta,
+    ) -> Member {
+        let data = Member {
+            id: 0,
+            member_address_details_id: mad_id,
+            member_details_id: md_id,
+            musical_instrument_id: None,
+            picture_asset_id: None,
+            allow_privacy_info_sharing: false,
+            activated: false,
+            activation_string: activation_string.to_string(),
+            activation_time: chrono::Utc::now().add(activation_delta).naive_utc(),
+            creation_time: chrono::Utc::now().naive_utc(),
+            nonce: generate_encoded_nonce(),
+        };
+        data
+    }
 }

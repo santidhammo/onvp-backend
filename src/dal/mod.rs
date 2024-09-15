@@ -2,8 +2,11 @@ use crate::Error;
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, PooledConnection};
 use diesel::PgConnection;
+use diesel::SqliteConnection;
 
 pub mod members;
+
+pub mod mock;
 
 pub fn connect(pool: &DbPool) -> Result<PooledConnection<ConnectionManager<DbConnection>>, Error> {
     pool.get().map_err(|e| crate::Error::from(e))
@@ -14,6 +17,7 @@ pub type DbPool = r2d2::Pool<ConnectionManager<DbConnection>>;
 #[derive(diesel::MultiConnection)]
 pub enum DbConnection {
     PostgreSQL(PgConnection),
+    SQLite(SqliteConnection),
 }
 
 pub fn initialize_db_pool() -> DbPool {

@@ -1,7 +1,6 @@
 use crate::model::members::Member;
-use crate::schema::members;
 use crate::{dal, schema, Error};
-use diesel::{BoolExpressionMethods, Connection, ExpressionMethods, QueryDsl, RunQueryDsl};
+use diesel::prelude::*;
 use log::info;
 
 pub fn clean_late_non_activated_members(pool: dal::DbPool) -> Result<(), Error> {
@@ -12,7 +11,7 @@ pub fn clean_late_non_activated_members(pool: dal::DbPool) -> Result<(), Error> 
         let activation_time_elapsed_filter =
             schema::members::activation_time.lt(chrono::Utc::now().naive_utc());
         let result = schema::members::table
-            .select(members::all_columns)
+            .select(schema::members::all_columns)
             .filter(activated_filter.and(activation_time_elapsed_filter))
             .load::<Member>(conn)?;
 
