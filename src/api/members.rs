@@ -45,19 +45,62 @@ pub async fn search_member_details<'p>(
 ) -> Result<Json<SearchResult<MemberWithDetail>>> {
     let mut conn = dal::connect(&pool)?;
     let query = search_params.query.as_ref().ok_or(Error::bad_request())?;
-    // The query should not be empty
-    if query.is_empty() {
-        return Err(Error::bad_request());
-    }
 
     Ok(Json(
         dal::members::find_members_with_details_by_search_string(
             &mut conn,
             query,
-            20,
+            10,
             search_params.page_offset,
         )?,
     ))
+}
+
+/// Get a member and the primary detail by id
+///
+/// Searches for a member and the primary detail by using the member identifier. If found,
+/// a single record with the member and primary detail is returned.
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "Member and primary detail", body=[MemberWithDetail]),
+        (status = 400, description = "Bad Request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal Server Error", body=[String])
+    )
+)]
+#[get("/member_with_detail/{id}")]
+pub async fn member_with_detail_by_id<'p>(
+    pool: Data<dal::DbPool>,
+    id: web::Path<i32>,
+) -> Result<Json<MemberWithDetail>> {
+    let mut conn = dal::connect(&pool)?;
+
+    Ok(Json(dal::members::get_member_with_detail_by_id(
+        &mut conn,
+        id.into_inner(),
+    )?))
+}
+
+/// Save a member and the primary detail by id
+///
+/// Updates an existing member and primary detail record given the data.
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "Member is updated"),
+        (status = 400, description = "Bad Request"),
+        (status = 500, description = "Internal backend error", body=[String]),
+    )
+)]
+#[post("/member_with_detail")]
+pub async fn update_member_with_detail<'p>(
+    pool: Data<dal::DbPool>,
+    member_with_detail: Json<MemberWithDetail>,
+) -> Result<Json<()>> {
+    let mut conn = dal::connect(&pool)?;
+    dal::members::update_member_with_detail(&mut conn, &member_with_detail)?;
+    Ok(Json(()))
 }
 
 /// Generate an activation code
@@ -91,7 +134,7 @@ pub async fn activation_code(
     context_path = CONTEXT,
     responses(
         (status = 200, description = "Member is activated"),
-        (status = 400, description = "Bad Request", body=[String]),
+        (status = 400, description = "Bad Request"),
         (status = 500, description = "Internal backend error", body=[String]),
     )
 )]
@@ -253,7 +296,7 @@ pub async fn logged_in_name(
 ) -> Result<Json<String>> {
     let mut conn = dal::connect(&pool)?;
     let member_details =
-        dal::members::get_member_details_by_email_address(&mut conn, &user_claims.email_address)?;
+        dal::members::get_member_detail_by_email_address(&mut conn, &user_claims.email_address)?;
     let name = format!("{} {}", member_details.first_name, member_details.last_name)
         .trim()
         .to_string();
@@ -304,7 +347,7 @@ fn get_member_totp(conn: &mut dal::DbConnection, member: &Member) -> Result<TOTP
     let activation_bytes = member.activation_string.as_bytes();
     let otp_cipher = OTP_CIPHER.deref();
     let cipher_text = otp_cipher.encrypt(&nonce, activation_bytes)?;
-    let details = dal::members::get_member_details_by_id(conn, &member.id)?;
+    let details = dal::members::get_member_detail_by_id(conn, &member.id)?;
     security::generate_totp(cipher_text, details.email_address)
 }
 

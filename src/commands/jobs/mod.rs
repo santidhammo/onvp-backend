@@ -20,7 +20,7 @@ pub fn clean_late_non_activated_members(pool: dal::DbPool) -> Result<(), Error> 
         for member in result {
             {
                 let details =
-                    dal::members::get_member_details_by_id(conn, &member.member_details_id)?;
+                    dal::members::get_member_detail_by_id(conn, &member.member_details_id)?;
                 info!(
                     "Deleting member: {} with name: {}",
                     member.id,
@@ -32,8 +32,8 @@ pub fn clean_late_non_activated_members(pool: dal::DbPool) -> Result<(), Error> 
             if result != 1 {
                 return Err(Error::not_enough_records());
             }
-            dal::members::delete_member_details_by_id(conn, member.member_details_id)?;
-            dal::members::delete_member_address_details_by_id(
+            dal::members::delete_member_detail_by_id(conn, member.member_details_id)?;
+            dal::members::delete_member_address_detail_by_id(
                 conn,
                 member.member_address_details_id,
             )?;

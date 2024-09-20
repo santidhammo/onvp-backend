@@ -3,7 +3,10 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-/// This structure is to be used for search purposes, and should be deserialized from the web
+/// To be able to search for several kinds of records, a generic search parameter structure is
+/// set up to be able to perform those search requests. The "query" or "q" parameter is used to
+/// set up the text to query on, the "page_offset" or "p" parameter is used to indicate which
+/// page offset to use.
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug, Default)]
 pub struct SearchParams {
     /// The string to search on
@@ -15,8 +18,9 @@ pub struct SearchParams {
     pub page_offset: usize,
 }
 
-/// This structure is used for the results of a search operation, containing a collection of
-/// rows of the found results.
+/// To facilitate the results of a search operation, a generic container is used which contains
+/// the search results themselves, but also the total count of found results, the page offset
+/// returned and the count of pages in the system.
 #[derive(Serialize, ToSchema, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchResult<T: Serialize> {

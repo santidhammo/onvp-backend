@@ -8,9 +8,10 @@ use crate::security::FIRST_OPERATOR_ACTIVATION_MINUTES;
 use crate::{dal, Error, Result};
 use chrono::TimeDelta;
 use diesel::prelude::*;
+use diesel::update;
 use std::collections::HashSet;
 
-pub fn has_operators(conn: &mut dal::DbConnection) -> Result<bool> {
+pub fn has_operators(conn: &mut DbConnection) -> Result<bool> {
     let count: i64 = member_role_associations::dsl::member_role_associations
         .filter(member_role_associations::dsl::system_role.eq(Role::Operator))
         .count()
@@ -110,7 +111,7 @@ pub fn get_member_by_activation_string(
 }
 
 pub fn get_member_by_email_address(conn: &mut DbConnection, email_address: &str) -> Result<Member> {
-    let member_details = get_member_details_by_email_address(conn, email_address)?;
+    let member_details = get_member_detail_by_email_address(conn, email_address)?;
 
     let activated_filter = members::activated.eq(true);
     let details_filter = members::member_details_id.eq(member_details.id);
@@ -121,7 +122,7 @@ pub fn get_member_by_email_address(conn: &mut DbConnection, email_address: &str)
         .first::<Member>(conn)?)
 }
 
-pub fn get_member_details_by_id(
+pub fn get_member_detail_by_id(
     conn: &mut DbConnection,
     member_details_id: &i32,
 ) -> Result<MemberDetail> {
@@ -133,7 +134,7 @@ pub fn get_member_details_by_id(
         .first::<MemberDetail>(conn)?)
 }
 
-pub fn get_member_details_by_email_address(
+pub fn get_member_detail_by_email_address(
     conn: &mut DbConnection,
     email_address: &str,
 ) -> Result<MemberDetail> {
@@ -145,7 +146,7 @@ pub fn get_member_details_by_email_address(
         .first::<MemberDetail>(conn)?)
 }
 
-pub fn delete_member_address_details_by_id(
+pub fn delete_member_address_detail_by_id(
     conn: &mut DbConnection,
     member_address_details_id: i32,
 ) -> Result<()> {
@@ -165,7 +166,7 @@ pub fn delete_member_address_details_by_id(
     }
 }
 
-pub fn delete_member_details_by_id(conn: &mut DbConnection, member_details_id: i32) -> Result<()> {
+pub fn delete_member_detail_by_id(conn: &mut DbConnection, member_details_id: i32) -> Result<()> {
     let address_details = member_address_details::dsl::member_address_details
         .select(member_address_details::all_columns)
         .filter(member_address_details::id.eq(member_details_id))
@@ -213,11 +214,21 @@ pub(crate) fn get_member_roles_by_member_id(
 }
 
 pub fn activate(conn: &mut DbConnection, member: &Member) -> Result<()> {
-    diesel::update(members::dsl::members)
+    update(members::dsl::members)
         .filter(members::id.eq(member.id))
         .set(members::dsl::activated.eq(true))
         .execute(conn)?;
     Ok(())
+}
+
+pub fn get_member_with_detail_by_id(conn: &mut DbConnection, id: i32) -> Result<MemberWithDetail> {
+    let filter = members::id.eq(id);
+    let result: (Member, MemberDetail) = members::table
+        .inner_join(member_details::table)
+        .filter(filter)
+        .select((Member::as_select(), MemberDetail::as_select()))
+        .first(conn)?;
+    Ok(MemberWithDetail::from(&result))
 }
 
 pub fn find_members_with_details_by_search_string(
@@ -246,8 +257,9 @@ pub fn find_members_with_details_by_search_string(
                     .inner_join(member_details::table)
                     .filter(filter)
                     .order_by(member_details::last_name)
+                    .order_by(member_details::first_name)
                     .limit(page_size as i64)
-                    .offset(page_offset as i64)
+                    .offset((page_offset * page_size) as i64)
                     .select((Member::as_select(), MemberDetail::as_select()))
                     .load(conn)?;
 
@@ -312,4 +324,39 @@ mod internal {
         };
         data
     }
+}
+
+pub(crate) fn update_member_with_detail(
+    conn: &mut DbConnection,
+    member_with_detail: &MemberWithDetail,
+) -> Result<()> {
+    conn.transaction::<_, Error, _>(|conn| {
+        let filter = members::id.eq(member_with_detail.id);
+
+        update(members::table)
+            .filter(filter)
+            .set((
+                members::musical_instrument_id.eq(member_with_detail.musical_instrument_id.clone()),
+                members::picture_asset_id.eq(member_with_detail.picture_asset_id.clone()),
+            ))
+            .execute(conn)?;
+
+        let result: Member = members::table
+            .inner_join(member_details::table)
+            .filter(filter)
+            .select(Member::as_select())
+            .first(conn)?;
+
+        update(member_details::table)
+            .filter(member_details::id.eq(result.member_details_id))
+            .set((
+                member_details::first_name.eq(member_with_detail.first_name.clone()),
+                member_details::last_name.eq(member_with_detail.last_name.clone()),
+                member_details::phone_number.eq(member_with_detail.phone_number.clone()),
+                member_details::email_address.eq(member_with_detail.email_address.clone()),
+            ))
+            .execute(conn)?;
+
+        Ok(())
+    })
 }
