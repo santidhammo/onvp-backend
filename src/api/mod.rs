@@ -36,6 +36,7 @@ use crate::{dal, model, security};
         members::search_member_details,
         members::member_with_detail_by_id,
         members::update_member_with_detail,
+        members::upload_member_picture,
     ),
     components(
         schemas(model::generic::SearchParams),
@@ -98,7 +99,8 @@ pub async fn run_api_server() -> std::io::Result<()> {
                                 web::scope("")
                                     .service(members::search_member_details)
                                     .service(members::member_with_detail_by_id)
-                                    .service(members::update_member_with_detail),
+                                    .service(members::update_member_with_detail)
+                                    .service(members::upload_member_picture),
                             ),
                     ),
             )

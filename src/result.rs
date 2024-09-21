@@ -3,9 +3,11 @@ use actix_web::body::BoxBody;
 use actix_web::http::{header, StatusCode};
 use actix_web::web::BytesMut;
 use actix_web::{HttpResponse, ResponseError};
+use image::ImageError;
 use jwt_compact::{ParseError, ValidationError};
 use r2d2;
 use serde::Serialize;
+use std::env::VarError;
 use std::fmt::{Debug, Display, Formatter, Write};
 use std::time::SystemTimeError;
 use totp_rs::TotpUrlError;
@@ -45,6 +47,7 @@ pub enum ErrorKind {
     Base64Decode(String),
     Base64Encode(String),
     TOTP(String),
+    VarError(String),
 }
 
 impl ErrorKind {
@@ -60,6 +63,7 @@ impl ErrorKind {
             ErrorKind::Base64Decode(_) => "BASE_64_DECODE",
             ErrorKind::Base64Encode(_) => "BASE_64_ENCODE",
             ErrorKind::TOTP(_) => "TOTP",
+            ErrorKind::VarError(_) => "VAR_ERROR",
         }
     }
 
@@ -82,6 +86,7 @@ impl ErrorKind {
             ErrorKind::Base64Decode(s) => s.to_string(),
             ErrorKind::Base64Encode(s) => s.to_string(),
             ErrorKind::TOTP(s) => s.to_string(),
+            ErrorKind::VarError(s) => s.to_string(),
         }
     }
 }
@@ -216,6 +221,30 @@ impl From<ValidationError> for Error {
     fn from(_: ValidationError) -> Self {
         Self {
             kind: ErrorKind::BadRequest,
+        }
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(_: std::io::Error) -> Self {
+        Self {
+            kind: ErrorKind::BadRequest,
+        }
+    }
+}
+
+impl From<ImageError> for Error {
+    fn from(_: ImageError) -> Self {
+        Self {
+            kind: ErrorKind::BadRequest,
+        }
+    }
+}
+
+impl From<VarError> for Error {
+    fn from(value: VarError) -> Self {
+        Self {
+            kind: ErrorKind::VarError(value.to_string()),
         }
     }
 }

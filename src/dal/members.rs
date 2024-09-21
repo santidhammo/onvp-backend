@@ -110,6 +110,13 @@ pub fn get_member_by_activation_string(
         .first::<Member>(conn)?)
 }
 
+pub fn get_member_by_id(conn: &mut DbConnection, id: &i32) -> Result<Member> {
+    Ok(members::table
+        .select(members::all_columns)
+        .filter(members::id.eq(id))
+        .first::<Member>(conn)?)
+}
+
 pub fn get_member_by_email_address(conn: &mut DbConnection, email_address: &str) -> Result<Member> {
     let member_details = get_member_detail_by_email_address(conn, email_address)?;
 
@@ -298,6 +305,52 @@ pub fn find_members_with_details_by_search_string(
     })
 }
 
+pub(crate) fn update_member_with_detail(
+    conn: &mut DbConnection,
+    member_with_detail: &MemberWithDetail,
+) -> Result<()> {
+    conn.transaction::<_, Error, _>(|conn| {
+        let filter = members::id.eq(member_with_detail.id);
+
+        update(members::table)
+            .filter(filter)
+            .set(
+                members::musical_instrument_id.eq(member_with_detail.musical_instrument_id.clone()),
+            )
+            .execute(conn)?;
+
+        let result: Member = members::table
+            .inner_join(member_details::table)
+            .filter(filter)
+            .select(Member::as_select())
+            .first(conn)?;
+
+        update(member_details::table)
+            .filter(member_details::id.eq(result.member_details_id))
+            .set((
+                member_details::first_name.eq(member_with_detail.first_name.clone()),
+                member_details::last_name.eq(member_with_detail.last_name.clone()),
+                member_details::phone_number.eq(member_with_detail.phone_number.clone()),
+                member_details::email_address.eq(member_with_detail.email_address.clone()),
+            ))
+            .execute(conn)?;
+
+        Ok(())
+    })
+}
+
+pub(crate) fn store_member_picture_asset_id(
+    conn: &mut DbConnection,
+    member_id: &i32,
+    picture_asset_id: &str,
+) -> Result<()> {
+    update(members::table)
+        .filter(members::id.eq(member_id))
+        .set(members::picture_asset_id.eq(picture_asset_id))
+        .execute(conn)?;
+    Ok(())
+}
+
 mod internal {
     use crate::model::members::Member;
     use crate::security::generate_encoded_nonce;
@@ -324,39 +377,4 @@ mod internal {
         };
         data
     }
-}
-
-pub(crate) fn update_member_with_detail(
-    conn: &mut DbConnection,
-    member_with_detail: &MemberWithDetail,
-) -> Result<()> {
-    conn.transaction::<_, Error, _>(|conn| {
-        let filter = members::id.eq(member_with_detail.id);
-
-        update(members::table)
-            .filter(filter)
-            .set((
-                members::musical_instrument_id.eq(member_with_detail.musical_instrument_id.clone()),
-                members::picture_asset_id.eq(member_with_detail.picture_asset_id.clone()),
-            ))
-            .execute(conn)?;
-
-        let result: Member = members::table
-            .inner_join(member_details::table)
-            .filter(filter)
-            .select(Member::as_select())
-            .first(conn)?;
-
-        update(member_details::table)
-            .filter(member_details::id.eq(result.member_details_id))
-            .set((
-                member_details::first_name.eq(member_with_detail.first_name.clone()),
-                member_details::last_name.eq(member_with_detail.last_name.clone()),
-                member_details::phone_number.eq(member_with_detail.phone_number.clone()),
-                member_details::email_address.eq(member_with_detail.email_address.clone()),
-            ))
-            .execute(conn)?;
-
-        Ok(())
-    })
 }

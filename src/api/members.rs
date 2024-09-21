@@ -5,11 +5,10 @@ use crate::model::generic::{SearchParams, SearchResult};
 use crate::model::members::{Member, MemberWithDetail};
 use crate::model::security::{LoginData, Role, TokenData, UserClaims};
 use crate::security::OTP_CIPHER;
-use crate::{dal, security, Error, Result};
+use crate::{dal, imaging, security, Error, Result};
 use actix_jwt_auth_middleware::TokenSigner;
 use actix_web::cookie::time::OffsetDateTime;
 use actix_web::cookie::{Cookie, Expiration, SameSite};
-use actix_web::web::{Data, Json, Query};
 use actix_web::{get, post, web, HttpRequest, HttpResponse};
 use aes_gcm::aead::Aead;
 use jwt_compact::alg::Ed25519;
@@ -39,14 +38,14 @@ pub const CONTEXT: &str = "/api/members";
     )
 )]
 #[get("/search_member_details")]
-pub async fn search_member_details<'p>(
-    pool: Data<dal::DbPool>,
-    search_params: Query<SearchParams>,
-) -> Result<Json<SearchResult<MemberWithDetail>>> {
+pub async fn search_member_details(
+    pool: web::Data<dal::DbPool>,
+    search_params: web::Query<SearchParams>,
+) -> Result<web::Json<SearchResult<MemberWithDetail>>> {
     let mut conn = dal::connect(&pool)?;
     let query = search_params.query.as_ref().ok_or(Error::bad_request())?;
 
-    Ok(Json(
+    Ok(web::Json(
         dal::members::find_members_with_details_by_search_string(
             &mut conn,
             query,
@@ -70,13 +69,13 @@ pub async fn search_member_details<'p>(
     )
 )]
 #[get("/member_with_detail/{id}")]
-pub async fn member_with_detail_by_id<'p>(
-    pool: Data<dal::DbPool>,
+pub async fn member_with_detail_by_id(
+    pool: web::Data<dal::DbPool>,
     id: web::Path<i32>,
-) -> Result<Json<MemberWithDetail>> {
+) -> Result<web::Json<MemberWithDetail>> {
     let mut conn = dal::connect(&pool)?;
 
-    Ok(Json(dal::members::get_member_with_detail_by_id(
+    Ok(web::Json(dal::members::get_member_with_detail_by_id(
         &mut conn,
         id.into_inner(),
     )?))
@@ -94,13 +93,37 @@ pub async fn member_with_detail_by_id<'p>(
     )
 )]
 #[post("/member_with_detail")]
-pub async fn update_member_with_detail<'p>(
-    pool: Data<dal::DbPool>,
-    member_with_detail: Json<MemberWithDetail>,
-) -> Result<Json<()>> {
+pub async fn update_member_with_detail(
+    pool: web::Data<dal::DbPool>,
+    member_with_detail: web::Json<MemberWithDetail>,
+) -> Result<HttpResponse> {
     let mut conn = dal::connect(&pool)?;
     dal::members::update_member_with_detail(&mut conn, &member_with_detail)?;
-    Ok(Json(()))
+    Ok(HttpResponse::Ok().finish())
+}
+
+/// Upload the picture of a member
+///
+/// Uploads the picture of a member, adjusting it to the appropriate size by cropping it and
+/// scaling it automatically.
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "Successful upload of the picture", body=[String]),
+        (status = 400, description = "Bad Request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal Server Error", body=[String])
+    )
+)]
+#[post("/member_picture/{id}")]
+pub async fn upload_member_picture(
+    pool: web::Data<dal::DbPool>,
+    id: web::Path<i32>,
+    data: web::Bytes,
+) -> Result<web::Json<String>> {
+    let mut conn = dal::connect(&pool)?;
+    let result = imaging::handle_upload_member_picture(&mut conn, &id, &data)?;
+    Ok(web::Json(result))
 }
 
 /// Generate an activation code
@@ -116,13 +139,13 @@ pub async fn update_member_with_detail<'p>(
 )]
 #[get("/activation/code/{activation_string}")]
 pub async fn activation_code(
-    pool: Data<dal::DbPool>,
+    pool: web::Data<dal::DbPool>,
     activation_string: web::Path<String>,
-) -> Result<Json<String>> {
+) -> Result<web::Json<String>> {
     let mut conn = dal::connect(&pool)?;
     let member = dal::members::get_member_by_activation_string(&mut conn, &activation_string)?;
     let totp = get_member_totp(&mut conn, &member)?;
-    Ok(Json(generate_qr_code(totp)?))
+    Ok(web::Json(generate_qr_code(totp)?))
 }
 
 /// Activate a member
@@ -140,9 +163,9 @@ pub async fn activation_code(
 )]
 #[post("/activation/activate")]
 pub async fn activate(
-    pool: Data<dal::DbPool>,
-    activation_data: Json<TokenData>,
-) -> Result<Json<()>> {
+    pool: web::Data<dal::DbPool>,
+    activation_data: web::Json<TokenData>,
+) -> Result<HttpResponse> {
     let mut conn = dal::connect(&pool)?;
     let member = dal::members::get_member_by_activation_string(
         &mut conn,
@@ -151,7 +174,7 @@ pub async fn activate(
     let totp = get_member_totp(&mut conn, &member)?;
     totp.check_current(&activation_data.token)?;
     dal::members::activate(&mut conn, &member)?;
-    Ok(Json(()))
+    Ok(HttpResponse::Ok().finish())
 }
 
 /// Login a member
@@ -168,9 +191,9 @@ pub async fn activate(
 )]
 #[post("/login")]
 pub async fn login(
-    pool: Data<dal::DbPool>,
-    login_data: Json<LoginData>,
-    token_signer: Data<TokenSigner<UserClaims, Ed25519>>,
+    pool: web::Data<dal::DbPool>,
+    login_data: web::Json<LoginData>,
+    token_signer: web::Data<TokenSigner<UserClaims, Ed25519>>,
 ) -> Result<HttpResponse> {
     info!("Attempting member login: {}", &login_data.email_address);
     let mut conn = dal::connect(&pool)?;
@@ -191,7 +214,7 @@ pub async fn login(
     }
 }
 
-fn pre_login(conn: &mut dal::DbConnection, login_data: &Json<LoginData>) -> Result<TOTP> {
+fn pre_login(conn: &mut dal::DbConnection, login_data: &web::Json<LoginData>) -> Result<TOTP> {
     let member = dal::members::get_member_by_email_address(conn, &login_data.email_address)?;
     Ok(get_member_totp(conn, &member)?)
 }
@@ -208,10 +231,10 @@ fn pre_login(conn: &mut dal::DbConnection, login_data: &Json<LoginData>) -> Resu
 )]
 #[get("/check_login_status")]
 pub async fn check_login_status(
-    pool: Data<dal::DbPool>,
+    pool: web::Data<dal::DbPool>,
     user_claims: UserClaims,
     http_request: HttpRequest,
-    token_signer: Data<TokenSigner<UserClaims, Ed25519>>,
+    token_signer: web::Data<TokenSigner<UserClaims, Ed25519>>,
 ) -> Result<HttpResponse> {
     info!("Refreshing member login: {}", &user_claims.email_address);
     let origin_access_cookie = http_request
@@ -292,15 +315,15 @@ pub async fn logout() -> HttpResponse {
 #[get("/logged_in_name")]
 pub async fn logged_in_name(
     user_claims: UserClaims,
-    pool: Data<dal::DbPool>,
-) -> Result<Json<String>> {
+    pool: web::Data<dal::DbPool>,
+) -> Result<web::Json<String>> {
     let mut conn = dal::connect(&pool)?;
     let member_details =
         dal::members::get_member_detail_by_email_address(&mut conn, &user_claims.email_address)?;
     let name = format!("{} {}", member_details.first_name, member_details.last_name)
         .trim()
         .to_string();
-    Ok(Json(name))
+    Ok(web::Json(name))
 }
 
 /// Is logged in member an operator
@@ -309,14 +332,14 @@ pub async fn logged_in_name(
 #[utoipa::path(
     context_path = CONTEXT,
     responses(
-        (status = 200, description = "The member name"),
+        (status = 200, description = "Successful check on the operator role"),
         (status = 400, description = "Bad Request", body=[String])
     )
 )]
 #[get("/logged_in_is_operator")]
-pub async fn logged_in_is_operator(user_claims: UserClaims) -> Result<Json<()>> {
+pub async fn logged_in_is_operator(user_claims: UserClaims) -> Result<HttpResponse> {
     match user_claims.has_role(Role::Operator) {
-        true => Ok(Json(())),
+        true => Ok(HttpResponse::Ok().finish()),
         false => Err(Error::bad_request()),
     }
 }
