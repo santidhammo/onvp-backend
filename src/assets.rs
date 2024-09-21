@@ -1,21 +1,20 @@
 use crate::dal::DbConnection;
-use crate::{dal, Error};
+use crate::model::members::Member;
+use crate::{dal, Error, Result};
 use actix_web::web::Bytes;
-use diesel::r2d2::ConnectionManager;
 use diesel::Connection;
 use image::codecs::png::PngEncoder;
 use image::imageops::FilterType;
 use image::{DynamicImage, ImageReader};
 use log::info;
-use r2d2::PooledConnection;
 use std::fs::OpenOptions;
-use std::io::Cursor;
+use std::io::{Cursor, Read};
 
 pub fn handle_upload_member_picture(
-    conn: &mut PooledConnection<ConnectionManager<DbConnection>>,
+    conn: &mut DbConnection,
     member_id: &i32,
     data: &Bytes,
-) -> crate::Result<String> {
+) -> Result<String> {
     let result = conn.transaction::<String, Error, _>(|conn| {
         let member = dal::members::get_member_by_id(conn, &member_id)?;
         // Mark the already existing picture for deletion, if it exists
@@ -45,7 +44,43 @@ pub fn handle_upload_member_picture(
     Ok(result)
 }
 
-fn load_alien_member_picture(data: &Bytes) -> crate::Result<DynamicImage> {
+pub fn handle_retrieve_member_picture_operator(
+    conn: &mut DbConnection,
+    member_id: &i32,
+) -> Result<Option<Bytes>> {
+    let member = dal::members::get_member_by_id(conn, &member_id)?;
+    read_member_picture_asset(member)
+}
+
+pub(crate) fn handle_retrieve_member_picture_dpia(
+    conn: &mut DbConnection,
+    member_id: &i32,
+) -> Result<Option<Bytes>> {
+    let member = dal::members::get_member_by_id(conn, &member_id)?;
+    if member.allow_privacy_info_sharing {
+        read_member_picture_asset(member)
+    } else {
+        Ok(None)
+    }
+}
+
+fn read_member_picture_asset(member: Member) -> Result<Option<Bytes>> {
+    if let Some(asset_id) = member.picture_asset_id {
+        Ok(Some(read_asset(&asset_id)?))
+    } else {
+        Ok(None)
+    }
+}
+
+fn read_asset(asset_id: &String) -> Result<Bytes> {
+    let pb = crate::path_for_asset_id(&asset_id)?;
+    let mut r = OpenOptions::new().read(true).open(&pb)?;
+    let mut v = Vec::new();
+    r.read_to_end(&mut v)?;
+    Ok(Bytes::from(v))
+}
+
+fn load_alien_member_picture(data: &Bytes) -> Result<DynamicImage> {
     let reader = ImageReader::new(Cursor::new(&data)).with_guessed_format()?;
     let dynamic_image = reader.decode()?;
 
@@ -87,6 +122,5 @@ fn crop_as_passport_image(dynamic_image: DynamicImage) -> DynamicImage {
 
 // Reinterpret image @ 300 dpi => 413 dots x 531 dots for a 3.5 x 4.5 cm passport image
 fn resize_passport_image(dynamic_image: DynamicImage) -> DynamicImage {
-    let dynamic_image = dynamic_image.resize(413, 531, FilterType::Triangle);
-    dynamic_image
+    dynamic_image.resize(413, 531, FilterType::Triangle)
 }

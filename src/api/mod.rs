@@ -37,6 +37,8 @@ use crate::{dal, model, security};
         members::member_with_detail_by_id,
         members::update_member_with_detail,
         members::upload_member_picture,
+        members::retrieve_member_picture_asset,
+        members::retrieve_member_picture,
     ),
     components(
         schemas(model::generic::SearchParams),
@@ -92,6 +94,8 @@ pub async fn run_api_server() -> std::io::Result<()> {
                             .service(members::logout)
                             .service(members::logged_in_name)
                             .service(members::logged_in_is_operator)
+                            .service(members::retrieve_member_picture_asset)
+                            .service(members::retrieve_member_picture)
                             .use_state_guard(
                                 |claims: UserClaims| async move {
                                     security::operator_state_guard(&claims)

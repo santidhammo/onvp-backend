@@ -5,10 +5,11 @@ use crate::model::generic::{SearchParams, SearchResult};
 use crate::model::members::{Member, MemberWithDetail};
 use crate::model::security::{LoginData, Role, TokenData, UserClaims};
 use crate::security::OTP_CIPHER;
-use crate::{dal, imaging, security, Error, Result};
+use crate::{assets, dal, security, Error, Result};
 use actix_jwt_auth_middleware::TokenSigner;
 use actix_web::cookie::time::OffsetDateTime;
 use actix_web::cookie::{Cookie, Expiration, SameSite};
+use actix_web::http::header::ContentType;
 use actix_web::{get, post, web, HttpRequest, HttpResponse};
 use aes_gcm::aead::Aead;
 use jwt_compact::alg::Ed25519;
@@ -122,7 +123,75 @@ pub async fn upload_member_picture(
     data: web::Bytes,
 ) -> Result<web::Json<String>> {
     let mut conn = dal::connect(&pool)?;
-    let result = imaging::handle_upload_member_picture(&mut conn, &id, &data)?;
+    let result = assets::handle_upload_member_picture(&mut conn, &id, &data)?;
+    Ok(web::Json(result))
+}
+
+/// Retrieves the picture of a member, if available
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "Successful picture retrieval", content_type="image/png"),
+        (status = 410, description = "Picture not available"),
+        (status = 400, description = "Bad Request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal Server Error", body=[String])
+    )
+)]
+#[get("/member_picture/{id}.png")]
+pub async fn retrieve_member_picture_asset(
+    pool: web::Data<dal::DbPool>,
+    id: web::Path<i32>,
+    claims: UserClaims,
+) -> Result<HttpResponse> {
+    let mut conn = dal::connect(&pool)?;
+    let result = if claims.has_role(Role::Operator) {
+        assets::handle_retrieve_member_picture_operator(&mut conn, &id)?
+    } else if claims.has_role(Role::Member) {
+        assets::handle_retrieve_member_picture_dpia(&mut conn, &id)?
+    } else {
+        return Err(Error::bad_request());
+    };
+    match result {
+        None => Ok(HttpResponse::Gone().finish()),
+        Some(data) => Ok(HttpResponse::Ok()
+            .insert_header(ContentType::png())
+            .body(data)),
+    }
+}
+
+/// Retrieves the picture asset identifier of a member
+///
+/// If a member has a picture asset identifier, retrieves it. If the result is empty, no picture
+/// is available.
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "Successful picture retrieval", body=[Option<String>]),
+        (status = 400, description = "Bad Request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal Server Error", body=[String])
+    )
+)]
+#[get("/member_picture/{id}")]
+pub async fn retrieve_member_picture(
+    pool: web::Data<dal::DbPool>,
+    id: web::Path<i32>,
+    claims: UserClaims,
+) -> Result<web::Json<Option<String>>> {
+    let mut conn = dal::connect(&pool)?;
+    let member = dal::members::get_member_by_id(&mut conn, &id)?;
+    let result = if claims.has_role(Role::Operator) {
+        member.picture_asset_id
+    } else if claims.has_role(Role::Member) {
+        if member.allow_privacy_info_sharing {
+            member.picture_asset_id
+        } else {
+            None
+        }
+    } else {
+        return Err(Error::bad_request());
+    };
     Ok(web::Json(result))
 }
 

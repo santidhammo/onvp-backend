@@ -1,7 +1,7 @@
 pub mod api;
+mod assets;
 pub mod commands;
 pub mod dal;
-mod imaging;
 pub mod model;
 pub mod result;
 pub mod schema;
