@@ -18,8 +18,9 @@ use utoipa_rapidoc::RapiDoc;
 pub mod members;
 pub mod setup;
 
+use crate::generic::security;
 use crate::model::security::UserClaims;
-use crate::{dal, model, security};
+use crate::{dal, model};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -39,6 +40,7 @@ use crate::{dal, model, security};
         members::upload_member_picture,
         members::retrieve_member_picture_asset,
         members::retrieve_member_picture,
+        members::register_member,
     ),
     components(
         schemas(model::generic::SearchParams),
@@ -46,6 +48,7 @@ use crate::{dal, model, security};
         schemas(model::members::Member),
         schemas(model::members::MemberDetail),
         schemas(model::members::MemberWithDetail),
+        schemas(model::members::MemberRegistrationData),
         schemas(model::setup::FirstOperator),
         schemas(model::security::TokenData),
         schemas(model::security::LoginData),
@@ -104,7 +107,8 @@ pub async fn run_api_server() -> std::io::Result<()> {
                                     .service(members::search_member_details)
                                     .service(members::member_with_detail_by_id)
                                     .service(members::update_member_with_detail)
-                                    .service(members::upload_member_picture),
+                                    .service(members::upload_member_picture)
+                                    .service(members::register_member),
                             ),
                     ),
             )

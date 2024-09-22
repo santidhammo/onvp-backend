@@ -1,15 +1,19 @@
+use crate::model::members::Member;
 use crate::model::security::{Role, UserClaims};
 use crate::result::Result;
-use crate::Error;
-use aes_gcm::aead::OsRng;
+use crate::{dal, Error};
+use aes_gcm::aead::{Aead, OsRng};
 use aes_gcm::{AeadCore, Aes256Gcm, Key, KeyInit};
 use base64::{engine::general_purpose, Engine as _};
 use chrono::{TimeDelta, Utc};
 use jwt_compact::UntrustedToken;
+use rand::distributions::{Alphanumeric, DistString};
+use rand::thread_rng;
 use std::env;
-use std::ops::Add;
+use std::ops::{Add, Deref};
 use std::sync::LazyLock;
-use totp_rs::{Algorithm, Secret, TOTP};
+pub use totp_rs::TOTP;
+use totp_rs::{Algorithm, Secret};
 
 /// This is the high watermark on which an access and/or refresh token needs to be recreated. If
 /// an access token nearly expires, only a new access token is generated. The expiry of a
@@ -75,3 +79,22 @@ pub static FIRST_OPERATOR_ACTIVATION_MINUTES: LazyLock<TimeDelta> = LazyLock::ne
         .expect("FIRST_OPERATOR_ACTIVATION_MINUTES must be integer");
     TimeDelta::minutes(value as i64)
 });
+
+pub fn create_activation_string() -> String {
+    let validation_string = Alphanumeric.sample_string(&mut thread_rng(), 32);
+    validation_string
+}
+
+pub fn get_member_totp(conn: &mut dal::DbConnection, member: &Member) -> Result<TOTP> {
+    let nonce = member.decoded_nonce()?;
+    let activation_bytes = member.activation_string.as_bytes();
+    let otp_cipher = OTP_CIPHER.deref();
+    let cipher_text = otp_cipher.encrypt(&nonce, activation_bytes)?;
+    let details = dal::members::get_member_detail_by_id(conn, &member.member_details_id)?;
+    generate_totp(cipher_text, details.email_address)
+}
+
+pub fn generate_qr_code(totp: TOTP) -> Result<String> {
+    totp.get_qr_base64()
+        .map_err(|e| Error::qr_code_generation(e))
+}

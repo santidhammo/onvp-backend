@@ -1,11 +1,10 @@
 pub mod api;
-mod assets;
 pub mod commands;
 pub mod dal;
+mod generic;
 pub mod model;
 pub mod result;
 pub mod schema;
-pub mod security;
 
 use rand::distributions::{Alphanumeric, DistString};
 use rand::thread_rng;

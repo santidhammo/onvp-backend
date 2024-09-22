@@ -1,10 +1,14 @@
+mod internal;
+
 use crate::dal::DbConnection;
+use crate::generic::security::{FIRST_OPERATOR_ACTIVATION_MINUTES, MEMBER_ACTIVATION_MINUTES};
 use crate::model::generic::SearchResult;
-use crate::model::members::{Member, MemberAddressDetail, MemberDetail, MemberWithDetail};
+use crate::model::members::{
+    Member, MemberAddressDetail, MemberDetail, MemberRegistrationData, MemberWithDetail,
+};
 use crate::model::security::Role;
 use crate::model::setup::FirstOperator;
 use crate::schema::*;
-use crate::security::FIRST_OPERATOR_ACTIVATION_MINUTES;
 use crate::{dal, Error, Result};
 use chrono::TimeDelta;
 use diesel::prelude::*;
@@ -26,22 +30,9 @@ pub fn create_first_operator(
     activation_string: &str,
 ) -> Result<()> {
     conn.transaction::<_, Error, _>(|conn| {
-        let member_address_detail = MemberAddressDetail {
-            id: 0,
-            street: operator.street.clone(),
-            house_number: operator.house_number.clone(),
-            house_number_postfix: operator.house_number_postfix.clone(),
-            postal_code: operator.postal_code.clone(),
-            domicile: operator.domicile.clone(),
-        };
+        let member_address_detail = internal::member_address_detail_from_first_operator(operator);
 
-        let member_detail = MemberDetail {
-            id: 0,
-            first_name: operator.first_name.clone(),
-            last_name: operator.last_name.clone(),
-            email_address: operator.email_address.clone(),
-            phone_number: operator.phone_number.clone(),
-        };
+        let member_detail = internal::member_detail_from_first_operator(operator);
 
         create_inactive_member(
             conn,
@@ -50,6 +41,30 @@ pub fn create_first_operator(
             activation_string,
             *FIRST_OPERATOR_ACTIVATION_MINUTES,
             Role::Operator,
+        )
+    })
+    .map_err(|e| e.into())
+}
+
+pub fn create_new_member_from_member_registration(
+    conn: &mut DbConnection,
+    registration_data: &MemberRegistrationData,
+    activation_string: &str,
+) -> Result<()> {
+    conn.transaction::<_, Error, _>(|conn| {
+        let member_address_detail =
+            internal::member_address_detail_from_member_registration_data(registration_data);
+
+        let member_detail =
+            internal::member_detail_from_member_registration_data(registration_data);
+
+        create_inactive_member(
+            conn,
+            member_address_detail,
+            member_detail,
+            activation_string,
+            *MEMBER_ACTIVATION_MINUTES,
+            Role::Member,
         )
     })
     .map_err(|e| e.into())
@@ -349,32 +364,4 @@ pub(crate) fn store_member_picture_asset_id(
         .set(members::picture_asset_id.eq(picture_asset_id))
         .execute(conn)?;
     Ok(())
-}
-
-mod internal {
-    use crate::model::members::Member;
-    use crate::security::generate_encoded_nonce;
-    use chrono::TimeDelta;
-    use std::ops::Add;
-    pub(super) fn create_member_record(
-        activation_string: &str,
-        mad_id: i32,
-        md_id: i32,
-        activation_delta: TimeDelta,
-    ) -> Member {
-        let data = Member {
-            id: 0,
-            member_address_details_id: mad_id,
-            member_details_id: md_id,
-            musical_instrument_id: None,
-            picture_asset_id: None,
-            allow_privacy_info_sharing: false,
-            activated: false,
-            activation_string: activation_string.to_string(),
-            activation_time: chrono::Utc::now().add(activation_delta).naive_utc(),
-            creation_time: chrono::Utc::now().naive_utc(),
-            nonce: generate_encoded_nonce(),
-        };
-        data
-    }
 }

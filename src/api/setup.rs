@@ -1,9 +1,8 @@
+use crate::generic::security::create_activation_string;
 use crate::model::setup::FirstOperator;
 use crate::{dal, Error};
 use actix_web::web::Json;
 use actix_web::{get, post, web};
-use rand::distributions::{Alphanumeric, DistString};
-use rand::thread_rng;
 
 pub const CONTEXT: &str = "/api/setup";
 
@@ -49,11 +48,11 @@ pub async fn setup_first_operator(
     let mut conn = dal::connect(&pool)?;
     // First check if there are already operators:
     let has_operators = dal::members::has_operators(&mut conn)?;
-    let validation_string = Alphanumeric.sample_string(&mut thread_rng(), 32);
+    let activation_string = create_activation_string();
 
     if !has_operators {
-        dal::members::create_first_operator(&mut conn, &first_operator, &validation_string)?;
-        Ok(Json(validation_string))
+        dal::members::create_first_operator(&mut conn, &first_operator, &activation_string)?;
+        Ok(Json(activation_string))
     } else {
         Err(Error::bad_request())
     }

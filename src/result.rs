@@ -5,6 +5,7 @@ use actix_web::web::BytesMut;
 use actix_web::{HttpResponse, ResponseError};
 use image::ImageError;
 use jwt_compact::{ParseError, ValidationError};
+use lettre::address::AddressError;
 use r2d2;
 use serde::Serialize;
 use std::env::VarError;
@@ -18,6 +19,11 @@ pub struct Error {
 }
 
 impl Error {
+    pub(crate) fn var_error(message: &str) -> Self {
+        Self {
+            kind: ErrorKind::VarError(message.to_string()),
+        }
+    }
     pub(crate) fn not_enough_records() -> Self {
         Self {
             kind: ErrorKind::Database("Not enough records found".to_owned()),
@@ -48,6 +54,8 @@ pub enum ErrorKind {
     Base64Encode(String),
     TOTP(String),
     VarError(String),
+    ConfigError(String),
+    EmailError(String),
 }
 
 impl ErrorKind {
@@ -64,6 +72,8 @@ impl ErrorKind {
             ErrorKind::Base64Encode(_) => "BASE_64_ENCODE",
             ErrorKind::TOTP(_) => "TOTP",
             ErrorKind::VarError(_) => "VAR_ERROR",
+            ErrorKind::ConfigError(_) => "CONFIG_ERROR",
+            ErrorKind::EmailError(_) => "EMAIL_ERROR",
         }
     }
 
@@ -87,6 +97,8 @@ impl ErrorKind {
             ErrorKind::Base64Encode(s) => s.to_string(),
             ErrorKind::TOTP(s) => s.to_string(),
             ErrorKind::VarError(s) => s.to_string(),
+            ErrorKind::ConfigError(s) => s.to_string(),
+            ErrorKind::EmailError(s) => s.to_string(),
         }
     }
 }
@@ -245,6 +257,30 @@ impl From<VarError> for Error {
     fn from(value: VarError) -> Self {
         Self {
             kind: ErrorKind::VarError(value.to_string()),
+        }
+    }
+}
+
+impl From<AddressError> for Error {
+    fn from(value: AddressError) -> Self {
+        Self {
+            kind: ErrorKind::ConfigError(format!("Email configuration error: {value}")),
+        }
+    }
+}
+
+impl From<lettre::error::Error> for Error {
+    fn from(value: lettre::error::Error) -> Self {
+        Self {
+            kind: ErrorKind::EmailError(value.to_string()),
+        }
+    }
+}
+
+impl From<lettre::transport::smtp::Error> for Error {
+    fn from(value: lettre::transport::smtp::Error) -> Self {
+        Self {
+            kind: ErrorKind::EmailError(value.to_string()),
         }
     }
 }

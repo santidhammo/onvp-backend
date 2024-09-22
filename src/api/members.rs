@@ -1,27 +1,59 @@
 //! This file contains the API to manage members and to perform the necessary log in, log out and
 //! token refreshing routines for a member.
 
+use crate::generic::{activation, assets, security};
 use crate::model::generic::{SearchParams, SearchResult};
-use crate::model::members::{Member, MemberWithDetail};
+use crate::model::members::{MemberRegistrationData, MemberWithDetail};
 use crate::model::security::{LoginData, Role, TokenData, UserClaims};
-use crate::security::OTP_CIPHER;
-use crate::{assets, dal, security, Error, Result};
+use crate::{dal, Error, Result};
 use actix_jwt_auth_middleware::TokenSigner;
 use actix_web::cookie::time::OffsetDateTime;
 use actix_web::cookie::{Cookie, Expiration, SameSite};
 use actix_web::http::header::ContentType;
-use actix_web::{get, post, web, HttpRequest, HttpResponse};
-use aes_gcm::aead::Aead;
+use actix_web::{get, post, put, web, HttpRequest, HttpResponse};
+use diesel::Connection;
 use jwt_compact::alg::Ed25519;
 use jwt_compact::UntrustedToken;
 use log::info;
-use std::ops::Deref;
-use totp_rs::TOTP;
 
 /// This is the context of this part of the API
 pub const CONTEXT: &str = "/api/members";
 
-/// Searches for members
+/// Register a member
+///
+/// Registers a new member with the necessary details. Sends an E-Mail to the
+/// newly registered member to activate the account.
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "Successful registration"),
+        (status = 400, description = "Bad Request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal Server Error", body=[String])
+    )
+)]
+#[put("/member")]
+pub async fn register_member(
+    pool: web::Data<dal::DbPool>,
+    registration_data: web::Json<MemberRegistrationData>,
+) -> Result<HttpResponse> {
+    let mut conn = dal::connect(&pool)?;
+    conn.transaction::<_, Error, _>(|conn| {
+        // Create the member record
+        let activation_string = security::create_activation_string();
+        dal::members::create_new_member_from_member_registration(
+            conn,
+            &registration_data,
+            &activation_string,
+        )?;
+        activation::send_activation_email(&registration_data.email_address, &activation_string)?;
+        Ok(())
+    })?;
+
+    Ok(HttpResponse::Ok().finish())
+}
+
+/// Search for members
 ///
 /// Searches on first name, last name and/or email address matching the given query. If no query
 /// is given, results in a Bad Request
@@ -213,8 +245,8 @@ pub async fn activation_code(
 ) -> Result<web::Json<String>> {
     let mut conn = dal::connect(&pool)?;
     let member = dal::members::get_member_by_activation_string(&mut conn, &activation_string)?;
-    let totp = get_member_totp(&mut conn, &member)?;
-    Ok(web::Json(generate_qr_code(totp)?))
+    let totp = security::get_member_totp(&mut conn, &member)?;
+    Ok(web::Json(security::generate_qr_code(totp)?))
 }
 
 /// Activate a member
@@ -240,7 +272,7 @@ pub async fn activate(
         &mut conn,
         &activation_data.activation_string,
     )?;
-    let totp = get_member_totp(&mut conn, &member)?;
+    let totp = security::get_member_totp(&mut conn, &member)?;
     totp.check_current(&activation_data.token)?;
     dal::members::activate(&mut conn, &member)?;
     Ok(HttpResponse::Ok().finish())
@@ -283,9 +315,12 @@ pub async fn login(
     }
 }
 
-fn pre_login(conn: &mut dal::DbConnection, login_data: &web::Json<LoginData>) -> Result<TOTP> {
+fn pre_login(
+    conn: &mut dal::DbConnection,
+    login_data: &web::Json<LoginData>,
+) -> Result<security::TOTP> {
     let member = dal::members::get_member_by_email_address(conn, &login_data.email_address)?;
-    Ok(get_member_totp(conn, &member)?)
+    Ok(security::get_member_totp(conn, &member)?)
 }
 
 /// Check login status
@@ -432,18 +467,4 @@ fn login_or_renew(
         .cookie(access_cookie)
         .cookie(refresh_cookie)
         .json(()))
-}
-
-fn get_member_totp(conn: &mut dal::DbConnection, member: &Member) -> Result<TOTP> {
-    let nonce = member.decoded_nonce()?;
-    let activation_bytes = member.activation_string.as_bytes();
-    let otp_cipher = OTP_CIPHER.deref();
-    let cipher_text = otp_cipher.encrypt(&nonce, activation_bytes)?;
-    let details = dal::members::get_member_detail_by_id(conn, &member.id)?;
-    security::generate_totp(cipher_text, details.email_address)
-}
-
-fn generate_qr_code(totp: TOTP) -> Result<String> {
-    totp.get_qr_base64()
-        .map_err(|e| Error::qr_code_generation(e))
 }

@@ -166,3 +166,37 @@ impl From<&(Member, MemberDetail)> for MemberWithDetail {
         }
     }
 }
+
+/// To register a new member, registration data is necessary. The registration data consists
+/// of the data necessary to create the member itself, alongside the member details and member
+/// address details.
+#[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct MemberRegistrationData {
+    #[schema(example = "John")]
+    pub first_name: String,
+
+    #[schema(example = "Doe")]
+    pub last_name: String,
+
+    #[schema(example = "john@doe.void")]
+    pub email_address: String,
+
+    #[schema(example = "+99999999999")]
+    pub phone_number: String,
+
+    #[schema(example = "Orchestra Road")]
+    pub street: String,
+
+    #[schema(example = 1)]
+    pub house_number: i32,
+
+    #[schema(example = "a")]
+    pub house_number_postfix: Option<String>,
+
+    #[schema(example = "9999ZZ")]
+    pub postal_code: String,
+
+    #[schema(example = "Tubaton")]
+    pub domicile: String,
+}
