@@ -1,10 +1,10 @@
-use crate::{result, Error};
+use crate::Error;
 use actix_jwt_auth_middleware::FromRequest;
 use diesel::backend::Backend;
 use diesel::deserialize::FromSql;
 use diesel::expression::AsExpression;
-use diesel::internal::derives::as_expression::Bound;
-use diesel::sql_types::{Int4, Integer};
+use diesel::serialize::{Output, ToSql};
+use diesel::sql_types::Integer;
 use diesel::FromSqlRow;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -61,8 +61,20 @@ impl UserClaims {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, FromSqlRow, Eq, PartialEq, ToSchema, Hash)]
-#[diesel(sql_type = Int4)]
+#[derive(
+    Serialize,
+    Deserialize,
+    Debug,
+    Clone,
+    Copy,
+    FromSqlRow,
+    Eq,
+    PartialEq,
+    ToSchema,
+    Hash,
+    AsExpression,
+)]
+#[diesel(sql_type = Integer)]
 #[repr(u8)]
 pub enum Role {
     Public = 0x0,
@@ -86,8 +98,23 @@ where
     }
 }
 
+impl<DB> ToSql<Integer, DB> for Role
+where
+    DB: Backend,
+    i32: ToSql<Integer, DB>,
+{
+    fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, DB>) -> diesel::serialize::Result {
+        match self {
+            Role::Public => (Role::Public as i32).to_sql(out),
+            Role::Member => (Role::Member as i32).to_sql(out),
+            Role::OrchestraCommittee => (Role::OrchestraCommittee as i32).to_sql(out),
+            Role::Operator => (Role::Operator as i32).to_sql(out),
+        }
+    }
+}
+
 impl TryFrom<u8> for Role {
-    type Error = result::Error;
+    type Error = Error;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
@@ -100,13 +127,5 @@ impl TryFrom<u8> for Role {
                 x
             ))),
         }
-    }
-}
-
-impl AsExpression<Int4> for Role {
-    type Expression = Bound<Int4, i32>;
-
-    fn as_expression(self) -> Self::Expression {
-        <i32 as AsExpression<Int4>>::as_expression(self as i32)
     }
 }

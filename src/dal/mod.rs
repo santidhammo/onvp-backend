@@ -7,6 +7,7 @@ use diesel::SqliteConnection;
 pub mod members;
 
 pub mod mock;
+pub(crate) mod workgroups;
 
 pub fn connect(pool: &DbPool) -> Result<PooledConnection<ConnectionManager<DbConnection>>, Error> {
     pool.get().map_err(|e| crate::Error::from(e))

@@ -2037,7 +2037,7 @@ dependencies = [
  "serde_json",
  "totp-rs",
  "utoipa",
- "utoipa-rapidoc",
+ "utoipa-scalar",
 ]
 
 [[package]]
@@ -2805,7 +2805,7 @@ dependencies = [
  "cfg-if",
  "libc",
  "psm",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3200,10 +3200,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "utoipa-rapidoc"
-version = "4.0.0"
+name = "utoipa-scalar"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a32488b691c135d58eb78efcf8258ebb3db1ec7447964c6a83bd5e1ab7a39d9"
+checksum = "b3ab4b7269d14d93626b0bfedf212f1b0995cb7d13d35daba21d579511e7fae8"
 dependencies = [
  "actix-web",
  "serde",

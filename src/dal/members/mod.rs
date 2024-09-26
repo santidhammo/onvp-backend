@@ -1,5 +1,8 @@
 mod internal;
 
+#[cfg(test)]
+pub use internal::create_inactive_member;
+
 use crate::dal::DbConnection;
 use crate::generic::security::{FIRST_OPERATOR_ACTIVATION_MINUTES, MEMBER_ACTIVATION_MINUTES};
 use crate::model::generic::SearchResult;
@@ -10,7 +13,6 @@ use crate::model::security::Role;
 use crate::model::setup::FirstOperator;
 use crate::schema::*;
 use crate::{dal, Error, Result};
-use chrono::TimeDelta;
 use diesel::prelude::*;
 use diesel::update;
 use std::collections::HashSet;
@@ -34,7 +36,7 @@ pub fn create_first_operator(
 
         let member_detail = internal::member_detail_from_first_operator(operator);
 
-        create_inactive_member(
+        internal::create_inactive_member(
             conn,
             member_address_detail,
             member_detail,
@@ -58,7 +60,7 @@ pub fn create_new_member_from_member_registration(
         let member_detail =
             internal::member_detail_from_member_registration_data(registration_data);
 
-        create_inactive_member(
+        internal::create_inactive_member(
             conn,
             member_address_detail,
             member_detail,
@@ -68,43 +70,6 @@ pub fn create_new_member_from_member_registration(
         )
     })
     .map_err(|e| e.into())
-}
-
-pub fn create_inactive_member(
-    conn: &mut DbConnection,
-    member_address_detail: MemberAddressDetail,
-    member_detail: MemberDetail,
-    activation_string: &str,
-    activation_delta: TimeDelta,
-    role: Role,
-) -> Result<()> {
-    conn.transaction::<_, Error, _>(|conn| {
-        let mad_id: i32 = diesel::insert_into(member_address_details::dsl::member_address_details)
-            .values(&member_address_detail)
-            .returning(member_address_details::dsl::id)
-            .get_result(conn)?;
-
-        let md_id: i32 = diesel::insert_into(member_details::dsl::member_details)
-            .values(&member_detail)
-            .returning(member_details::dsl::id)
-            .get_result(conn)?;
-
-        let data =
-            internal::create_member_record(activation_string, mad_id, md_id, activation_delta);
-
-        let member_id: i32 = diesel::insert_into(members::dsl::members)
-            .values(&data)
-            .returning(members::dsl::id)
-            .get_result(conn)?;
-
-        diesel::insert_into(member_role_associations::dsl::member_role_associations)
-            .values((
-                member_role_associations::dsl::member_id.eq(member_id),
-                member_role_associations::dsl::system_role.eq(role),
-            ))
-            .execute(conn)?;
-        Ok(())
-    })
 }
 
 pub fn get_member_by_activation_string(

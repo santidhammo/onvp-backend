@@ -1,5 +1,5 @@
-//! This file contains the API to manage members and to perform the necessary log in, log out and
-//! token refreshing routines for a member.
+//! Members are a very core component of the backend and involve a lot of interfaces regarding
+//! member management as well as performing requests regarding members from normal website usage.
 
 use crate::generic::{activation, assets, security};
 use crate::model::generic::{SearchParams, SearchResult};
@@ -33,7 +33,7 @@ pub const CONTEXT: &str = "/api/members";
     )
 )]
 #[put("/member")]
-pub async fn register_member(
+pub async fn register(
     pool: web::Data<dal::DbPool>,
     registration_data: web::Json<MemberRegistrationData>,
 ) -> Result<HttpResponse> {

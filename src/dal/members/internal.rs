@@ -1,7 +1,13 @@
+use crate::dal::DbConnection;
 use crate::generic::security::generate_encoded_nonce;
 use crate::model::members::{Member, MemberAddressDetail, MemberDetail, MemberRegistrationData};
+use crate::model::security::Role;
 use crate::model::setup::FirstOperator;
+use crate::schema::*;
+use crate::Error;
 use chrono::TimeDelta;
+use diesel::prelude::*;
+use diesel::{Connection, RunQueryDsl};
 use std::ops::Add;
 
 pub(super) fn create_member_record(
@@ -76,4 +82,40 @@ pub(super) fn member_address_detail_from_member_registration_data(
         domicile: registration_data.domicile.clone(),
     };
     member_address_detail
+}
+
+pub fn create_inactive_member(
+    conn: &mut DbConnection,
+    member_address_detail: MemberAddressDetail,
+    member_detail: MemberDetail,
+    activation_string: &str,
+    activation_delta: TimeDelta,
+    role: Role,
+) -> crate::Result<()> {
+    conn.transaction::<_, Error, _>(|conn| {
+        let mad_id: i32 = diesel::insert_into(member_address_details::table)
+            .values(&member_address_detail)
+            .returning(member_address_details::id)
+            .get_result(conn)?;
+
+        let md_id: i32 = diesel::insert_into(member_details::table)
+            .values(&member_detail)
+            .returning(member_details::id)
+            .get_result(conn)?;
+
+        let data = create_member_record(activation_string, mad_id, md_id, activation_delta);
+
+        let member_id: i32 = diesel::insert_into(members::table)
+            .values(&data)
+            .returning(members::id)
+            .get_result(conn)?;
+
+        diesel::insert_into(member_role_associations::table)
+            .values((
+                member_role_associations::member_id.eq(member_id),
+                member_role_associations::system_role.eq(role),
+            ))
+            .execute(conn)?;
+        Ok(())
+    })
 }

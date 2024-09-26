@@ -13,10 +13,11 @@ use std::net::Ipv4Addr;
 use std::path::Path;
 use std::time::Duration;
 use utoipa::OpenApi;
-use utoipa_rapidoc::RapiDoc;
+use utoipa_scalar::{Scalar, Servable};
 
 pub mod members;
 pub mod setup;
+pub mod workgroups;
 
 use crate::generic::security;
 use crate::model::security::UserClaims;
@@ -27,6 +28,7 @@ use crate::{dal, model};
     paths(
         setup::should_setup,
         setup::setup_first_operator,
+        members::register,
         members::activation_code,
         members::activate,
         members::login,
@@ -40,7 +42,10 @@ use crate::{dal, model};
         members::upload_member_picture,
         members::retrieve_member_picture_asset,
         members::retrieve_member_picture,
-        members::register_member,
+        workgroups::register,
+        workgroups::associate_role,
+        workgroups::dissociate_role,
+
     ),
     components(
         schemas(model::generic::SearchParams),
@@ -52,10 +57,15 @@ use crate::{dal, model};
         schemas(model::setup::FirstOperator),
         schemas(model::security::TokenData),
         schemas(model::security::LoginData),
+        schemas(model::workgroups::RegisterCommand),
+        schemas(model::workgroups::Entity),
+        schemas(model::workgroups::MemberRelationship),
+        schemas(model::workgroups::RoleAssociation),
     ),
     tags(
         (name = "api::members", description = "Member management endpoints"),
-        (name = "api::setup", description = "Application setup endpoints")
+        (name = "api::setup", description = "Application setup endpoints"),
+        (name = "api::workgroups", description = "Workgroup management endpoints")
     ),
 )]
 pub struct ApiDoc;
@@ -91,7 +101,7 @@ pub async fn run_api_server() -> std::io::Result<()> {
                     .service(members::activate)
                     .service(members::login)
                     .use_jwt(
-                        authority,
+                        authority.clone(),
                         web::scope("")
                             .service(members::check_login_status)
                             .service(members::logout)
@@ -108,16 +118,28 @@ pub async fn run_api_server() -> std::io::Result<()> {
                                     .service(members::member_with_detail_by_id)
                                     .service(members::update_member_with_detail)
                                     .service(members::upload_member_picture)
-                                    .service(members::register_member),
+                                    .service(members::register),
                             ),
                     ),
+            )
+            .service(
+                web::scope(workgroups::CONTEXT).use_jwt(
+                    authority.clone(),
+                    web::scope("").use_state_guard(
+                        |claims: UserClaims| async move { security::operator_state_guard(&claims) },
+                        web::scope("")
+                            .service(workgroups::register)
+                            .service(workgroups::associate_role)
+                            .service(workgroups::dissociate_role),
+                    ),
+                ),
             )
             .service(
                 web::scope(setup::CONTEXT)
                     .service(setup::should_setup)
                     .service(setup::setup_first_operator),
             )
-            .service(RapiDoc::with_openapi("/docs/openapi.json", ApiDoc::openapi()).path("/docs"))
+            .service(Scalar::with_url("/docs", ApiDoc::openapi()))
     })
     .bind((Ipv4Addr::UNSPECIFIED, 8080))?
     .run()
