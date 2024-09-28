@@ -17,4 +17,5 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-pub mod members;
+pub(crate) mod data;
+pub(crate) mod logical;

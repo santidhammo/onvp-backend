@@ -1,5 +1,5 @@
 use crate::generic::security::create_activation_string;
-use crate::model::setup::FirstOperator;
+use crate::model::commands::FirstOperatorRegisterCommand;
 use crate::{dal, Error};
 use actix_web::web::Json;
 use actix_web::{get, post, web};
@@ -43,7 +43,7 @@ pub async fn should_setup(pool: web::Data<dal::DbPool>) -> Result<Json<bool>, Er
 #[post("/setup_first_operator")]
 pub async fn setup_first_operator(
     pool: web::Data<dal::DbPool>,
-    first_operator: Json<FirstOperator>,
+    first_operator: Json<FirstOperatorRegisterCommand>,
 ) -> Result<Json<String>, Error> {
     let mut conn = dal::connect(&pool)?;
     // First check if there are already operators:
@@ -51,7 +51,7 @@ pub async fn setup_first_operator(
     let activation_string = create_activation_string();
 
     if !has_operators {
-        dal::members::create_first_operator(&mut conn, &first_operator, &activation_string)?;
+        dal::members::register_first_operator(&mut conn, &first_operator, &activation_string)?;
         Ok(Json(activation_string))
     } else {
         Err(Error::bad_request())

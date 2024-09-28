@@ -17,4 +17,19 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-pub mod members;
+//! Relationships connect entities together and can be registered and unregistered
+
+use diesel::{Insertable, Selectable};
+use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
+
+#[derive(Serialize, Deserialize, ToSchema, Clone, Debug, Insertable, Selectable)]
+#[serde(rename_all = "camelCase")]
+#[diesel(table_name = crate::schema::workgroup_member_relationships)]
+pub struct WorkgroupMemberRelationship {
+    #[schema(example = 1)]
+    pub workgroup_id: i32,
+
+    #[schema(example = 1)]
+    pub member_id: i32,
+}

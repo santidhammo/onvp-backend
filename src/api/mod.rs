@@ -1,3 +1,24 @@
+/*
+ *  ONVP Backend - Backend API provider for the ONVP website
+ *
+ * Copyright (c) 2024.  Sjoerd van Leent
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+//! Exposes the API
+
 use actix_jwt_auth_middleware::use_jwt::UseJWTOnScope;
 use actix_jwt_auth_middleware::{Authority, TokenSigner};
 use actix_state_guards::UseStateGuardOnScope;
@@ -19,9 +40,9 @@ pub mod members;
 pub mod setup;
 pub mod workgroups;
 
+use crate::dal;
 use crate::generic::security;
-use crate::model::security::UserClaims;
-use crate::{dal, model};
+use crate::model::prelude::*;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -38,34 +59,47 @@ use crate::{dal, model};
         members::logged_in_is_operator,
         members::search_member_details,
         members::member_with_detail_by_id,
-        members::update_member_with_detail,
+        members::update,
         members::upload_member_picture,
         members::retrieve_member_picture_asset,
         members::retrieve_member_picture,
+        members::associate_role,
+        members::dissociate_role,
         workgroups::register,
         workgroups::associate_role,
         workgroups::dissociate_role,
-
+        source_code::details,
     ),
     components(
-        schemas(model::generic::SearchParams),
-        schemas(model::generic::SearchResult<model::members::MemberDetail>),
-        schemas(model::members::Member),
-        schemas(model::members::MemberDetail),
-        schemas(model::members::MemberWithDetail),
-        schemas(model::members::MemberRegistrationData),
-        schemas(model::setup::FirstOperator),
-        schemas(model::security::TokenData),
-        schemas(model::security::LoginData),
-        schemas(model::workgroups::RegisterCommand),
-        schemas(model::workgroups::Entity),
-        schemas(model::workgroups::MemberRelationship),
-        schemas(model::workgroups::RoleAssociation),
+        schemas(TokenData),
+        schemas(LoginData),
+
+        schemas(FirstOperatorRegisterCommand),
+        schemas(MemberRegisterCommand),
+        schemas(MemberUpdateCommand),
+        schemas(WorkgroupRegisterCommand),
+
+        schemas(SearchParams),
+
+        schemas(SearchResult<MemberWithDetailLogicalEntity>),
+        schemas(MemberEntity),
+        schemas(MemberAddressDetailEntity),
+        schemas(MemberDetailEntity),
+        schemas(MemberWithDetailLogicalEntity),
+
+        schemas(WorkgroupEntity),
+
+        schemas(MemberRoleAssociation),
+        schemas(WorkgroupRoleAssociation),
+
+        schemas(WorkgroupMemberRelationship),
+
     ),
     tags(
         (name = "api::members", description = "Member management endpoints"),
         (name = "api::setup", description = "Application setup endpoints"),
-        (name = "api::workgroups", description = "Workgroup management endpoints")
+        (name = "api::workgroups", description = "Workgroup management endpoints"),
+        (name = "api::source_code", description = "Source Code endpoints")
     ),
 )]
 pub struct ApiDoc;
@@ -116,7 +150,7 @@ pub async fn run_api_server() -> std::io::Result<()> {
                                 web::scope("")
                                     .service(members::search_member_details)
                                     .service(members::member_with_detail_by_id)
-                                    .service(members::update_member_with_detail)
+                                    .service(members::update)
                                     .service(members::upload_member_picture)
                                     .service(members::register),
                             ),
@@ -140,6 +174,7 @@ pub async fn run_api_server() -> std::io::Result<()> {
                     .service(setup::setup_first_operator),
             )
             .service(Scalar::with_url("/docs", ApiDoc::openapi()))
+            .service(source_code::details)
     })
     .bind((Ipv4Addr::UNSPECIFIED, 8080))?
     .run()
@@ -161,4 +196,37 @@ fn load_key_pair() -> (SecretKey, PublicKey) {
     } = KeyPair::from_pem(&pem)
         .expect("Key pair should be created with the specified file in JWT_KEYS");
     (secret_key, public_key)
+}
+
+mod source_code {
+    use crate::{BACKEND_SOURCE_CODE_URL, FRONTEND_SOURCE_CODE_URL};
+    use actix_web::get;
+    use actix_web::web::Json;
+    use serde::Serialize;
+    use std::sync::LazyLock;
+    use utoipa::ToSchema;
+
+    /// Shows the source code details of the frontend and backend
+    #[utoipa::path(
+        context_path = "",
+        responses(
+            (status = 200, description = "Source code details")
+        )
+    )]
+    #[get("/api/source_code_details")]
+    pub async fn details() -> Json<SourceCodeDetails> {
+        Json(SOURCE_CODE_DETAILS.clone())
+    }
+
+    static SOURCE_CODE_DETAILS: LazyLock<SourceCodeDetails> = LazyLock::new(|| SourceCodeDetails {
+        frontend_url: FRONTEND_SOURCE_CODE_URL.clone(),
+        backend_url: BACKEND_SOURCE_CODE_URL.clone(),
+    });
+
+    #[derive(Serialize, ToSchema, Clone)]
+    #[serde(rename_all = "camelCase")]
+    pub struct SourceCodeDetails {
+        frontend_url: String,
+        backend_url: String,
+    }
 }

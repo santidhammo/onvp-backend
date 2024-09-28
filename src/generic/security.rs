@@ -1,4 +1,23 @@
-use crate::model::members::Member;
+/*
+ *  ONVP Backend - Backend API provider for the ONVP website
+ *
+ * Copyright (c) 2024.  Sjoerd van Leent
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+use crate::model::entities::data::MemberEntity;
 use crate::model::security::{Role, UserClaims};
 use crate::result::Result;
 use crate::{dal, Error};
@@ -85,7 +104,7 @@ pub fn create_activation_string() -> String {
     validation_string
 }
 
-pub fn get_member_totp(conn: &mut dal::DbConnection, member: &Member) -> Result<TOTP> {
+pub fn get_member_totp(conn: &mut dal::DbConnection, member: &MemberEntity) -> Result<TOTP> {
     let nonce = member.decoded_nonce()?;
     let activation_bytes = member.activation_string.as_bytes();
     let otp_cipher = OTP_CIPHER.deref();

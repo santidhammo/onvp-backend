@@ -1,7 +1,25 @@
+/*
+ *  ONVP Backend - Backend API provider for the ONVP website
+ *
+ * Copyright (c) 2024.  Sjoerd van Leent
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 use crate::dal::members::*;
 use crate::dal::DbConnection;
-use crate::model::members::{MemberAddressDetail, MemberDetail};
-use crate::model::security::Role;
+use crate::model::prelude::*;
 use crate::Result;
 use chrono::TimeDelta;
 use rand::distributions::{Alphanumeric, DistString};
@@ -14,8 +32,7 @@ pub fn create(
     role: Role,
 ) -> Result<()> {
     for _ in 0..count {
-        let member_detail = MemberDetail {
-            id: 0,
+        let command = MemberRegisterCommand {
             first_name: Alphanumeric.sample_string(&mut thread_rng(), 8),
             last_name: Alphanumeric.sample_string(&mut thread_rng(), 8),
             email_address: format!(
@@ -25,10 +42,6 @@ pub fn create(
                 Alphanumeric.sample_string(&mut thread_rng(), 3)
             ),
             phone_number: create_phone_number(),
-        };
-
-        let member_address_detail = MemberAddressDetail {
-            id: 0,
             street: Alphanumeric.sample_string(&mut thread_rng(), 32),
             house_number: thread_rng().gen_range(1..100),
             house_number_postfix: create_house_number_postfix(),
@@ -38,14 +51,7 @@ pub fn create(
 
         let activation_string = Alphanumeric.sample_string(&mut thread_rng(), 32);
 
-        create_inactive_member(
-            conn,
-            member_address_detail,
-            member_detail,
-            &activation_string,
-            activation_delta,
-            role,
-        )?;
+        create_inactive_member(conn, &command, &activation_string, activation_delta, role)?;
     }
 
     Ok(())

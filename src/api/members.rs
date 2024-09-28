@@ -1,20 +1,38 @@
+/*
+ *  ONVP Backend - Backend API provider for the ONVP website
+ *
+ * Copyright (c) 2024.  Sjoerd van Leent
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 //! Members are a very core component of the backend and involve a lot of interfaces regarding
 //! member management as well as performing requests regarding members from normal website usage.
 
 use crate::generic::{activation, assets, security};
-use crate::model::generic::{SearchParams, SearchResult};
-use crate::model::members::{MemberRegistrationData, MemberWithDetail};
-use crate::model::security::{LoginData, Role, TokenData, UserClaims};
+use crate::model::prelude::*;
 use crate::{dal, Error, Result};
 use actix_jwt_auth_middleware::TokenSigner;
 use actix_web::cookie::time::OffsetDateTime;
 use actix_web::cookie::{Cookie, Expiration, SameSite};
 use actix_web::http::header::ContentType;
-use actix_web::{get, post, put, web, HttpRequest, HttpResponse};
+use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
 use diesel::Connection;
 use jwt_compact::alg::Ed25519;
 use jwt_compact::UntrustedToken;
 use log::info;
+use std::ops::Deref;
 
 /// This is the context of this part of the API
 pub const CONTEXT: &str = "/api/members";
@@ -35,21 +53,82 @@ pub const CONTEXT: &str = "/api/members";
 #[put("/member")]
 pub async fn register(
     pool: web::Data<dal::DbPool>,
-    registration_data: web::Json<MemberRegistrationData>,
+    registration_data: web::Json<MemberRegisterCommand>,
 ) -> Result<HttpResponse> {
     let mut conn = dal::connect(&pool)?;
     conn.transaction::<_, Error, _>(|conn| {
         // Create the member record
         let activation_string = security::create_activation_string();
-        dal::members::create_new_member_from_member_registration(
-            conn,
-            &registration_data,
-            &activation_string,
-        )?;
+        dal::members::register(conn, &registration_data, &activation_string)?;
         activation::send_activation_email(&registration_data.email_address, &activation_string)?;
         Ok(())
     })?;
 
+    Ok(HttpResponse::Ok().finish())
+}
+
+/// Associate a role to member
+///
+/// Member role association is used to directly manage the role of a member.
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "Successful association of a role"),
+        (status = 400, description = "Bad Request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal Server Error", body=[String])
+    )
+)]
+#[put("/{id}/associate_role/{role}")]
+pub async fn associate_role(
+    pool: web::Data<dal::DbPool>,
+    id_and_role: web::Path<(i32, Role)>,
+) -> Result<HttpResponse> {
+    let mut conn = dal::connect(&pool)?;
+    let (id, role) = id_and_role.deref();
+    dal::members::associate_role(&mut conn, &id, &role)?;
+    Ok(HttpResponse::Ok().finish())
+}
+
+/// Dissociate a role from a member
+///
+/// Member role association is used to directly manage the role of a member.
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "Successful dissociation of a role"),
+        (status = 400, description = "Bad Request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal Server Error", body=[String])
+    )
+)]
+#[delete("/{id}/dissociate_role/{role}")]
+pub async fn dissociate_role(
+    pool: web::Data<dal::DbPool>,
+    id_and_role: web::Path<(i32, Role)>,
+) -> Result<HttpResponse> {
+    let mut conn = dal::connect(&pool)?;
+    let (id, role) = id_and_role.deref();
+    dal::members::dissociate_role(&mut conn, &id, &role)?;
+    Ok(HttpResponse::Ok().finish())
+}
+
+/// Get the roles of a member
+///
+/// Get the current available roles for a member
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "List of roles of the given member", body=[[Role]]),
+        (status = 400, description = "Bad Request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal Server Error", body=[String])
+    )
+)]
+#[delete("/{id}/role_list")]
+pub async fn roles(pool: web::Data<dal::DbPool>, id: web::Path<i32>) -> Result<HttpResponse> {
+    let mut conn = dal::connect(&pool)?;
+    dal::members::role_list(&mut conn, &id)?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -74,18 +153,16 @@ pub async fn register(
 pub async fn search_member_details(
     pool: web::Data<dal::DbPool>,
     search_params: web::Query<SearchParams>,
-) -> Result<web::Json<SearchResult<MemberWithDetail>>> {
+) -> Result<web::Json<SearchResult<MemberWithDetailLogicalEntity>>> {
     let mut conn = dal::connect(&pool)?;
     let query = search_params.query.as_ref().ok_or(Error::bad_request())?;
 
-    Ok(web::Json(
-        dal::members::find_members_with_details_by_search_string(
-            &mut conn,
-            query,
-            10,
-            search_params.page_offset,
-        )?,
-    ))
+    Ok(web::Json(dal::members::find_with_details_by_search_string(
+        &mut conn,
+        query,
+        10,
+        search_params.page_offset,
+    )?))
 }
 
 /// Get a member and the primary detail by id
@@ -101,11 +178,11 @@ pub async fn search_member_details(
         (status = 500, description = "Internal Server Error", body=[String])
     )
 )]
-#[get("/member_with_detail/{id}")]
+#[get("/{id}/detail")]
 pub async fn member_with_detail_by_id(
     pool: web::Data<dal::DbPool>,
     id: web::Path<i32>,
-) -> Result<web::Json<MemberWithDetail>> {
+) -> Result<web::Json<MemberWithDetailLogicalEntity>> {
     let mut conn = dal::connect(&pool)?;
 
     Ok(web::Json(dal::members::get_member_with_detail_by_id(
@@ -125,13 +202,14 @@ pub async fn member_with_detail_by_id(
         (status = 500, description = "Internal backend error", body=[String]),
     )
 )]
-#[post("/member_with_detail")]
-pub async fn update_member_with_detail(
+#[post("/{id}")]
+pub async fn update(
     pool: web::Data<dal::DbPool>,
-    member_with_detail: web::Json<MemberWithDetail>,
+    id: web::Path<i32>,
+    command: web::Json<MemberUpdateCommand>,
 ) -> Result<HttpResponse> {
     let mut conn = dal::connect(&pool)?;
-    dal::members::update_member_with_detail(&mut conn, &member_with_detail)?;
+    dal::members::update_member(&mut conn, &id, &command)?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -148,7 +226,7 @@ pub async fn update_member_with_detail(
         (status = 500, description = "Internal Server Error", body=[String])
     )
 )]
-#[post("/member_picture/{id}")]
+#[post("/{id}/picture")]
 pub async fn upload_member_picture(
     pool: web::Data<dal::DbPool>,
     id: web::Path<i32>,
@@ -170,7 +248,7 @@ pub async fn upload_member_picture(
         (status = 500, description = "Internal Server Error", body=[String])
     )
 )]
-#[get("/member_picture/{id}.png")]
+#[get("/{id}/picture.png")]
 pub async fn retrieve_member_picture_asset(
     pool: web::Data<dal::DbPool>,
     id: web::Path<i32>,
@@ -205,7 +283,7 @@ pub async fn retrieve_member_picture_asset(
         (status = 500, description = "Internal Server Error", body=[String])
     )
 )]
-#[get("/member_picture/{id}")]
+#[get("/{id}/picture")]
 pub async fn retrieve_member_picture(
     pool: web::Data<dal::DbPool>,
     id: web::Path<i32>,
