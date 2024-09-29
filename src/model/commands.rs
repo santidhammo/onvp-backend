@@ -151,3 +151,21 @@ pub struct MemberUpdateCommand {
     #[schema(example = "+99999999999")]
     pub phone_number: String,
 }
+
+#[derive(Deserialize, ToSchema, Clone, Debug)]
+pub struct MemberUpdateAddressCommand {
+    #[schema(example = "Orchestra Road")]
+    pub street: String,
+
+    #[schema(example = 1)]
+    pub house_number: i32,
+
+    #[schema(example = "a")]
+    pub house_number_postfix: Option<String>,
+
+    #[schema(example = "9999ZZ")]
+    pub postal_code: String,
+
+    #[schema(example = "Tubaton")]
+    pub domicile: String,
+}

@@ -60,6 +60,7 @@ use crate::model::prelude::*;
         members::search_member_details,
         members::member_with_detail_by_id,
         members::update,
+        members::update_address,
         members::upload_member_picture,
         members::retrieve_member_picture_asset,
         members::retrieve_member_picture,
@@ -77,6 +78,7 @@ use crate::model::prelude::*;
         schemas(FirstOperatorRegisterCommand),
         schemas(MemberRegisterCommand),
         schemas(MemberUpdateCommand),
+        schemas(MemberUpdateAddressCommand),
         schemas(WorkgroupRegisterCommand),
 
         schemas(SearchParams),
@@ -151,6 +153,7 @@ pub async fn run_api_server() -> std::io::Result<()> {
                                     .service(members::search_member_details)
                                     .service(members::member_with_detail_by_id)
                                     .service(members::update)
+                                    .service(members::update_address)
                                     .service(members::upload_member_picture)
                                     .service(members::register),
                             ),

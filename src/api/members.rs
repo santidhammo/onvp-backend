@@ -209,7 +209,29 @@ pub async fn update(
     command: web::Json<MemberUpdateCommand>,
 ) -> Result<HttpResponse> {
     let mut conn = dal::connect(&pool)?;
-    dal::members::update_member(&mut conn, &id, &command)?;
+    dal::members::update(&mut conn, &id, &command)?;
+    Ok(HttpResponse::Ok().finish())
+}
+
+/// Update the address information of a member
+///
+/// Given the address details of a member, saves te address details
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "Member is updated"),
+        (status = 400, description = "Bad Request"),
+        (status = 500, description = "Internal backend error", body=[String]),
+    )
+)]
+#[post("/{id}/address")]
+pub async fn update_address(
+    pool: web::Data<dal::DbPool>,
+    id: web::Path<i32>,
+    command: web::Json<MemberUpdateAddressCommand>,
+) -> Result<HttpResponse> {
+    let mut conn = dal::connect(&pool)?;
+    dal::members::update_address(&mut conn, &id, &command)?;
     Ok(HttpResponse::Ok().finish())
 }
 

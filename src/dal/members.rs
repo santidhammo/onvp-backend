@@ -300,7 +300,7 @@ pub fn find_with_details_by_search_string(
     })
 }
 
-pub(crate) fn update_member(
+pub(crate) fn update(
     conn: &mut DbConnection,
     member_id: &i32,
     command: &MemberUpdateCommand,
@@ -326,6 +326,33 @@ pub(crate) fn update_member(
                 member_details::last_name.eq(command.last_name.clone()),
                 member_details::phone_number.eq(command.phone_number.clone()),
                 member_details::email_address.eq(command.email_address.clone()),
+            ))
+            .execute(conn)?;
+
+        Ok(())
+    })
+}
+
+pub(crate) fn update_address(
+    conn: &mut DbConnection,
+    member_id: &i32,
+    command: &MemberUpdateAddressCommand,
+) -> Result<()> {
+    conn.transaction::<_, Error, _>(|conn| {
+        let member_address_details_id: i32 = members::table
+            .filter(members::id.eq(member_id))
+            .select(members::member_address_details_id)
+            .first(conn)?;
+
+        diesel::update(member_address_details::table)
+            .filter(member_address_details::id.eq(member_address_details_id))
+            .set((
+                member_address_details::street.eq(command.street.to_string()),
+                member_address_details::house_number.eq(command.house_number.clone()),
+                member_address_details::house_number_postfix
+                    .eq(command.house_number_postfix.clone()),
+                member_address_details::postal_code.eq(command.postal_code.clone()),
+                member_address_details::domicile.eq(command.domicile.clone()),
             ))
             .execute(conn)?;
 
