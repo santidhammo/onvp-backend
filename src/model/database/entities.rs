@@ -17,6 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use crate::model::interface::prelude::*;
 use crate::Error;
 use aes_gcm::aead::consts::U12;
 use aes_gcm::aead::generic_array::GenericArray;
@@ -110,9 +111,19 @@ impl From<&crate::model::interface::sub_commands::AddressRegisterSubCommand>
     }
 }
 
-#[derive(Clone, Debug, Queryable, Selectable)]
+#[derive(Clone, Debug, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::workgroups)]
 pub struct Workgroup {
     pub id: i32,
     pub name: String,
+}
+
+impl From<&WorkgroupRegisterCommand> for Workgroup {
+    fn from(input: &WorkgroupRegisterCommand) -> Self {
+        Self {
+            id: 0, // Skipped during creation
+
+            name: input.name.to_string(),
+        }
+    }
 }

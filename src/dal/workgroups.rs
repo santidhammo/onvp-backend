@@ -28,7 +28,7 @@ use diesel::prelude::*;
 
 pub(crate) fn register(conn: &mut DbConnection, command: &WorkgroupRegisterCommand) -> Result<()> {
     diesel::insert_into(workgroups::table)
-        .values(command)
+        .values(Workgroup::from(command))
         .execute(conn)?;
     Ok(())
 }

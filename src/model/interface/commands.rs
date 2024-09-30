@@ -18,15 +18,12 @@
  */
 
 use crate::model::interface::sub_commands::{AddressRegisterSubCommand, DetailRegisterSubCommand};
-use diesel::Insertable;
 use serde::Deserialize;
 use utoipa::ToSchema;
 
 /// Command to register a new entity
-#[derive(Deserialize, ToSchema, Clone, Debug, Insertable)]
+#[derive(Deserialize, ToSchema, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-#[schema(as = WorkgroupRegisterCommand)]
-#[diesel(table_name = crate::schema::workgroups)]
 pub struct WorkgroupRegisterCommand {
     #[schema(example = "Orchestra Committee")]
     pub name: String,
