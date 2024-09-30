@@ -16,26 +16,12 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
-use crate::model::entities::data::{MemberDetailEntity, MemberEntity};
-use serde::Serialize;
+use serde::Deserialize;
 use utoipa::ToSchema;
 
-#[derive(Serialize, ToSchema, Clone, Debug)]
+#[derive(Deserialize, ToSchema, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct MemberWithDetailLogicalEntity {
-    #[serde(default)]
-    pub id: i32,
-
-    #[schema(example = 1)]
-    pub musical_instrument_id: Option<i32>,
-
-    #[schema(example = "xyz.png")]
-    pub picture_asset_id: Option<String>,
-
-    #[serde(default)]
-    pub activated: bool,
-
+pub struct DetailRegisterSubCommand {
     #[schema(example = "John")]
     pub first_name: String,
 
@@ -49,19 +35,21 @@ pub struct MemberWithDetailLogicalEntity {
     pub phone_number: String,
 }
 
-impl From<&(MemberEntity, MemberDetailEntity)> for MemberWithDetailLogicalEntity {
-    fn from((member, member_detail): &(MemberEntity, MemberDetailEntity)) -> Self {
-        let member = member.clone();
-        let member_detail = member_detail.clone();
-        Self {
-            id: member.id,
-            musical_instrument_id: member.musical_instrument_id,
-            picture_asset_id: member.picture_asset_id,
-            activated: member.activated,
-            first_name: member_detail.first_name,
-            last_name: member_detail.last_name,
-            email_address: member_detail.email_address,
-            phone_number: member_detail.phone_number,
-        }
-    }
+#[derive(Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct AddressRegisterSubCommand {
+    #[schema(example = "Orchestra Street")]
+    pub street: String,
+
+    #[schema(example = 1)]
+    pub house_number: i32,
+
+    #[schema(example = "a")]
+    pub house_number_postfix: Option<String>,
+
+    #[schema(example = "9999ZZ")]
+    pub postal_code: String,
+
+    #[schema(example = "Tubaton")]
+    pub domicile: String,
 }

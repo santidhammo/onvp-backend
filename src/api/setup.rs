@@ -1,5 +1,5 @@
 use crate::generic::security::create_activation_string;
-use crate::model::commands::FirstOperatorRegisterCommand;
+use crate::model::interface::prelude::*;
 use crate::{dal, Error};
 use actix_web::web::Json;
 use actix_web::{get, post, web};

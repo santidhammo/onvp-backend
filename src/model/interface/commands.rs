@@ -17,6 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use crate::model::interface::sub_commands::{AddressRegisterSubCommand, DetailRegisterSubCommand};
 use diesel::Insertable;
 use serde::Deserialize;
 use utoipa::ToSchema;
@@ -27,7 +28,7 @@ use utoipa::ToSchema;
 #[schema(as = WorkgroupRegisterCommand)]
 #[diesel(table_name = crate::schema::workgroups)]
 pub struct WorkgroupRegisterCommand {
-    #[schema(example = "Foo Group")]
+    #[schema(example = "Orchestra Committee")]
     pub name: String,
 }
 
@@ -37,100 +38,15 @@ pub struct WorkgroupRegisterCommand {
 #[derive(Deserialize, ToSchema, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct MemberRegisterCommand {
-    #[schema(example = "John")]
-    pub first_name: String,
-
-    #[schema(example = "Doe")]
-    pub last_name: String,
-
-    #[schema(example = "john@doe.void")]
-    pub email_address: String,
-
-    #[schema(example = "+99999999999")]
-    pub phone_number: String,
-
-    #[schema(example = "Orchestra Road")]
-    pub street: String,
-
-    #[schema(example = 1)]
-    pub house_number: i32,
-
-    #[schema(example = "a")]
-    pub house_number_postfix: Option<String>,
-
-    #[schema(example = "9999ZZ")]
-    pub postal_code: String,
-
-    #[schema(example = "Tubaton")]
-    pub domicile: String,
-}
-
-#[derive(Deserialize, ToSchema, Clone, Debug, Insertable)]
-#[serde(rename_all = "camelCase")]
-#[diesel(table_name = crate::schema::member_details)]
-pub struct MemberDetailRegisterSubCommand {
-    #[schema(example = "John")]
-    pub first_name: String,
-
-    #[schema(example = "Doe")]
-    pub last_name: String,
-
-    #[schema(example = "john@doe.void")]
-    pub email_address: String,
-
-    #[schema(example = "+99999999999")]
-    pub phone_number: String,
-}
-
-#[derive(Deserialize, ToSchema, Clone, Debug, Insertable)]
-#[serde(rename_all = "camelCase")]
-#[diesel(table_name = crate::schema::member_address_details)]
-pub struct AddressDetailRegisterSubCommand {
-    #[schema(example = "Orchestra Street")]
-    pub street: String,
-
-    #[schema(example = 1)]
-    pub house_number: i32,
-
-    #[schema(example = "a")]
-    pub house_number_postfix: Option<String>,
-
-    #[schema(example = "9999ZZ")]
-    pub postal_code: String,
-
-    #[schema(example = "Tubaton")]
-    pub domicile: String,
+    pub detail_register_sub_command: DetailRegisterSubCommand,
+    pub address_register_sub_command: AddressRegisterSubCommand,
 }
 
 #[derive(Deserialize, ToSchema, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct FirstOperatorRegisterCommand {
-    #[schema(example = "John")]
-    pub first_name: String,
-
-    #[schema(example = "Doe")]
-    pub last_name: String,
-
-    #[schema(example = "john@doe.void")]
-    pub email_address: String,
-
-    #[schema(example = "+99999999999")]
-    pub phone_number: String,
-
-    #[schema(example = "Orchestra Road")]
-    pub street: String,
-
-    #[schema(example = 1)]
-    pub house_number: i32,
-
-    #[schema(example = "a")]
-    pub house_number_postfix: Option<String>,
-
-    #[schema(example = "9999ZZ")]
-    pub postal_code: String,
-
-    #[schema(example = "Tubaton")]
-    pub domicile: String,
+    pub detail_register_sub_command: DetailRegisterSubCommand,
+    pub address_register_sub_command: AddressRegisterSubCommand,
 }
 
 #[derive(Deserialize, ToSchema, Clone, Debug)]

@@ -18,10 +18,12 @@
  */
 
 use crate::dal::DbConnection;
-use crate::model::commands::WorkgroupRegisterCommand;
+
+use crate::model::database::prelude::*;
+use crate::model::interface::prelude::*;
 use crate::model::security::Role;
 use crate::schema::*;
-use crate::{Error, Result};
+use crate::{dal, Error, Result};
 use diesel::prelude::*;
 
 pub(crate) fn register(conn: &mut DbConnection, command: &WorkgroupRegisterCommand) -> Result<()> {
@@ -67,4 +69,62 @@ pub(crate) fn dissociate_role(
     } else {
         Err(Error::not_enough_records())
     }
+}
+
+pub(crate) fn search(
+    conn: &mut DbConnection,
+    name: &String,
+    page_size: usize,
+    page_offset: usize,
+) -> Result<SearchResult<WorkgroupResponse>> {
+    let like_search_string = dal::create_like_string(name);
+
+    conn.transaction::<SearchResult<WorkgroupResponse>, Error, _>(|conn| {
+        // ILIKE is only supported on PostgreSQL
+        let (total_count, workgroups) = match conn {
+            DbConnection::PostgreSQL(ref mut conn) => {
+                let filter = workgroups::name.ilike(&like_search_string);
+
+                let total_count: usize = workgroups::table
+                    .filter(filter)
+                    .count()
+                    .get_result::<i64>(conn)? as usize;
+
+                let workgroups: Vec<Workgroup> = workgroups::table
+                    .filter(filter)
+                    .order_by(workgroups::name)
+                    .limit(page_size as i64)
+                    .offset((page_offset * page_size) as i64)
+                    .select(Workgroup::as_select())
+                    .load(conn)?;
+
+                (total_count, workgroups)
+            }
+
+            DbConnection::SQLite(ref mut conn) => {
+                let filter = workgroups::name.like(&like_search_string);
+
+                let total_count: usize = workgroups::table
+                    .filter(filter)
+                    .count()
+                    .get_result::<i64>(conn)? as usize;
+
+                let workgroups: Vec<Workgroup> = workgroups::table
+                    .filter(filter)
+                    .order_by(workgroups::name)
+                    .limit(page_size as i64)
+                    .offset((page_offset * page_size) as i64)
+                    .select(Workgroup::as_select())
+                    .load(conn)?;
+
+                (total_count, workgroups)
+            }
+        };
+        Ok(SearchResult {
+            total_count,
+            page_offset,
+            page_count: dal::calculate_page_count(page_size, total_count),
+            rows: workgroups.iter().map(WorkgroupResponse::from).collect(),
+        })
+    })
 }

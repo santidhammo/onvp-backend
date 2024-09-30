@@ -19,6 +19,8 @@
 
 use crate::dal::members::*;
 use crate::dal::DbConnection;
+use crate::model::interface::commands::MemberRegisterCommand;
+use crate::model::interface::sub_commands::{AddressRegisterSubCommand, DetailRegisterSubCommand};
 use crate::model::prelude::*;
 use crate::Result;
 use chrono::TimeDelta;
@@ -33,25 +35,36 @@ pub fn create(
 ) -> Result<()> {
     for _ in 0..count {
         let command = MemberRegisterCommand {
-            first_name: Alphanumeric.sample_string(&mut thread_rng(), 8),
-            last_name: Alphanumeric.sample_string(&mut thread_rng(), 8),
-            email_address: format!(
-                "{}@{}.{}",
-                Alphanumeric.sample_string(&mut thread_rng(), 8),
-                Alphanumeric.sample_string(&mut thread_rng(), 8),
-                Alphanumeric.sample_string(&mut thread_rng(), 3)
-            ),
-            phone_number: create_phone_number(),
-            street: Alphanumeric.sample_string(&mut thread_rng(), 32),
-            house_number: thread_rng().gen_range(1..100),
-            house_number_postfix: create_house_number_postfix(),
-            postal_code: create_postal_code(),
-            domicile: Alphanumeric.sample_string(&mut thread_rng(), 8),
+            detail_register_sub_command: DetailRegisterSubCommand {
+                first_name: Alphanumeric.sample_string(&mut thread_rng(), 8),
+                last_name: Alphanumeric.sample_string(&mut thread_rng(), 8),
+                email_address: format!(
+                    "{}@{}.{}",
+                    Alphanumeric.sample_string(&mut thread_rng(), 8),
+                    Alphanumeric.sample_string(&mut thread_rng(), 8),
+                    Alphanumeric.sample_string(&mut thread_rng(), 3)
+                ),
+                phone_number: create_phone_number(),
+            },
+            address_register_sub_command: AddressRegisterSubCommand {
+                street: Alphanumeric.sample_string(&mut thread_rng(), 32),
+                house_number: thread_rng().gen_range(1..100),
+                house_number_postfix: create_house_number_postfix(),
+                postal_code: create_postal_code(),
+                domicile: Alphanumeric.sample_string(&mut thread_rng(), 8),
+            },
         };
 
         let activation_string = Alphanumeric.sample_string(&mut thread_rng(), 32);
 
-        create_inactive_member(conn, &command, &activation_string, activation_delta, role)?;
+        create_inactive_member(
+            conn,
+            &command.detail_register_sub_command,
+            &command.address_register_sub_command,
+            &activation_string,
+            activation_delta,
+            role,
+        )?;
     }
 
     Ok(())

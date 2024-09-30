@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::model::entities::data::MemberEntity;
+use crate::model::database::prelude::*;
 use crate::model::security::{Role, UserClaims};
 use crate::result::Result;
 use crate::{dal, Error};
@@ -104,12 +104,12 @@ pub fn create_activation_string() -> String {
     validation_string
 }
 
-pub fn get_member_totp(conn: &mut dal::DbConnection, member: &MemberEntity) -> Result<TOTP> {
+pub fn get_member_totp(conn: &mut dal::DbConnection, member: &Member) -> Result<TOTP> {
     let nonce = member.decoded_nonce()?;
     let activation_bytes = member.activation_string.as_bytes();
     let otp_cipher = OTP_CIPHER.deref();
     let cipher_text = otp_cipher.encrypt(&nonce, activation_bytes)?;
-    let details = dal::members::get_member_detail_by_id(conn, &member.member_details_id)?;
+    let details = dal::members::find_detail_by_detail_id(conn, &member.member_details_id)?;
     generate_totp(cipher_text, details.email_address)
 }
 

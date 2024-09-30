@@ -17,7 +17,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::model::entities::data::MemberEntity;
+use crate::model::database::entities::Member;
+use crate::schema::members;
 use crate::{dal, schema, Error};
 use diesel::prelude::*;
 use log::info;
@@ -32,14 +33,14 @@ pub fn clean_late_non_activated_members(pool: dal::DbPool) -> Result<(), Error> 
         let result = schema::members::table
             .select(schema::members::all_columns)
             .filter(activated_filter.and(activation_time_elapsed_filter))
-            .load::<MemberEntity>(conn)?;
+            .load::<Member>(conn)?;
 
         let mut deleted = 0;
 
         for member in result {
             {
                 let details =
-                    dal::members::get_member_detail_by_id(conn, &member.member_details_id)?;
+                    dal::members::find_detail_by_detail_id(conn, &member.member_details_id)?;
                 info!(
                     "Deleting member: {} with name: {}",
                     member.id,
@@ -47,7 +48,9 @@ pub fn clean_late_non_activated_members(pool: dal::DbPool) -> Result<(), Error> 
                 );
             }
 
-            let result = diesel::delete(&member).execute(conn)?;
+            let result =
+                diesel::delete(members::table.filter(members::id.eq(member.id))).execute(conn)?;
+
             if result != 1 {
                 return Err(Error::not_enough_records());
             }

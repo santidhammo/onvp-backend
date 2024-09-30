@@ -19,10 +19,10 @@
 
 //! Work groups are collections of members, allowing for additional roles.
 
-use crate::model::commands::WorkgroupRegisterCommand;
+use crate::model::interface::prelude::*;
 use crate::model::security::Role;
-use crate::{dal, Result};
-use actix_web::{delete, put, web, HttpResponse};
+use crate::{dal, Error, Result};
+use actix_web::{delete, get, post, web, HttpResponse};
 use std::ops::Deref;
 
 pub const CONTEXT: &str = "/api/workgroups";
@@ -41,7 +41,7 @@ pub const CONTEXT: &str = "/api/workgroups";
         (status = 500, description = "Internal Server Error", body=[String])
     )
 )]
-#[put("/")]
+#[post("/")]
 pub async fn register(
     pool: web::Data<dal::DbPool>,
     data: web::Json<WorkgroupRegisterCommand>,
@@ -64,7 +64,7 @@ pub async fn register(
         (status = 500, description = "Internal Server Error", body=[String])
     )
 )]
-#[put("/{id}/associate_role/{role}")]
+#[post("/{id}/associate_role/{role}")]
 pub async fn associate_role(
     pool: web::Data<dal::DbPool>,
     id_and_role: web::Path<(i32, Role)>,
@@ -97,4 +97,36 @@ pub async fn dissociate_role(
     let (id, role) = id_and_role.deref();
     dal::workgroups::dissociate_role(&mut conn, &id, &role)?;
     Ok(HttpResponse::Ok().finish())
+}
+
+/// Search for work groups
+///
+/// Searches the name of the work group
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "A list of matching work groups", body=[SearchResult<MemberWithDetail>]),
+        (status = 400, description = "Bad Request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal Server Error", body=[String])
+    ),
+    params(
+        ("q" = String, Query, description = "Part of the first name, last name and/or email address"),
+        ("p" = Option<String>, Query, description = "The page offset to use (counting from 0)")
+    )
+)]
+#[get("/search")]
+pub async fn search(
+    pool: web::Data<dal::DbPool>,
+    search_params: web::Query<SearchParams>,
+) -> Result<web::Json<SearchResult<WorkgroupResponse>>> {
+    let mut conn = dal::connect(&pool)?;
+    let query = search_params.query.as_ref().ok_or(Error::bad_request())?;
+
+    Ok(web::Json(dal::workgroups::search(
+        &mut conn,
+        query,
+        10,
+        search_params.page_offset,
+    )?))
 }

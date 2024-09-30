@@ -42,6 +42,7 @@ pub mod workgroups;
 
 use crate::dal;
 use crate::generic::security;
+use crate::model::interface::prelude::*;
 use crate::model::prelude::*;
 
 #[derive(OpenApi)]
@@ -57,45 +58,36 @@ use crate::model::prelude::*;
         members::logout,
         members::logged_in_name,
         members::logged_in_is_operator,
-        members::search_member_details,
-        members::member_with_detail_by_id,
+        members::search,
+        members::find,
         members::update,
         members::update_address,
-        members::upload_member_picture,
-        members::retrieve_member_picture_asset,
-        members::retrieve_member_picture,
+        members::upload_picture_asset,
+        members::picture_asset,
+        members::picture,
         members::associate_role,
         members::dissociate_role,
         workgroups::register,
         workgroups::associate_role,
         workgroups::dissociate_role,
+        workgroups::search,
         source_code::details,
     ),
     components(
         schemas(TokenData),
         schemas(LoginData),
-
         schemas(FirstOperatorRegisterCommand),
         schemas(MemberRegisterCommand),
         schemas(MemberUpdateCommand),
         schemas(MemberUpdateAddressCommand),
         schemas(WorkgroupRegisterCommand),
-
         schemas(SearchParams),
-
-        schemas(SearchResult<MemberWithDetailLogicalEntity>),
-        schemas(MemberEntity),
-        schemas(MemberAddressDetailEntity),
-        schemas(MemberDetailEntity),
-        schemas(MemberWithDetailLogicalEntity),
-
-        schemas(WorkgroupEntity),
-
-        schemas(MemberRoleAssociation),
-        schemas(WorkgroupRoleAssociation),
-
-        schemas(WorkgroupMemberRelationship),
-
+        schemas(SearchResult<MemberResponse>),
+        schemas(SearchResult<WorkgroupResponse>),
+        schemas(MemberResponse),
+        schemas(WorkgroupResponse),
+        schemas(MemberAddressResponse),
+        schemas(WorkgroupResponse),
     ),
     tags(
         (name = "api::members", description = "Member management endpoints"),
@@ -143,18 +135,18 @@ pub async fn run_api_server() -> std::io::Result<()> {
                             .service(members::logout)
                             .service(members::logged_in_name)
                             .service(members::logged_in_is_operator)
-                            .service(members::retrieve_member_picture_asset)
-                            .service(members::retrieve_member_picture)
+                            .service(members::picture_asset)
+                            .service(members::picture)
                             .use_state_guard(
                                 |claims: UserClaims| async move {
                                     security::operator_state_guard(&claims)
                                 },
                                 web::scope("")
-                                    .service(members::search_member_details)
-                                    .service(members::member_with_detail_by_id)
+                                    .service(members::search)
+                                    .service(members::find)
                                     .service(members::update)
                                     .service(members::update_address)
-                                    .service(members::upload_member_picture)
+                                    .service(members::upload_picture_asset)
                                     .service(members::register),
                             ),
                     ),
@@ -162,7 +154,7 @@ pub async fn run_api_server() -> std::io::Result<()> {
             .service(
                 web::scope(workgroups::CONTEXT).use_jwt(
                     authority.clone(),
-                    web::scope("").use_state_guard(
+                    web::scope("").service(workgroups::search).use_state_guard(
                         |claims: UserClaims| async move { security::operator_state_guard(&claims) },
                         web::scope("")
                             .service(workgroups::register)

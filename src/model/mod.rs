@@ -17,21 +17,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-pub mod command_traits;
-pub mod commands;
-pub mod entities;
-pub mod generic;
-pub mod relationships;
-pub mod roles;
+pub mod database;
+pub mod interface;
 pub mod security;
 
 pub mod prelude {
-    pub use super::command_traits::*;
-    pub use super::commands::*;
-    pub use super::entities::data::*;
-    pub use super::entities::logical::*;
-    pub use super::generic::*;
-    pub use super::relationships::*;
-    pub use super::roles::*;
     pub use super::security::*;
 }

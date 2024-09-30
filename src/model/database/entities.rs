@@ -22,50 +22,25 @@ use aes_gcm::aead::consts::U12;
 use aes_gcm::aead::generic_array::GenericArray;
 use base64::engine::general_purpose;
 use base64::Engine;
-use diesel::{Identifiable, Queryable, Selectable};
-use serde::Serialize;
-use utoipa::ToSchema;
+use diesel::{Insertable, Queryable, Selectable};
 
-#[derive(Serialize, ToSchema, Clone, Debug, Queryable, Identifiable, Selectable)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::members)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct MemberEntity {
-    #[serde(default)]
+pub struct Member {
     pub id: i32,
-
-    #[schema(example = 1)]
     pub member_details_id: i32,
-
-    #[schema(example = 1)]
     pub member_address_details_id: i32,
-
-    #[schema(example = 1)]
     pub musical_instrument_id: Option<i32>,
-
-    #[schema(example = "xyz.png")]
     pub picture_asset_id: Option<String>,
-
-    #[serde(default)]
     pub activated: bool,
-
-    #[serde(skip_serializing)]
     pub creation_time: chrono::NaiveDateTime,
-
-    #[serde(skip, default)]
     pub activation_string: String,
-
-    #[serde(skip, default)]
     pub activation_time: chrono::NaiveDateTime,
-
-    #[schema(example = false)]
     pub allow_privacy_info_sharing: bool,
-
-    #[serde(skip, default)]
     pub nonce: String,
 }
 
-impl MemberEntity {
+impl Member {
     pub fn decoded_nonce(&self) -> Result<GenericArray<u8, U12>, Error> {
         let decoded = general_purpose::STANDARD.decode(&self.nonce)?;
 
@@ -77,38 +52,17 @@ impl MemberEntity {
     }
 }
 
-#[derive(Serialize, ToSchema, Clone, Debug, Queryable, Identifiable, Selectable)]
-#[serde(rename_all = "camelCase")]
-#[diesel(table_name = crate::schema::workgroups)]
-pub struct WorkgroupEntity {
-    #[serde(default)]
-    pub id: i32,
-
-    #[schema(example = "Foo Group")]
-    pub name: String,
-}
-
-#[derive(Serialize, ToSchema, Clone, Debug, Queryable, Identifiable, Selectable)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::member_details)]
-pub struct MemberDetailEntity {
-    #[serde(default)]
+pub struct MemberDetail {
     pub id: i32,
-
-    #[schema(example = "John")]
     pub first_name: String,
-
-    #[schema(example = "Doe")]
     pub last_name: String,
-
-    #[schema(example = "john@doe.void")]
     pub email_address: String,
-
-    #[schema(example = "+99999999999")]
     pub phone_number: String,
 }
 
-impl MemberDetailEntity {
+impl MemberDetail {
     pub(crate) fn name(&self) -> String {
         let mut s = String::new();
         s.push_str(&self.first_name);
@@ -118,26 +72,47 @@ impl MemberDetailEntity {
     }
 }
 
-#[derive(Serialize, ToSchema, Clone, Debug, Queryable, Identifiable, Selectable)]
-#[serde(rename_all = "camelCase")]
+impl From<&crate::model::interface::sub_commands::DetailRegisterSubCommand> for MemberDetail {
+    fn from(input: &crate::model::interface::sub_commands::DetailRegisterSubCommand) -> Self {
+        Self {
+            id: 0, // Skipped during creation
+            first_name: input.first_name.clone(),
+            last_name: input.last_name.clone(),
+            email_address: input.email_address.clone(),
+            phone_number: input.phone_number.clone(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::member_address_details)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
-pub struct MemberAddressDetailEntity {
-    #[serde(default)]
+pub struct MemberAddressDetail {
     pub id: i32,
-
-    #[schema(example = "Orchestra Street")]
     pub street: String,
-
-    #[schema(example = 1)]
     pub house_number: i32,
-
-    #[schema(example = "a")]
     pub house_number_postfix: Option<String>,
-
-    #[schema(example = "9999ZZ")]
     pub postal_code: String,
-
-    #[schema(example = "Tubaton")]
     pub domicile: String,
+}
+
+impl From<&crate::model::interface::sub_commands::AddressRegisterSubCommand>
+    for MemberAddressDetail
+{
+    fn from(input: &crate::model::interface::sub_commands::AddressRegisterSubCommand) -> Self {
+        Self {
+            id: 0, // Skipped during creation
+            street: input.street.clone(),
+            house_number: input.house_number.clone(),
+            house_number_postfix: input.house_number_postfix.clone(),
+            postal_code: input.postal_code.clone(),
+            domicile: input.domicile.clone(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Queryable, Selectable)]
+#[diesel(table_name = crate::schema::workgroups)]
+pub struct Workgroup {
+    pub id: i32,
+    pub name: String,
 }

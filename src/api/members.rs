@@ -21,13 +21,14 @@
 //! member management as well as performing requests regarding members from normal website usage.
 
 use crate::generic::{activation, assets, security};
+use crate::model::interface::prelude::*;
 use crate::model::prelude::*;
 use crate::{dal, Error, Result};
 use actix_jwt_auth_middleware::TokenSigner;
 use actix_web::cookie::time::OffsetDateTime;
 use actix_web::cookie::{Cookie, Expiration, SameSite};
 use actix_web::http::header::ContentType;
-use actix_web::{delete, get, post, put, web, HttpRequest, HttpResponse};
+use actix_web::{delete, get, post, web, HttpRequest, HttpResponse};
 use diesel::Connection;
 use jwt_compact::alg::Ed25519;
 use jwt_compact::UntrustedToken;
@@ -50,7 +51,7 @@ pub const CONTEXT: &str = "/api/members";
         (status = 500, description = "Internal Server Error", body=[String])
     )
 )]
-#[put("/member")]
+#[post("/")]
 pub async fn register(
     pool: web::Data<dal::DbPool>,
     registration_data: web::Json<MemberRegisterCommand>,
@@ -60,7 +61,10 @@ pub async fn register(
         // Create the member record
         let activation_string = security::create_activation_string();
         dal::members::register(conn, &registration_data, &activation_string)?;
-        activation::send_activation_email(&registration_data.email_address, &activation_string)?;
+        activation::send_activation_email(
+            &registration_data.detail_register_sub_command.email_address,
+            &activation_string,
+        )?;
         Ok(())
     })?;
 
@@ -79,7 +83,7 @@ pub async fn register(
         (status = 500, description = "Internal Server Error", body=[String])
     )
 )]
-#[put("/{id}/associate_role/{role}")]
+#[post("/{id}/associate_role/{role}")]
 pub async fn associate_role(
     pool: web::Data<dal::DbPool>,
     id_and_role: web::Path<(i32, Role)>,
@@ -125,7 +129,7 @@ pub async fn dissociate_role(
         (status = 500, description = "Internal Server Error", body=[String])
     )
 )]
-#[delete("/{id}/role_list")]
+#[get("/{id}/roles")]
 pub async fn roles(pool: web::Data<dal::DbPool>, id: web::Path<i32>) -> Result<HttpResponse> {
     let mut conn = dal::connect(&pool)?;
     dal::members::role_list(&mut conn, &id)?;
@@ -134,8 +138,7 @@ pub async fn roles(pool: web::Data<dal::DbPool>, id: web::Path<i32>) -> Result<H
 
 /// Search for members
 ///
-/// Searches on first name, last name and/or email address matching the given query. If no query
-/// is given, results in a Bad Request
+/// Searches on first name, last name and/or email address matching the given query.
 #[utoipa::path(
     context_path = CONTEXT,
     responses(
@@ -149,15 +152,15 @@ pub async fn roles(pool: web::Data<dal::DbPool>, id: web::Path<i32>) -> Result<H
         ("p" = Option<String>, Query, description = "The page offset to use (counting from 0)")
     )
 )]
-#[get("/search_member_details")]
-pub async fn search_member_details(
+#[get("/search")]
+pub async fn search(
     pool: web::Data<dal::DbPool>,
     search_params: web::Query<SearchParams>,
-) -> Result<web::Json<SearchResult<MemberWithDetailLogicalEntity>>> {
+) -> Result<web::Json<SearchResult<MemberResponse>>> {
     let mut conn = dal::connect(&pool)?;
     let query = search_params.query.as_ref().ok_or(Error::bad_request())?;
 
-    Ok(web::Json(dal::members::find_with_details_by_search_string(
+    Ok(web::Json(dal::members::search(
         &mut conn,
         query,
         10,
@@ -178,14 +181,14 @@ pub async fn search_member_details(
         (status = 500, description = "Internal Server Error", body=[String])
     )
 )]
-#[get("/{id}/detail")]
-pub async fn member_with_detail_by_id(
+#[get("/{id}")]
+pub async fn find(
     pool: web::Data<dal::DbPool>,
     id: web::Path<i32>,
-) -> Result<web::Json<MemberWithDetailLogicalEntity>> {
+) -> Result<web::Json<MemberResponse>> {
     let mut conn = dal::connect(&pool)?;
 
-    Ok(web::Json(dal::members::get_member_with_detail_by_id(
+    Ok(web::Json(dal::members::member_response_by_id(
         &mut conn,
         id.into_inner(),
     )?))
@@ -238,7 +241,8 @@ pub async fn update_address(
 /// Upload the picture of a member
 ///
 /// Uploads the picture of a member, adjusting it to the appropriate size by cropping it and
-/// scaling it automatically.
+/// scaling it automatically. A multitude of file types are supported, but the resulting file type
+/// will always be of the PNG type.
 #[utoipa::path(
     context_path = CONTEXT,
     responses(
@@ -248,8 +252,8 @@ pub async fn update_address(
         (status = 500, description = "Internal Server Error", body=[String])
     )
 )]
-#[post("/{id}/picture")]
-pub async fn upload_member_picture(
+#[post("/{id}/picture.png")]
+pub async fn upload_picture_asset(
     pool: web::Data<dal::DbPool>,
     id: web::Path<i32>,
     data: web::Bytes,
@@ -271,7 +275,7 @@ pub async fn upload_member_picture(
     )
 )]
 #[get("/{id}/picture.png")]
-pub async fn retrieve_member_picture_asset(
+pub async fn picture_asset(
     pool: web::Data<dal::DbPool>,
     id: web::Path<i32>,
     claims: UserClaims,
@@ -306,13 +310,13 @@ pub async fn retrieve_member_picture_asset(
     )
 )]
 #[get("/{id}/picture")]
-pub async fn retrieve_member_picture(
+pub async fn picture(
     pool: web::Data<dal::DbPool>,
     id: web::Path<i32>,
     claims: UserClaims,
 ) -> Result<web::Json<Option<String>>> {
     let mut conn = dal::connect(&pool)?;
-    let member = dal::members::get_member_by_id(&mut conn, &id)?;
+    let member = dal::members::find_by_id(&mut conn, &id)?;
     let result = if claims.has_role(Role::Operator) {
         member.picture_asset_id
     } else if claims.has_role(Role::Member) {
@@ -344,7 +348,7 @@ pub async fn activation_code(
     activation_string: web::Path<String>,
 ) -> Result<web::Json<String>> {
     let mut conn = dal::connect(&pool)?;
-    let member = dal::members::get_member_by_activation_string(&mut conn, &activation_string)?;
+    let member = dal::members::find_by_activation_string(&mut conn, &activation_string)?;
     let totp = security::get_member_totp(&mut conn, &member)?;
     Ok(web::Json(security::generate_qr_code(totp)?))
 }
@@ -368,13 +372,11 @@ pub async fn activate(
     activation_data: web::Json<TokenData>,
 ) -> Result<HttpResponse> {
     let mut conn = dal::connect(&pool)?;
-    let member = dal::members::get_member_by_activation_string(
-        &mut conn,
-        &activation_data.activation_string,
-    )?;
+    let member =
+        dal::members::find_by_activation_string(&mut conn, &activation_data.activation_string)?;
     let totp = security::get_member_totp(&mut conn, &member)?;
     totp.check_current(&activation_data.token)?;
-    dal::members::activate(&mut conn, &member)?;
+    dal::members::activate(&mut conn, &member.id)?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -419,7 +421,7 @@ fn pre_login(
     conn: &mut dal::DbConnection,
     login_data: &web::Json<LoginData>,
 ) -> Result<security::TOTP> {
-    let member = dal::members::get_member_by_email_address(conn, &login_data.email_address)?;
+    let member = dal::members::find_by_email_address(conn, &login_data.email_address)?;
     Ok(security::get_member_totp(conn, &member)?)
 }
 
@@ -553,7 +555,7 @@ fn login_or_renew(
     email_address: &str,
     token_signer: &TokenSigner<UserClaims, Ed25519>,
 ) -> Result<HttpResponse> {
-    let member = dal::members::get_member_by_email_address(conn, email_address)?;
+    let member = dal::members::find_by_email_address(conn, email_address)?;
     let member_roles = dal::members::get_member_roles_by_member_id(conn, &member.id)?;
     let user_claims = UserClaims::new(&email_address, &member_roles);
 

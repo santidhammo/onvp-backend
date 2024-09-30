@@ -18,7 +18,7 @@
  */
 
 use crate::dal::DbConnection;
-use crate::model::entities::data::MemberEntity;
+use crate::model::database::entities::Member;
 use crate::{dal, Error, Result};
 use actix_web::web::Bytes;
 use diesel::Connection;
@@ -35,7 +35,7 @@ pub fn handle_upload_member_picture(
     data: &Bytes,
 ) -> Result<String> {
     let result = conn.transaction::<String, Error, _>(|conn| {
-        let member = dal::members::get_member_by_id(conn, &member_id)?;
+        let member = dal::members::find_by_id(conn, &member_id)?;
         // Mark the already existing picture for deletion, if it exists
         let mark_for_deletion = member.picture_asset_id.clone();
 
@@ -67,7 +67,7 @@ pub fn handle_retrieve_member_picture_operator(
     conn: &mut DbConnection,
     member_id: &i32,
 ) -> Result<Option<Bytes>> {
-    let member = dal::members::get_member_by_id(conn, &member_id)?;
+    let member = dal::members::find_by_id(conn, &member_id)?;
     read_member_picture_asset(member)
 }
 
@@ -75,7 +75,7 @@ pub(crate) fn handle_retrieve_member_picture_dpia(
     conn: &mut DbConnection,
     member_id: &i32,
 ) -> Result<Option<Bytes>> {
-    let member = dal::members::get_member_by_id(conn, &member_id)?;
+    let member = dal::members::find_by_id(conn, &member_id)?;
     if member.allow_privacy_info_sharing {
         read_member_picture_asset(member)
     } else {
@@ -83,7 +83,7 @@ pub(crate) fn handle_retrieve_member_picture_dpia(
     }
 }
 
-fn read_member_picture_asset(member: MemberEntity) -> Result<Option<Bytes>> {
+fn read_member_picture_asset(member: Member) -> Result<Option<Bytes>> {
     if let Some(asset_id) = member.picture_asset_id {
         Ok(Some(read_asset(&asset_id)?))
     } else {

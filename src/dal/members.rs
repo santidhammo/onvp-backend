@@ -22,6 +22,8 @@ use crate::generic::security::{
     generate_encoded_nonce, FIRST_OPERATOR_ACTIVATION_MINUTES, MEMBER_ACTIVATION_MINUTES,
 };
 
+use crate::model::database::prelude::*;
+use crate::model::interface::prelude::*;
 use crate::model::prelude::*;
 use crate::schema::*;
 use crate::{dal, Error, Result};
@@ -48,7 +50,8 @@ pub fn register_first_operator(
     conn.transaction::<_, Error, _>(|conn| {
         let member_id = create_inactive_member(
             conn,
-            register_command,
+            &register_command.detail_register_sub_command,
+            &register_command.address_register_sub_command,
             activation_string,
             *FIRST_OPERATOR_ACTIVATION_MINUTES,
             Role::Member,
@@ -68,7 +71,8 @@ pub fn register(
     conn.transaction::<_, Error, _>(|conn| {
         let _ = create_inactive_member(
             conn,
-            register_command,
+            &register_command.detail_register_sub_command,
+            &register_command.address_register_sub_command,
             activation_string,
             *MEMBER_ACTIVATION_MINUTES,
             Role::Member,
@@ -78,10 +82,10 @@ pub fn register(
     .map_err(|e| e.into())
 }
 
-pub fn get_member_by_activation_string(
+pub fn find_by_activation_string(
     conn: &mut DbConnection,
     activation_string: &str,
-) -> Result<MemberEntity> {
+) -> Result<Member> {
     let activated_filter = members::activated.eq(false);
     let activation_time_filter = members::activation_time.gt(chrono::Utc::now().naive_utc());
     let activation_string_filter = members::activation_string.eq(activation_string);
@@ -93,20 +97,17 @@ pub fn get_member_by_activation_string(
                 .and(activation_time_filter)
                 .and(activation_string_filter),
         )
-        .first::<MemberEntity>(conn)?)
+        .first::<Member>(conn)?)
 }
 
-pub fn get_member_by_id(conn: &mut DbConnection, id: &i32) -> Result<MemberEntity> {
+pub fn find_by_id(conn: &mut DbConnection, id: &i32) -> Result<Member> {
     Ok(members::table
         .select(members::all_columns)
         .filter(members::id.eq(id))
-        .first::<MemberEntity>(conn)?)
+        .first::<Member>(conn)?)
 }
 
-pub fn get_member_by_email_address(
-    conn: &mut DbConnection,
-    email_address: &str,
-) -> Result<MemberEntity> {
+pub fn find_by_email_address(conn: &mut DbConnection, email_address: &str) -> Result<Member> {
     let member_details = get_member_detail_by_email_address(conn, email_address)?;
 
     let activated_filter = members::activated.eq(true);
@@ -115,44 +116,46 @@ pub fn get_member_by_email_address(
     Ok(members::table
         .select(members::all_columns)
         .filter(activated_filter.and(details_filter))
-        .first::<MemberEntity>(conn)?)
+        .first::<Member>(conn)?)
 }
 
-pub fn get_member_detail_by_id(
-    conn: &mut DbConnection,
-    member_details_id: &i32,
-) -> Result<MemberDetailEntity> {
-    let id_filter = member_details::id.eq(member_details_id);
+pub fn find_detail_by_detail_id(conn: &mut DbConnection, detail_id: &i32) -> Result<MemberDetail> {
+    let id_filter = member_details::id.eq(detail_id);
 
     Ok(member_details::table
         .select(member_details::all_columns)
         .filter(id_filter)
-        .first::<MemberDetailEntity>(conn)?)
+        .first::<MemberDetail>(conn)?)
 }
 
 pub fn get_member_detail_by_email_address(
     conn: &mut DbConnection,
     email_address: &str,
-) -> Result<MemberDetailEntity> {
+) -> Result<MemberDetail> {
     let email_address_filter = member_details::email_address.eq(email_address);
 
     Ok(member_details::table
         .select(member_details::all_columns)
         .filter(email_address_filter)
-        .first::<MemberDetailEntity>(conn)?)
+        .first::<MemberDetail>(conn)?)
 }
 
 pub fn delete_member_address_detail_by_id(
     conn: &mut DbConnection,
-    member_address_details_id: i32,
+    address_details_id: i32,
 ) -> Result<()> {
     let details = member_address_details::table
         .select(member_address_details::all_columns)
-        .filter(member_address_details::id.eq(member_address_details_id))
-        .load::<MemberAddressDetailEntity>(conn)?;
+        .filter(member_address_details::id.eq(address_details_id))
+        .load::<MemberAddressDetail>(conn)?;
     let maybe_first_error = details
         .iter()
-        .map(|detail| diesel::delete(detail).execute(conn))
+        .map(|detail| {
+            diesel::delete(
+                member_address_details::table.filter(member_address_details::id.eq(detail.id)),
+            )
+            .execute(conn)
+        })
         .filter(|r| r.is_err())
         .map(|r| r.unwrap_err())
         .nth(0);
@@ -162,14 +165,17 @@ pub fn delete_member_address_detail_by_id(
     }
 }
 
-pub fn delete_member_detail_by_id(conn: &mut DbConnection, member_details_id: i32) -> Result<()> {
+pub fn delete_member_detail_by_id(conn: &mut DbConnection, details_id: i32) -> Result<()> {
     let address_details = member_details::table
         .select(member_details::all_columns)
-        .filter(member_details::id.eq(member_details_id))
-        .load::<MemberDetailEntity>(conn)?;
+        .filter(member_details::id.eq(details_id))
+        .load::<MemberDetail>(conn)?;
     let maybe_first_error = address_details
         .iter()
-        .map(|detail| diesel::delete(detail).execute(conn))
+        .map(|detail| {
+            diesel::delete(member_details::table.filter(member_details::id.eq(detail.id)))
+                .execute(conn)
+        })
         .filter(|r| r.is_err())
         .map(|r| r.unwrap_err())
         .nth(0);
@@ -209,36 +215,33 @@ pub(crate) fn get_member_roles_by_member_id(
     Ok(result.iter().map(|v| *v).collect())
 }
 
-pub fn activate(conn: &mut DbConnection, member: &MemberEntity) -> Result<()> {
+pub fn activate(conn: &mut DbConnection, member_id: &i32) -> Result<()> {
     diesel::update(members::table)
-        .filter(members::id.eq(member.id))
+        .filter(members::id.eq(member_id))
         .set(members::activated.eq(true))
         .execute(conn)?;
     Ok(())
 }
 
-pub fn get_member_with_detail_by_id(
-    conn: &mut DbConnection,
-    id: i32,
-) -> Result<MemberWithDetailLogicalEntity> {
+pub fn member_response_by_id(conn: &mut DbConnection, id: i32) -> Result<MemberResponse> {
     let filter = members::id.eq(id);
-    let result: (MemberEntity, MemberDetailEntity) = members::table
+    let result: (Member, MemberDetail) = members::table
         .inner_join(member_details::table)
         .filter(filter)
-        .select((MemberEntity::as_select(), MemberDetailEntity::as_select()))
+        .select((Member::as_select(), MemberDetail::as_select()))
         .first(conn)?;
-    Ok(MemberWithDetailLogicalEntity::from(&result))
+    Ok(MemberResponse::from(&result))
 }
 
-pub fn find_with_details_by_search_string(
+pub fn search(
     conn: &mut DbConnection,
     search_string: &String,
     page_size: usize,
     page_offset: usize,
-) -> Result<SearchResult<MemberWithDetailLogicalEntity>> {
+) -> Result<SearchResult<MemberResponse>> {
     let like_search_string = dal::create_like_string(search_string);
 
-    conn.transaction::<SearchResult<MemberWithDetailLogicalEntity>, Error, _>(|conn| {
+    conn.transaction::<SearchResult<MemberResponse>, Error, _>(|conn| {
         // ILIKE is only supported on PostgreSQL
         let (total_count, member_details) = match conn {
             DbConnection::PostgreSQL(ref mut conn) => {
@@ -252,14 +255,14 @@ pub fn find_with_details_by_search_string(
                     .count()
                     .get_result::<i64>(conn)? as usize;
 
-                let member_details: Vec<(MemberEntity, MemberDetailEntity)> = members::table
+                let member_details: Vec<(Member, MemberDetail)> = members::table
                     .inner_join(member_details::table)
                     .filter(filter)
                     .order_by(member_details::last_name)
                     .order_by(member_details::first_name)
                     .limit(page_size as i64)
                     .offset((page_offset * page_size) as i64)
-                    .select((MemberEntity::as_select(), MemberDetailEntity::as_select()))
+                    .select((Member::as_select(), MemberDetail::as_select()))
                     .load(conn)?;
 
                 (total_count, member_details)
@@ -276,13 +279,13 @@ pub fn find_with_details_by_search_string(
                     .count()
                     .get_result::<i64>(conn)? as usize;
 
-                let member_details: Vec<(MemberEntity, MemberDetailEntity)> = members::table
+                let member_details: Vec<(Member, MemberDetail)> = members::table
                     .inner_join(member_details::table)
                     .filter(filter)
                     .order_by(member_details::last_name)
                     .limit(page_size as i64)
                     .offset(page_offset as i64)
-                    .select((MemberEntity::as_select(), MemberDetailEntity::as_select()))
+                    .select((Member::as_select(), MemberDetail::as_select()))
                     .load(conn)?;
 
                 (total_count, member_details)
@@ -292,10 +295,7 @@ pub fn find_with_details_by_search_string(
             total_count,
             page_offset,
             page_count: dal::calculate_page_count(page_size, total_count),
-            rows: member_details
-                .iter()
-                .map(MemberWithDetailLogicalEntity::from)
-                .collect(),
+            rows: member_details.iter().map(MemberResponse::from).collect(),
         })
     })
 }
@@ -313,10 +313,10 @@ pub(crate) fn update(
             .set(members::musical_instrument_id.eq(command.musical_instrument_id.clone()))
             .execute(conn)?;
 
-        let result: MemberEntity = members::table
+        let result: Member = members::table
             .inner_join(member_details::table)
             .filter(filter)
-            .select(MemberEntity::as_select())
+            .select(Member::as_select())
             .first(conn)?;
 
         diesel::update(member_details::table)
@@ -416,21 +416,22 @@ pub(crate) fn role_list(conn: &mut DbConnection, member_id: &i32) -> Result<Vec<
     Ok(role_associations.iter().map(|ra| ra.system_role).collect())
 }
 
-pub fn create_inactive_member<S: AsAllMemberRegisterSubCommands>(
+pub fn create_inactive_member(
     conn: &mut DbConnection,
-    all_member_register_subcommands: &S,
+    detail_register_sub_command: &sub_commands::DetailRegisterSubCommand,
+    address_register_sub_command: &sub_commands::AddressRegisterSubCommand,
     activation_string: &str,
     activation_delta: TimeDelta,
     role: Role,
 ) -> crate::Result<i32> {
     conn.transaction::<i32, Error, _>(|conn| {
         let member_address_detail_id: i32 = diesel::insert_into(member_address_details::table)
-            .values(all_member_register_subcommands.member_address_detail())
+            .values(MemberAddressDetail::from(address_register_sub_command))
             .returning(member_address_details::id)
             .get_result(conn)?;
 
         let member_detail_id: i32 = diesel::insert_into(member_details::table)
-            .values(all_member_register_subcommands.member_detail())
+            .values(MemberDetail::from(detail_register_sub_command))
             .returning(member_details::id)
             .get_result(conn)?;
 
