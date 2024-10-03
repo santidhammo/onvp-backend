@@ -1,7 +1,9 @@
+use crate::dal;
+use crate::generic::result::{BackendError, BackendResult};
 use crate::generic::security::create_activation_string;
 use crate::model::interface::prelude::*;
-use crate::{dal, Error};
-use actix_web::web::Json;
+use crate::repositories::traits::MemberRoleRepository;
+use actix_web::web::{Data, Json};
 use actix_web::{get, post, web};
 
 pub const CONTEXT: &str = "/api/setup";
@@ -18,7 +20,7 @@ pub const CONTEXT: &str = "/api/setup";
     )
 )]
 #[get("/should_setup")]
-pub async fn should_setup(pool: web::Data<dal::DbPool>) -> Result<Json<bool>, Error> {
+pub async fn should_setup(pool: web::Data<dal::DbPool>) -> BackendResult<Json<bool>> {
     let mut conn = dal::connect(&pool)?;
     dal::members::has_operators(&mut conn).map(|v| Json(!v))
 }
@@ -42,18 +44,24 @@ pub async fn should_setup(pool: web::Data<dal::DbPool>) -> Result<Json<bool>, Er
 )]
 #[post("/setup_first_operator")]
 pub async fn setup_first_operator(
-    pool: web::Data<dal::DbPool>,
+    pool: Data<dal::DbPool>,
     first_operator: Json<FirstOperatorRegisterCommand>,
-) -> Result<Json<String>, Error> {
+    member_role_repository: Data<dyn MemberRoleRepository>,
+) -> BackendResult<Json<String>> {
     let mut conn = dal::connect(&pool)?;
     // First check if there are already operators:
     let has_operators = dal::members::has_operators(&mut conn)?;
     let activation_string = create_activation_string();
 
     if !has_operators {
-        dal::members::register_first_operator(&mut conn, &first_operator, &activation_string)?;
+        dal::members::register_first_operator(
+            &mut conn,
+            &first_operator,
+            &activation_string,
+            member_role_repository.get_ref(),
+        )?;
         Ok(Json(activation_string))
     } else {
-        Err(Error::bad_request())
+        Err(BackendError::bad())
     }
 }

@@ -19,11 +19,10 @@
 
 //! Work groups are collections of members, allowing for additional roles.
 
+use crate::dal;
+use crate::generic::result::{BackendError, BackendResult};
 use crate::model::interface::prelude::*;
-use crate::model::security::Role;
-use crate::{dal, Error, Result};
-use actix_web::{delete, get, post, web, HttpResponse};
-use std::ops::Deref;
+use actix_web::{get, post, web, HttpResponse};
 
 pub const CONTEXT: &str = "/api/workgroups";
 
@@ -45,57 +44,9 @@ pub const CONTEXT: &str = "/api/workgroups";
 pub async fn register(
     pool: web::Data<dal::DbPool>,
     data: web::Json<WorkgroupRegisterCommand>,
-) -> Result<HttpResponse> {
+) -> BackendResult<HttpResponse> {
     let mut conn = dal::connect(&pool)?;
     dal::workgroups::register(&mut conn, &data)?;
-    Ok(HttpResponse::Ok().finish())
-}
-
-/// Associate a role to a work group
-///
-/// Work group role association is used to allow members of a workgroup to have an extended role if
-/// they are part of the work group.
-#[utoipa::path(
-    context_path = CONTEXT,
-    responses(
-        (status = 200, description = "Successful association of a role"),
-        (status = 400, description = "Bad Request"),
-        (status = 401, description = "Unauthorized"),
-        (status = 500, description = "Internal Server Error", body=[String])
-    )
-)]
-#[post("/{id}/associate_role/{role}")]
-pub async fn associate_role(
-    pool: web::Data<dal::DbPool>,
-    id_and_role: web::Path<(i32, Role)>,
-) -> Result<HttpResponse> {
-    let mut conn = dal::connect(&pool)?;
-    let (id, role) = id_and_role.deref();
-    dal::workgroups::associate_role(&mut conn, &id, &role)?;
-    Ok(HttpResponse::Ok().finish())
-}
-
-/// Dissociate a role from a work group
-///
-/// Work group role association is used to allow members of a workgroup to have an extended role if
-/// they are part of the work group.
-#[utoipa::path(
-    context_path = CONTEXT,
-    responses(
-        (status = 200, description = "Successful dissociation of a role"),
-        (status = 400, description = "Bad Request"),
-        (status = 401, description = "Unauthorized"),
-        (status = 500, description = "Internal Server Error", body=[String])
-    )
-)]
-#[delete("/{id}/dissociate_role/{role}")]
-pub async fn dissociate_role(
-    pool: web::Data<dal::DbPool>,
-    id_and_role: web::Path<(i32, Role)>,
-) -> Result<HttpResponse> {
-    let mut conn = dal::connect(&pool)?;
-    let (id, role) = id_and_role.deref();
-    dal::workgroups::dissociate_role(&mut conn, &id, &role)?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -119,9 +70,9 @@ pub async fn dissociate_role(
 pub async fn search(
     pool: web::Data<dal::DbPool>,
     search_params: web::Query<SearchParams>,
-) -> Result<web::Json<SearchResult<WorkgroupResponse>>> {
+) -> BackendResult<web::Json<SearchResult<WorkgroupResponse>>> {
     let mut conn = dal::connect(&pool)?;
-    let query = search_params.query.as_ref().ok_or(Error::bad_request())?;
+    let query = search_params.term.as_ref().ok_or(BackendError::bad())?;
 
     Ok(web::Json(dal::workgroups::search(
         &mut conn,

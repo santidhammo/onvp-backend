@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::Error;
+use crate::generic::result::BackendError;
 use actix_jwt_auth_middleware::FromRequest;
 use diesel::backend::Backend;
 use diesel::deserialize::FromSql;
@@ -124,7 +124,7 @@ where
 }
 
 impl TryFrom<u8> for Role {
-    type Error = Error;
+    type Error = BackendError;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
@@ -132,10 +132,17 @@ impl TryFrom<u8> for Role {
             1 => Ok(Self::Member),
             2 => Ok(Self::OrchestraCommittee),
             0xFF => Ok(Self::Operator),
-            x => Err(Error::byte_conversion(format!(
+            x => Err(BackendError::byte_conversion(format!(
                 "Could not expand variant into role: {}",
                 x
             ))),
         }
     }
+}
+
+#[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub enum RoleClass {
+    Member,
+    Workgroup,
 }

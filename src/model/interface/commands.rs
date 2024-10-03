@@ -18,6 +18,7 @@
  */
 
 use crate::model::interface::sub_commands::{AddressRegisterSubCommand, DetailRegisterSubCommand};
+use crate::model::security::{Role, RoleClass};
 use serde::Deserialize;
 use utoipa::ToSchema;
 
@@ -81,4 +82,32 @@ pub struct MemberUpdateAddressCommand {
 
     #[schema(example = "Tubaton")]
     pub domicile: String,
+}
+
+/// Associates a class with a given identifier to a given role
+#[derive(Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct AssociateRoleCommand {
+    #[schema(example = 1)]
+    pub id: i32,
+
+    #[schema(example = "OrchestraCommittee")]
+    pub role: Role,
+
+    #[schema(example = "Member")]
+    pub class: RoleClass,
+}
+
+/// Dissociates a class with a given identifier from a given role
+#[derive(Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct DissociateRoleCommand {
+    #[schema(example = 1)]
+    pub id: i32,
+
+    #[schema(example = "OrchestraCommittee")]
+    pub role: Role,
+
+    #[schema(example = "Member")]
+    pub class: RoleClass,
 }

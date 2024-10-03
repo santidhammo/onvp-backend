@@ -16,8 +16,36 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+use crate::dal::DbConnection;
+use crate::generic::result::BackendResult;
+use crate::model::prelude::Role;
 
-pub mod activation;
-pub mod assets;
-pub mod result;
-pub mod security;
+pub trait MemberRoleRepository {
+    fn associate_role(
+        &self,
+        conn: &mut DbConnection,
+        member_id: i32,
+        role: Role,
+    ) -> BackendResult<()>;
+    fn dissociate_role(
+        &self,
+        conn: &mut DbConnection,
+        member_id: i32,
+        role: Role,
+    ) -> BackendResult<()>;
+}
+
+pub trait WorkgroupRoleRepository {
+    fn associate_role(
+        &self,
+        conn: &mut DbConnection,
+        workgroup_id: i32,
+        role: Role,
+    ) -> BackendResult<()>;
+    fn dissociate_role(
+        &self,
+        conn: &mut DbConnection,
+        workgroup_id: i32,
+        role: Role,
+    ) -> BackendResult<()>;
+}

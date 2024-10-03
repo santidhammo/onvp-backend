@@ -17,16 +17,17 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use crate::generic::result::{BackendError, BackendResult};
 use crate::model::database::entities::Member;
 use crate::schema::members;
-use crate::{dal, schema, Error};
+use crate::{dal, schema};
 use diesel::prelude::*;
 use log::info;
 
-pub fn clean_late_non_activated_members(pool: dal::DbPool) -> Result<(), Error> {
+pub fn clean_late_non_activated_members(pool: dal::DbPool) -> BackendResult<()> {
     let mut conn = pool.get()?;
 
-    conn.transaction::<_, Error, _>(|conn| {
+    conn.transaction::<_, BackendError, _>(|conn| {
         let activated_filter = schema::members::activated.eq(false);
         let activation_time_elapsed_filter =
             schema::members::activation_time.lt(chrono::Utc::now().naive_utc());
@@ -52,7 +53,7 @@ pub fn clean_late_non_activated_members(pool: dal::DbPool) -> Result<(), Error> 
                 diesel::delete(members::table.filter(members::id.eq(member.id))).execute(conn)?;
 
             if result != 1 {
-                return Err(Error::not_enough_records());
+                return Err(BackendError::not_enough_records());
             }
             dal::members::delete_member_detail_by_id(conn, member.member_details_id)?;
             dal::members::delete_member_address_detail_by_id(

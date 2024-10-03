@@ -17,10 +17,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use crate::dal;
+use crate::generic::result::{BackendError, BackendResult};
 use crate::model::database::prelude::*;
 use crate::model::security::{Role, UserClaims};
-use crate::result::Result;
-use crate::{dal, Error};
 use aes_gcm::aead::{Aead, OsRng};
 use aes_gcm::{AeadCore, Aes256Gcm, Key, KeyInit};
 use base64::{engine::general_purpose, Engine as _};
@@ -53,7 +53,7 @@ pub fn generate_encoded_nonce() -> String {
     general_purpose::STANDARD.encode(&nonce)
 }
 
-pub fn generate_totp(cipher_text: Vec<u8>, email_address: String) -> Result<TOTP> {
+pub fn generate_totp(cipher_text: Vec<u8>, email_address: String) -> BackendResult<TOTP> {
     Ok(TOTP::new(
         Algorithm::SHA1,
         6,
@@ -65,19 +65,19 @@ pub fn generate_totp(cipher_text: Vec<u8>, email_address: String) -> Result<TOTP
     )?)
 }
 
-pub fn operator_state_guard(claims: &UserClaims) -> Result<()> {
+pub fn operator_state_guard(claims: &UserClaims) -> BackendResult<()> {
     if claims.has_role(Role::Operator) {
         Ok(())
     } else {
-        Err(Error::bad_request())
+        Err(BackendError::bad())
     }
 }
 
-pub fn token_nearly_expires(token: UntrustedToken) -> Result<bool> {
+pub fn token_nearly_expires(token: UntrustedToken) -> BackendResult<bool> {
     let expiration = token
         .deserialize_claims_unchecked::<UserClaims>()?
         .expiration
-        .ok_or(Error::bad_request())?;
+        .ok_or(BackendError::bad())?;
     let delta = TimeDelta::seconds(TOKEN_EXPIRY_HIGH_WATER_MARK);
     let high_water_mark = expiration.add(-delta);
     Ok(high_water_mark.le(&Utc::now()))
@@ -104,7 +104,7 @@ pub fn create_activation_string() -> String {
     validation_string
 }
 
-pub fn get_member_totp(conn: &mut dal::DbConnection, member: &Member) -> Result<TOTP> {
+pub fn get_member_totp(conn: &mut dal::DbConnection, member: &Member) -> BackendResult<TOTP> {
     let nonce = member.decoded_nonce()?;
     let activation_bytes = member.activation_string.as_bytes();
     let otp_cipher = OTP_CIPHER.deref();
@@ -113,7 +113,7 @@ pub fn get_member_totp(conn: &mut dal::DbConnection, member: &Member) -> Result<
     generate_totp(cipher_text, details.email_address)
 }
 
-pub fn generate_qr_code(totp: TOTP) -> Result<String> {
+pub fn generate_qr_code(totp: TOTP) -> BackendResult<String> {
     totp.get_qr_base64()
-        .map_err(|e| Error::qr_code_generation(e))
+        .map_err(|e| BackendError::qr_code_generation(e))
 }

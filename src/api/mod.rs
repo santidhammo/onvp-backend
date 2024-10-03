@@ -23,6 +23,7 @@ use actix_jwt_auth_middleware::use_jwt::UseJWTOnScope;
 use actix_jwt_auth_middleware::{Authority, TokenSigner};
 use actix_state_guards::UseStateGuardOnScope;
 use actix_web::middleware::Logger;
+use actix_web::web::Data;
 use actix_web::{web, App, HttpServer};
 use ed25519_compact::{KeyPair, PublicKey, SecretKey};
 use jwt_compact::alg::Ed25519;
@@ -37,6 +38,7 @@ use utoipa::OpenApi;
 use utoipa_scalar::{Scalar, Servable};
 
 pub mod members;
+pub mod roles;
 pub mod setup;
 pub mod workgroups;
 
@@ -65,11 +67,9 @@ use crate::model::prelude::*;
         members::upload_picture_asset,
         members::picture_asset,
         members::picture,
-        members::associate_role,
-        members::dissociate_role,
+        roles::associate,
+        roles::dissociate,
         workgroups::register,
-        workgroups::associate_role,
-        workgroups::dissociate_role,
         workgroups::search,
         source_code::details,
     ),
@@ -88,6 +88,8 @@ use crate::model::prelude::*;
         schemas(WorkgroupResponse),
         schemas(MemberAddressResponse),
         schemas(WorkgroupResponse),
+        schemas(AssociateRoleCommand),
+        schemas(DissociateRoleCommand),
     ),
     tags(
         (name = "api::members", description = "Member management endpoints"),
@@ -119,10 +121,10 @@ pub async fn run_api_server() -> std::io::Result<()> {
             .build()
             .expect("Token Verifier should be initialized");
 
-        App::new()
-            .wrap(Logger::default())
-            .app_data(web::Data::new(pool.clone()))
-            .app_data(web::Data::new(token_signer.clone()))
+        let app = crate::injection::inject(&pool, App::new());
+        app.wrap(Logger::default())
+            .app_data(Data::new(pool.clone()))
+            .app_data(Data::new(token_signer.clone()))
             .service(
                 web::scope(members::CONTEXT)
                     .service(members::activation_code)
@@ -151,15 +153,21 @@ pub async fn run_api_server() -> std::io::Result<()> {
                             ),
                     ),
             )
+            .service(web::scope(workgroups::CONTEXT).use_jwt(
+                authority.clone(),
+                web::scope("").service(workgroups::search).use_state_guard(
+                    |claims: UserClaims| async move { security::operator_state_guard(&claims) },
+                    web::scope("").service(workgroups::register),
+                ),
+            ))
             .service(
-                web::scope(workgroups::CONTEXT).use_jwt(
+                web::scope(roles::CONTEXT).use_jwt(
                     authority.clone(),
-                    web::scope("").service(workgroups::search).use_state_guard(
+                    web::scope("").use_state_guard(
                         |claims: UserClaims| async move { security::operator_state_guard(&claims) },
                         web::scope("")
-                            .service(workgroups::register)
-                            .service(workgroups::associate_role)
-                            .service(workgroups::dissociate_role),
+                            .service(roles::associate)
+                            .service(roles::dissociate),
                     ),
                 ),
             )

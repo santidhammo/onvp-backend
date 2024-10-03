@@ -20,14 +20,16 @@
 pub mod api;
 pub mod commands;
 pub mod dal;
-mod generic;
+pub mod generic;
+mod injection;
 pub mod model;
-pub mod result;
+mod repositories;
 pub mod schema;
+mod services;
 
+use crate::generic::result::BackendResult;
 use rand::distributions::{Alphanumeric, DistString};
 use rand::thread_rng;
-pub use result::*;
 use std::env::var;
 use std::path::PathBuf;
 use std::sync::LazyLock;
@@ -36,7 +38,7 @@ fn generate_asset_id() -> String {
     Alphanumeric.sample_string(&mut thread_rng(), 16)
 }
 
-fn path_for_asset_id(asset_id: &str) -> Result<PathBuf> {
+fn path_for_asset_id(asset_id: &str) -> BackendResult<PathBuf> {
     let mut pb = PathBuf::new();
     pb.push(var("ASSETS_PATH")?);
     pb.push(asset_id);

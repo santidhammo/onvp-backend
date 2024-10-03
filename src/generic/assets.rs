@@ -17,9 +17,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use crate::dal;
 use crate::dal::DbConnection;
+use crate::generic::result::{BackendError, BackendResult};
 use crate::model::database::entities::Member;
-use crate::{dal, Error, Result};
 use actix_web::web::Bytes;
 use diesel::Connection;
 use image::codecs::png::PngEncoder;
@@ -33,8 +34,8 @@ pub fn handle_upload_member_picture(
     conn: &mut DbConnection,
     member_id: &i32,
     data: &Bytes,
-) -> Result<String> {
-    let result = conn.transaction::<String, Error, _>(|conn| {
+) -> BackendResult<String> {
+    let result = conn.transaction::<String, BackendError, _>(|conn| {
         let member = dal::members::find_by_id(conn, &member_id)?;
         // Mark the already existing picture for deletion, if it exists
         let mark_for_deletion = member.picture_asset_id.clone();
@@ -66,7 +67,7 @@ pub fn handle_upload_member_picture(
 pub fn handle_retrieve_member_picture_operator(
     conn: &mut DbConnection,
     member_id: &i32,
-) -> Result<Option<Bytes>> {
+) -> BackendResult<Option<Bytes>> {
     let member = dal::members::find_by_id(conn, &member_id)?;
     read_member_picture_asset(member)
 }
@@ -74,7 +75,7 @@ pub fn handle_retrieve_member_picture_operator(
 pub(crate) fn handle_retrieve_member_picture_dpia(
     conn: &mut DbConnection,
     member_id: &i32,
-) -> Result<Option<Bytes>> {
+) -> BackendResult<Option<Bytes>> {
     let member = dal::members::find_by_id(conn, &member_id)?;
     if member.allow_privacy_info_sharing {
         read_member_picture_asset(member)
@@ -83,7 +84,7 @@ pub(crate) fn handle_retrieve_member_picture_dpia(
     }
 }
 
-fn read_member_picture_asset(member: Member) -> Result<Option<Bytes>> {
+fn read_member_picture_asset(member: Member) -> BackendResult<Option<Bytes>> {
     if let Some(asset_id) = member.picture_asset_id {
         Ok(Some(read_asset(&asset_id)?))
     } else {
@@ -91,7 +92,7 @@ fn read_member_picture_asset(member: Member) -> Result<Option<Bytes>> {
     }
 }
 
-fn read_asset(asset_id: &String) -> Result<Bytes> {
+fn read_asset(asset_id: &String) -> BackendResult<Bytes> {
     let pb = crate::path_for_asset_id(&asset_id)?;
     let mut r = OpenOptions::new().read(true).open(&pb)?;
     let mut v = Vec::new();
@@ -99,7 +100,7 @@ fn read_asset(asset_id: &String) -> Result<Bytes> {
     Ok(Bytes::from(v))
 }
 
-fn load_alien_member_picture(data: &Bytes) -> Result<DynamicImage> {
+fn load_alien_member_picture(data: &Bytes) -> BackendResult<DynamicImage> {
     let reader = ImageReader::new(Cursor::new(&data)).with_guessed_format()?;
     let dynamic_image = reader.decode()?;
 

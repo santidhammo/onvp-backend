@@ -17,7 +17,5 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-pub mod activation;
-pub mod assets;
-pub mod result;
-pub mod security;
+pub mod command;
+pub mod request;

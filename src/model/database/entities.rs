@@ -17,8 +17,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use crate::generic::result::BackendError;
 use crate::model::interface::prelude::*;
-use crate::Error;
 use aes_gcm::aead::consts::U12;
 use aes_gcm::aead::generic_array::GenericArray;
 use base64::engine::general_purpose;
@@ -28,6 +28,7 @@ use diesel::{Insertable, Queryable, Selectable};
 #[derive(Clone, Debug, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::members)]
 pub struct Member {
+    #[diesel(skip_insertion)]
     pub id: i32,
     pub member_details_id: i32,
     pub member_address_details_id: i32,
@@ -42,20 +43,21 @@ pub struct Member {
 }
 
 impl Member {
-    pub fn decoded_nonce(&self) -> Result<GenericArray<u8, U12>, Error> {
+    pub fn decoded_nonce(&self) -> Result<GenericArray<u8, U12>, BackendError> {
         let decoded = general_purpose::STANDARD.decode(&self.nonce)?;
 
         let buffer: [u8; 12] = decoded[..].try_into().map_err(|_| {
-            Error::insufficient_bytes("Not enough bytes available in base64 decoded Nonce")
+            BackendError::insufficient_bytes("Not enough bytes available in base64 decoded Nonce")
         })?;
         GenericArray::try_from(buffer)
-            .map_err(|_| Error::insufficient_bytes("Not enough decoded bytes in Nonce"))
+            .map_err(|_| BackendError::insufficient_bytes("Not enough decoded bytes in Nonce"))
     }
 }
 
 #[derive(Clone, Debug, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::member_details)]
 pub struct MemberDetail {
+    #[diesel(skip_insertion)]
     pub id: i32,
     pub first_name: String,
     pub last_name: String,
@@ -73,8 +75,8 @@ impl MemberDetail {
     }
 }
 
-impl From<&crate::model::interface::sub_commands::DetailRegisterSubCommand> for MemberDetail {
-    fn from(input: &crate::model::interface::sub_commands::DetailRegisterSubCommand) -> Self {
+impl From<&sub_commands::DetailRegisterSubCommand> for MemberDetail {
+    fn from(input: &sub_commands::DetailRegisterSubCommand) -> Self {
         Self {
             id: 0, // Skipped during creation
             first_name: input.first_name.clone(),
@@ -88,6 +90,7 @@ impl From<&crate::model::interface::sub_commands::DetailRegisterSubCommand> for 
 #[derive(Clone, Debug, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::member_address_details)]
 pub struct MemberAddressDetail {
+    #[diesel(skip_insertion)]
     pub id: i32,
     pub street: String,
     pub house_number: i32,
@@ -96,10 +99,8 @@ pub struct MemberAddressDetail {
     pub domicile: String,
 }
 
-impl From<&crate::model::interface::sub_commands::AddressRegisterSubCommand>
-    for MemberAddressDetail
-{
-    fn from(input: &crate::model::interface::sub_commands::AddressRegisterSubCommand) -> Self {
+impl From<&sub_commands::AddressRegisterSubCommand> for MemberAddressDetail {
+    fn from(input: &sub_commands::AddressRegisterSubCommand) -> Self {
         Self {
             id: 0, // Skipped during creation
             street: input.street.clone(),
@@ -114,6 +115,7 @@ impl From<&crate::model::interface::sub_commands::AddressRegisterSubCommand>
 #[derive(Clone, Debug, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::workgroups)]
 pub struct Workgroup {
+    #[diesel(skip_insertion)]
     pub id: i32,
     pub name: String,
 }

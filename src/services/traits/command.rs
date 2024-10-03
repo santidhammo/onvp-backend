@@ -16,8 +16,23 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+use crate::generic::result::BackendResult;
+use crate::model::interface::commands::{
+    AssociateRoleCommand, DissociateRoleCommand, MemberRegisterCommand,
+};
 
-pub mod activation;
-pub mod assets;
-pub mod result;
-pub mod security;
+/// Controls actions which can be performed on member data
+pub trait MemberCommandService {
+    /// Registers a new member which is not activated yet, by supplying the command received from
+    /// the interface.
+    fn register_inactive(&self, command: &MemberRegisterCommand) -> BackendResult<i32>;
+}
+
+/// Controls actions which can be performed to manage roles
+pub trait RoleCommandService {
+    /// Associates a role
+    fn associate_role(&self, command: &AssociateRoleCommand) -> BackendResult<()>;
+
+    /// Dissociates a role
+    fn dissociate_role(&self, command: &DissociateRoleCommand) -> BackendResult<()>;
+}

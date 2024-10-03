@@ -32,12 +32,14 @@ use std::fmt::{Debug, Display, Formatter, Write};
 use std::time::SystemTimeError;
 use totp_rs::TotpUrlError;
 
+pub type BackendResult<T> = Result<T, BackendError>;
+
 #[derive(Debug, Clone)]
-pub struct Error {
+pub struct BackendError {
     pub kind: ErrorKind,
 }
 
-impl Error {
+impl BackendError {
     pub(crate) fn var_error(message: &str) -> Self {
         Self {
             kind: ErrorKind::VarError(message.to_string()),
@@ -48,7 +50,7 @@ impl Error {
             kind: ErrorKind::Database("Not enough records found".to_owned()),
         }
     }
-    pub(crate) fn bad_request() -> Self {
+    pub(crate) fn bad() -> Self {
         Self {
             kind: ErrorKind::BadRequest,
         }
@@ -128,16 +130,14 @@ struct PreparedError {
     message: String,
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
-
-impl Error {
-    pub fn byte_conversion<T: ToString>(s: T) -> Error {
+impl BackendError {
+    pub fn byte_conversion<T: ToString>(s: T) -> BackendError {
         Self {
             kind: ErrorKind::ByteConversion(s.to_string()),
         }
     }
 
-    pub fn qr_code_generation(reason: String) -> Error {
+    pub fn qr_code_generation(reason: String) -> BackendError {
         Self {
             kind: ErrorKind::QrCodeGeneration(reason),
         }
@@ -152,7 +152,7 @@ impl Error {
     }
 }
 
-impl Display for Error {
+impl Display for BackendError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let kind = self.kind.simplified_string();
         let explanation = self.kind.message();
@@ -164,7 +164,7 @@ impl Display for Error {
     }
 }
 
-impl ResponseError for Error {
+impl ResponseError for BackendError {
     fn status_code(&self) -> StatusCode {
         self.kind.status_code()
     }
@@ -182,9 +182,9 @@ impl ResponseError for Error {
     }
 }
 
-impl std::error::Error for Error {}
+impl std::error::Error for BackendError {}
 
-impl From<r2d2::Error> for Error {
+impl From<r2d2::Error> for BackendError {
     fn from(value: r2d2::Error) -> Self {
         Self {
             kind: ErrorKind::Database(value.to_string()),
@@ -192,7 +192,7 @@ impl From<r2d2::Error> for Error {
     }
 }
 
-impl From<SystemTimeError> for Error {
+impl From<SystemTimeError> for BackendError {
     fn from(value: SystemTimeError) -> Self {
         Self {
             kind: ErrorKind::SystemTime(value.to_string()),
@@ -200,7 +200,7 @@ impl From<SystemTimeError> for Error {
     }
 }
 
-impl From<aes_gcm::Error> for Error {
+impl From<aes_gcm::Error> for BackendError {
     fn from(value: aes_gcm::Error) -> Self {
         Self {
             kind: ErrorKind::Aes(value.to_string()),
@@ -208,7 +208,7 @@ impl From<aes_gcm::Error> for Error {
     }
 }
 
-impl From<base64::DecodeError> for Error {
+impl From<base64::DecodeError> for BackendError {
     fn from(value: base64::DecodeError) -> Self {
         Self {
             kind: ErrorKind::Base64Decode(value.to_string()),
@@ -216,7 +216,7 @@ impl From<base64::DecodeError> for Error {
     }
 }
 
-impl From<base64::EncodeSliceError> for Error {
+impl From<base64::EncodeSliceError> for BackendError {
     fn from(value: base64::EncodeSliceError) -> Self {
         Self {
             kind: ErrorKind::Base64Encode(value.to_string()),
@@ -224,7 +224,7 @@ impl From<base64::EncodeSliceError> for Error {
     }
 }
 
-impl From<TotpUrlError> for Error {
+impl From<TotpUrlError> for BackendError {
     fn from(value: TotpUrlError) -> Self {
         Self {
             kind: ErrorKind::TOTP(value.to_string()),
@@ -232,7 +232,7 @@ impl From<TotpUrlError> for Error {
     }
 }
 
-impl From<AuthError> for Error {
+impl From<AuthError> for BackendError {
     fn from(_: AuthError) -> Self {
         Self {
             kind: ErrorKind::BadRequest,
@@ -240,7 +240,7 @@ impl From<AuthError> for Error {
     }
 }
 
-impl From<ParseError> for Error {
+impl From<ParseError> for BackendError {
     fn from(_: ParseError) -> Self {
         Self {
             kind: ErrorKind::BadRequest,
@@ -248,7 +248,7 @@ impl From<ParseError> for Error {
     }
 }
 
-impl From<ValidationError> for Error {
+impl From<ValidationError> for BackendError {
     fn from(_: ValidationError) -> Self {
         Self {
             kind: ErrorKind::BadRequest,
@@ -256,7 +256,7 @@ impl From<ValidationError> for Error {
     }
 }
 
-impl From<std::io::Error> for Error {
+impl From<std::io::Error> for BackendError {
     fn from(_: std::io::Error) -> Self {
         Self {
             kind: ErrorKind::BadRequest,
@@ -264,7 +264,7 @@ impl From<std::io::Error> for Error {
     }
 }
 
-impl From<ImageError> for Error {
+impl From<ImageError> for BackendError {
     fn from(_: ImageError) -> Self {
         Self {
             kind: ErrorKind::BadRequest,
@@ -272,7 +272,7 @@ impl From<ImageError> for Error {
     }
 }
 
-impl From<VarError> for Error {
+impl From<VarError> for BackendError {
     fn from(value: VarError) -> Self {
         Self {
             kind: ErrorKind::VarError(value.to_string()),
@@ -280,7 +280,7 @@ impl From<VarError> for Error {
     }
 }
 
-impl From<AddressError> for Error {
+impl From<AddressError> for BackendError {
     fn from(value: AddressError) -> Self {
         Self {
             kind: ErrorKind::ConfigError(format!("Email configuration error: {value}")),
@@ -288,7 +288,7 @@ impl From<AddressError> for Error {
     }
 }
 
-impl From<lettre::error::Error> for Error {
+impl From<lettre::error::Error> for BackendError {
     fn from(value: lettre::error::Error) -> Self {
         Self {
             kind: ErrorKind::EmailError(value.to_string()),
@@ -296,7 +296,7 @@ impl From<lettre::error::Error> for Error {
     }
 }
 
-impl From<lettre::transport::smtp::Error> for Error {
+impl From<lettre::transport::smtp::Error> for BackendError {
     fn from(value: lettre::transport::smtp::Error) -> Self {
         Self {
             kind: ErrorKind::EmailError(value.to_string()),
@@ -304,7 +304,7 @@ impl From<lettre::transport::smtp::Error> for Error {
     }
 }
 
-impl From<diesel::result::Error> for Error {
+impl From<diesel::result::Error> for BackendError {
     fn from(value: diesel::result::Error) -> Self {
         match value {
             diesel::result::Error::InvalidCString(_) => Self {

@@ -16,8 +16,19 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+use crate::generic::result::BackendResult;
+use serde::Serialize;
 
-pub mod activation;
-pub mod assets;
-pub mod result;
-pub mod security;
+use crate::model::interface::responses::MemberResponse;
+use crate::model::interface::search::{SearchParams, SearchResult};
+
+/// Controls actions for data retrieval belonging to members
+pub trait MemberRequestService: SearchController<MemberResponse> {
+    fn find(&self, member_id: &i32) -> BackendResult<MemberResponse>;
+}
+
+pub trait SearchController<T> {
+    fn search(&self, params: &SearchParams) -> BackendResult<SearchResult<T>>
+    where
+        T: Serialize;
+}

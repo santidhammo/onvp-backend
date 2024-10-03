@@ -17,17 +17,19 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::Error;
+use crate::generic::result::{BackendError, BackendResult};
 use lettre::transport::smtp::client::Tls;
 use lettre::{Message, SmtpTransport, Transport};
 use std::env::var;
 
-pub fn send_activation_email(email_address: &str, activation_string: &str) -> crate::Result<()> {
+pub fn send_activation_email(email_address: &str, activation_string: &str) -> BackendResult<()> {
     // Send the E-mail, if this fails, the member creation will be rolled back by the database
     let email_dev_mode: bool = var("EMAIL_DEV_MODE")
         .unwrap_or("false".to_owned())
         .parse()
-        .map_err(|_| Error::var_error("Development mode not properly set as true or false"))?;
+        .map_err(|_| {
+            BackendError::var_error("Development mode not properly set as true or false")
+        })?;
     let email_from = var("EMAIL_FROM")?;
     let email_subject = var("EMAIL_REGISTRATION_SUBJECT")?;
     let email_body = var("EMAIL_REGISTRATION_BODY")?.replace("{}", &activation_string);
@@ -37,7 +39,7 @@ pub fn send_activation_email(email_address: &str, activation_string: &str) -> cr
     let email_smtp_port = var("EMAIL_SMTP_PORT")
         .unwrap_or("587".to_owned())
         .parse()
-        .map_err(|_| Error::var_error("Could not concert EMAIL_SMTP_PORT to port number"))?;
+        .map_err(|_| BackendError::var_error("Could not concert EMAIL_SMTP_PORT to port number"))?;
     let email = Message::builder()
         .from(email_from.parse()?)
         .to(email_address.parse()?)

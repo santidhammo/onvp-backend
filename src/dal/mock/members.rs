@@ -19,10 +19,10 @@
 
 use crate::dal::members::*;
 use crate::dal::DbConnection;
+use crate::generic::result::BackendResult;
 use crate::model::interface::commands::MemberRegisterCommand;
 use crate::model::interface::sub_commands::{AddressRegisterSubCommand, DetailRegisterSubCommand};
 use crate::model::prelude::*;
-use crate::Result;
 use chrono::TimeDelta;
 use rand::distributions::{Alphanumeric, DistString};
 use rand::{thread_rng, Rng};
@@ -32,7 +32,7 @@ pub fn create(
     count: i32,
     activation_delta: TimeDelta,
     role: Role,
-) -> Result<()> {
+) -> BackendResult<()> {
     for _ in 0..count {
         let command = MemberRegisterCommand {
             detail_register_sub_command: DetailRegisterSubCommand {

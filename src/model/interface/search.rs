@@ -20,6 +20,8 @@
 //! Contains general use components which may be used throughout the system
 
 use serde::{Deserialize, Serialize};
+use std::env::var;
+use std::sync::LazyLock;
 use utoipa::ToSchema;
 
 /// To be able to search for several kinds of records, a generic search parameter structure is
@@ -30,7 +32,7 @@ use utoipa::ToSchema;
 pub struct SearchParams {
     /// The string to search on
     #[serde(rename = "q")]
-    pub query: Option<String>,
+    pub term: Option<String>,
 
     /// The page to query
     #[serde(rename = "p", default)]
@@ -48,3 +50,12 @@ pub struct SearchResult<T: Serialize> {
     pub page_count: usize,
     pub rows: Vec<T>,
 }
+
+/// Returns the page size of each page for a search, defaults to 10 if the environment variable
+/// SEARCH_PAGE_SIZE is not set.
+pub static SEARCH_PAGE_SIZE: LazyLock<usize> = LazyLock::new(|| {
+    var("SEARCH_PAGE_SIZE")
+        .unwrap_or("10".to_owned())
+        .parse()
+        .expect("invalid SEARCH_PAGE_SIZE, should be an unsigned integer")
+});
