@@ -30,17 +30,38 @@ where
         repositories::implementation::member_role::Implementation::injectable(());
     let workgroup_role_repository =
         repositories::implementation::workgroup_role::Implementation::injectable(());
+    let member_repository = repositories::implementation::member::Implementation::injectable(());
 
-    app.app_data(services::implementation::command::member::Implementation::injectable(pool))
-        .app_data(services::implementation::request::member::Implementation::injectable(pool))
-        .app_data(
-            services::implementation::command::role::Implementation::injectable((
-                &member_role_repository,
-                &workgroup_role_repository,
-                pool,
-            )),
-        )
-        .app_data(member_role_repository)
+    app.app_data(
+        services::implementation::command::setup::Implementation::injectable((
+            pool,
+            &member_repository,
+            &member_role_repository,
+        )),
+    )
+    .app_data(
+        services::implementation::command::member::Implementation::injectable((
+            pool,
+            &member_repository,
+            &member_role_repository,
+        )),
+    )
+    .app_data(
+        services::implementation::command::role::Implementation::injectable((
+            pool,
+            &member_role_repository,
+            &workgroup_role_repository,
+        )),
+    )
+    .app_data(
+        services::implementation::request::member::Implementation::injectable((
+            pool,
+            &member_repository,
+        )),
+    )
+    .app_data(member_role_repository)
+    .app_data(member_repository)
+    .app_data(workgroup_role_repository)
 }
 
 /// This trait is implemented by all injectables with the need of a data object itself

@@ -19,8 +19,8 @@
 
 use crate::dal;
 use crate::generic::result::{BackendError, BackendResult};
-use crate::model::database::prelude::*;
 use crate::model::security::{Role, UserClaims};
+use crate::model::storage::prelude::*;
 use aes_gcm::aead::{Aead, OsRng};
 use aes_gcm::{AeadCore, Aes256Gcm, Key, KeyInit};
 use base64::{engine::general_purpose, Engine as _};
@@ -99,7 +99,7 @@ pub static FIRST_OPERATOR_ACTIVATION_MINUTES: LazyLock<TimeDelta> = LazyLock::ne
     TimeDelta::minutes(value as i64)
 });
 
-pub fn create_activation_string() -> String {
+pub fn generate_activation_string() -> String {
     let validation_string = Alphanumeric.sample_string(&mut thread_rng(), 32);
     validation_string
 }

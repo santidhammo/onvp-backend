@@ -23,7 +23,7 @@ use lettre::{Message, SmtpTransport, Transport};
 use std::env::var;
 
 pub fn send_activation_email(email_address: &str, activation_string: &str) -> BackendResult<()> {
-    // Send the E-mail, if this fails, the member creation will be rolled back by the database
+    // Send the E-mail, if this fails, the member creation will be rolled back by the storage
     let email_dev_mode: bool = var("EMAIL_DEV_MODE")
         .unwrap_or("false".to_owned())
         .parse()

@@ -18,3 +18,4 @@
  */
 pub mod member;
 pub mod role;
+pub mod setup;

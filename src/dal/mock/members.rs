@@ -16,16 +16,17 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
-use crate::dal::members::*;
 use crate::dal::DbConnection;
 use crate::generic::result::BackendResult;
+use crate::injection::Injectable;
 use crate::model::interface::commands::MemberRegisterCommand;
 use crate::model::interface::sub_commands::{AddressRegisterSubCommand, DetailRegisterSubCommand};
 use crate::model::prelude::*;
+use crate::model::storage::extended_entities::ExtendedMember;
 use chrono::TimeDelta;
 use rand::distributions::{Alphanumeric, DistString};
 use rand::{thread_rng, Rng};
+use std::ops::Add;
 
 pub fn create(
     conn: &mut DbConnection,
@@ -33,6 +34,11 @@ pub fn create(
     activation_delta: TimeDelta,
     role: Role,
 ) -> BackendResult<()> {
+    let member_repository =
+        crate::repositories::implementation::member::Implementation::injectable(());
+    let member_role_repository =
+        crate::repositories::implementation::member_role::Implementation::injectable(());
+
     for _ in 0..count {
         let command = MemberRegisterCommand {
             detail_register_sub_command: DetailRegisterSubCommand {
@@ -55,16 +61,11 @@ pub fn create(
             },
         };
 
-        let activation_string = Alphanumeric.sample_string(&mut thread_rng(), 32);
+        let mut extended_member = ExtendedMember::from(&command);
+        extended_member.activation_time = extended_member.creation_time.add(activation_delta);
 
-        create_inactive_member(
-            conn,
-            &command.detail_register_sub_command,
-            &command.address_register_sub_command,
-            &activation_string,
-            activation_delta,
-            role,
-        )?;
+        let member_id = member_repository.create_inactive(conn, &extended_member)?;
+        member_role_repository.associate_role(conn, member_id, role)?;
     }
 
     Ok(())

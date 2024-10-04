@@ -20,12 +20,23 @@ use crate::generic::result::BackendResult;
 use crate::model::interface::commands::{
     AssociateRoleCommand, DissociateRoleCommand, MemberRegisterCommand,
 };
+use crate::model::interface::prelude::FirstOperatorRegisterCommand;
 
 /// Controls actions which can be performed on member data
 pub trait MemberCommandService {
     /// Registers a new member which is not activated yet, by supplying the command received from
     /// the interface.
     fn register_inactive(&self, command: &MemberRegisterCommand) -> BackendResult<i32>;
+}
+
+/// Controls actions which can be performed on member data
+pub trait SetupCommandService {
+    /// Registers a new member which is not activated yet, by supplying the command received from
+    /// the interface.
+    fn register_first_operator(
+        &self,
+        command: &FirstOperatorRegisterCommand,
+    ) -> BackendResult<String>;
 }
 
 /// Controls actions which can be performed to manage roles

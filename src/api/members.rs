@@ -123,7 +123,7 @@ pub async fn find(
     controller: Data<dyn MemberRequestService>,
     id: Path<i32>,
 ) -> BackendResult<Json<MemberResponse>> {
-    Ok(Json(controller.find(&id)?))
+    Ok(Json(controller.find(id.into_inner())?))
 }
 
 /// Save a member and the primary detail by id

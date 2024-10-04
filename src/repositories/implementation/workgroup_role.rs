@@ -73,7 +73,7 @@ impl WorkgroupRoleRepository for Implementation {
 
 impl Injectable<(), dyn WorkgroupRoleRepository> for Implementation {
     fn injectable(_: ()) -> Data<dyn WorkgroupRoleRepository> {
-        let member_command_controller_arc: Arc<dyn WorkgroupRoleRepository> = Arc::new(Self);
-        Data::from(member_command_controller_arc)
+        let arc: Arc<dyn WorkgroupRoleRepository> = Arc::new(Self);
+        Data::from(arc)
     }
 }

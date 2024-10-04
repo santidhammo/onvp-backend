@@ -19,6 +19,23 @@
 use crate::dal::DbConnection;
 use crate::generic::result::BackendResult;
 use crate::model::prelude::Role;
+use crate::model::storage::extended_entities::ExtendedMember;
+
+pub trait MemberRepository {
+    fn create_inactive(
+        &self,
+        conn: &mut DbConnection,
+        member_extended: &ExtendedMember,
+    ) -> BackendResult<i32>;
+
+    fn find_extended_by_id(
+        &self,
+        conn: &mut DbConnection,
+        id: i32,
+    ) -> BackendResult<ExtendedMember>;
+
+    fn count_members_with_role(&self, conn: &mut DbConnection, role: Role) -> BackendResult<usize>;
+}
 
 pub trait MemberRoleRepository {
     fn associate_role(

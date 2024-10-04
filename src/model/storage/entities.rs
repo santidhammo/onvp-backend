@@ -16,9 +16,9 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
 use crate::generic::result::BackendError;
 use crate::model::interface::prelude::*;
+use crate::model::storage::extended_entities::ExtendedMember;
 use aes_gcm::aead::consts::U12;
 use aes_gcm::aead::generic_array::GenericArray;
 use base64::engine::general_purpose;
@@ -51,6 +51,24 @@ impl Member {
         })?;
         GenericArray::try_from(buffer)
             .map_err(|_| BackendError::insufficient_bytes("Not enough decoded bytes in Nonce"))
+    }
+}
+
+impl From<&ExtendedMember> for Member {
+    fn from(value: &ExtendedMember) -> Self {
+        Self {
+            id: value.id,
+            musical_instrument_id: value.musical_instrument_id,
+            picture_asset_id: value.picture_asset_id.clone(),
+            activated: value.activated,
+            creation_time: value.creation_time,
+            activation_string: value.activation_string.clone(),
+            activation_time: value.activation_time,
+            allow_privacy_info_sharing: value.allow_privacy_info_sharing,
+            nonce: value.nonce.clone(),
+            member_details_id: value.member_detail.id,
+            member_address_details_id: value.member_address_detail.id,
+        }
     }
 }
 

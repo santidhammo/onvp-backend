@@ -18,7 +18,7 @@
  */
 
 use crate::generic::result::{BackendError, BackendResult};
-use crate::model::database::entities::Member;
+use crate::model::storage::entities::Member;
 use crate::schema::members;
 use crate::{dal, schema};
 use diesel::prelude::*;

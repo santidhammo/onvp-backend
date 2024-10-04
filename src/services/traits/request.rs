@@ -22,9 +22,14 @@ use serde::Serialize;
 use crate::model::interface::responses::MemberResponse;
 use crate::model::interface::search::{SearchParams, SearchResult};
 
+/// Controls actions for data retrieval belonging to the setup process
+pub trait SetupRequestService {
+    fn should_setup(&self) -> BackendResult<bool>;
+}
+
 /// Controls actions for data retrieval belonging to members
 pub trait MemberRequestService: SearchController<MemberResponse> {
-    fn find(&self, member_id: &i32) -> BackendResult<MemberResponse>;
+    fn find(&self, member_id: i32) -> BackendResult<MemberResponse>;
 }
 
 pub trait SearchController<T> {

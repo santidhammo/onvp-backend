@@ -65,27 +65,26 @@ impl RoleCommandService for Implementation {
 impl
     Injectable<
         (
+            &DbPool,
             &Data<dyn MemberRoleRepository>,
             &Data<dyn WorkgroupRoleRepository>,
-            &DbPool,
         ),
         dyn RoleCommandService,
     > for Implementation
 {
     fn injectable(
-        dependencies: (
+        (pool, member_role_repository, workgroup_role_repository): (
+            &DbPool,
             &Data<dyn MemberRoleRepository>,
             &Data<dyn WorkgroupRoleRepository>,
-            &DbPool,
         ),
     ) -> Data<dyn RoleCommandService> {
-        let (member_role_repository, workgroup_role_repository, pool) = dependencies;
         let implementation = Self {
             member_role_repository: member_role_repository.clone(),
             workgroup_role_repository: workgroup_role_repository.clone(),
             pool: pool.clone(),
         };
-        let member_command_controller_arc: Arc<dyn RoleCommandService> = Arc::new(implementation);
-        Data::from(member_command_controller_arc)
+        let arc: Arc<dyn RoleCommandService> = Arc::new(implementation);
+        Data::from(arc)
     }
 }

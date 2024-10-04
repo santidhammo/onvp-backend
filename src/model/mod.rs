@@ -17,9 +17,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-pub mod database;
 pub mod interface;
 pub mod security;
+pub mod storage;
 
 pub mod prelude {
     pub use super::security::*;

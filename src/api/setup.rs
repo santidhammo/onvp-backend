@@ -1,10 +1,9 @@
-use crate::dal;
-use crate::generic::result::{BackendError, BackendResult};
-use crate::generic::security::create_activation_string;
+use crate::generic::result::BackendResult;
 use crate::model::interface::prelude::*;
-use crate::repositories::traits::MemberRoleRepository;
+use crate::services::traits::command::SetupCommandService;
+use crate::services::traits::request::SetupRequestService;
 use actix_web::web::{Data, Json};
-use actix_web::{get, post, web};
+use actix_web::{get, post};
 
 pub const CONTEXT: &str = "/api/setup";
 
@@ -20,9 +19,8 @@ pub const CONTEXT: &str = "/api/setup";
     )
 )]
 #[get("/should_setup")]
-pub async fn should_setup(pool: web::Data<dal::DbPool>) -> BackendResult<Json<bool>> {
-    let mut conn = dal::connect(&pool)?;
-    dal::members::has_operators(&mut conn).map(|v| Json(!v))
+pub async fn should_setup(service: Data<dyn SetupRequestService>) -> BackendResult<Json<bool>> {
+    Ok(Json(service.should_setup()?))
 }
 
 /// Set up the first operator
@@ -30,7 +28,7 @@ pub async fn should_setup(pool: web::Data<dal::DbPool>) -> BackendResult<Json<bo
 /// The first operator should contain enough information to create a member with the operator role,
 /// and the associated details, including the address details, such that the system can be started.
 /// The whole operation is performed using two steps:
-/// 1. Enter the data into the database;
+/// 1. Enter the data into the storage;
 /// 2. Let the frontend navigate to the account activation step using a **TOTP** solution.
 ///
 /// ⚠️ If an operator already exists, this API call (for obvious reasons) becomes invalid.
@@ -44,24 +42,8 @@ pub async fn should_setup(pool: web::Data<dal::DbPool>) -> BackendResult<Json<bo
 )]
 #[post("/setup_first_operator")]
 pub async fn setup_first_operator(
-    pool: Data<dal::DbPool>,
-    first_operator: Json<FirstOperatorRegisterCommand>,
-    member_role_repository: Data<dyn MemberRoleRepository>,
+    command: Json<FirstOperatorRegisterCommand>,
+    service: Data<dyn SetupCommandService>,
 ) -> BackendResult<Json<String>> {
-    let mut conn = dal::connect(&pool)?;
-    // First check if there are already operators:
-    let has_operators = dal::members::has_operators(&mut conn)?;
-    let activation_string = create_activation_string();
-
-    if !has_operators {
-        dal::members::register_first_operator(
-            &mut conn,
-            &first_operator,
-            &activation_string,
-            member_role_repository.get_ref(),
-        )?;
-        Ok(Json(activation_string))
-    } else {
-        Err(BackendError::bad())
-    }
+    Ok(Json(service.register_first_operator(&command)?))
 }

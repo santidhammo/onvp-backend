@@ -78,7 +78,7 @@ impl MemberRoleRepository for Implementation {
 
 impl Injectable<(), dyn MemberRoleRepository> for Implementation {
     fn injectable(_: ()) -> Data<dyn MemberRoleRepository> {
-        let member_command_controller_arc: Arc<dyn MemberRoleRepository> = Arc::new(Self);
-        Data::from(member_command_controller_arc)
+        let arc: Arc<dyn MemberRoleRepository> = Arc::new(Self);
+        Data::from(arc)
     }
 }

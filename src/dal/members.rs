@@ -18,52 +18,16 @@
  */
 
 use crate::dal::DbConnection;
-use crate::generic::security::{generate_encoded_nonce, FIRST_OPERATOR_ACTIVATION_MINUTES};
 
 use crate::generic::result::{BackendError, BackendResult};
-use crate::model::database::prelude::*;
 use crate::model::interface::prelude::*;
 use crate::model::prelude::*;
-use crate::repositories::traits::MemberRoleRepository;
+use crate::model::storage::prelude::*;
 use crate::schema::*;
-use chrono::TimeDelta;
 use diesel::prelude::*;
 use std::collections::HashSet;
-use std::ops::Add;
 
-pub fn has_operators(conn: &mut DbConnection) -> BackendResult<bool> {
-    let filter = member_role_associations::system_role.eq(Role::Operator);
-    let count: i64 = member_role_associations::table
-        .filter(filter)
-        .count()
-        .get_result(conn)?;
-
-    Ok(count != 0)
-}
-
-pub fn register_first_operator(
-    conn: &mut DbConnection,
-    register_command: &FirstOperatorRegisterCommand,
-    activation_string: &str,
-    member_role_repository: &dyn MemberRoleRepository,
-) -> BackendResult<()> {
-    conn.transaction::<_, BackendError, _>(|conn| {
-        let member_id = create_inactive_member(
-            conn,
-            &register_command.detail_register_sub_command,
-            &register_command.address_register_sub_command,
-            activation_string,
-            *FIRST_OPERATOR_ACTIVATION_MINUTES,
-            Role::Member,
-        )?;
-
-        member_role_repository.associate_role(conn, member_id, Role::Operator)?;
-        Ok(())
-    })
-    .map_err(|e| e.into())
-}
-
-pub fn find_by_activation_string(
+pub fn find_by_activation_string(2
     conn: &mut DbConnection,
     activation_string: &str,
 ) -> BackendResult<Member> {
@@ -301,47 +265,4 @@ pub(crate) fn role_list(conn: &mut DbConnection, member_id: &i32) -> BackendResu
         .select(MemberRoleAssociation::as_select())
         .load(conn)?;
     Ok(role_associations.iter().map(|ra| ra.system_role).collect())
-}
-
-pub fn create_inactive_member(
-    conn: &mut DbConnection,
-    detail_register_sub_command: &sub_commands::DetailRegisterSubCommand,
-    address_register_sub_command: &sub_commands::AddressRegisterSubCommand,
-    activation_string: &str,
-    activation_delta: TimeDelta,
-    role: Role,
-) -> BackendResult<i32> {
-    conn.transaction::<i32, BackendError, _>(|conn| {
-        let member_address_detail_id: i32 = diesel::insert_into(member_address_details::table)
-            .values(MemberAddressDetail::from(address_register_sub_command))
-            .returning(member_address_details::id)
-            .get_result(conn)?;
-
-        let member_detail_id: i32 = diesel::insert_into(member_details::table)
-            .values(MemberDetail::from(detail_register_sub_command))
-            .returning(member_details::id)
-            .get_result(conn)?;
-
-        let now = chrono::Utc::now();
-
-        let member_id: i32 = diesel::insert_into(members::table)
-            .values((
-                members::member_address_details_id.eq(member_address_detail_id),
-                members::member_details_id.eq(member_detail_id),
-                members::activation_string.eq(activation_string.to_string()),
-                members::activation_time.eq(now.add(activation_delta).naive_utc()),
-                members::creation_time.eq(now.naive_utc()),
-                members::nonce.eq(generate_encoded_nonce()),
-            ))
-            .returning(members::id)
-            .get_result(conn)?;
-
-        diesel::insert_into(member_role_associations::table)
-            .values((
-                member_role_associations::member_id.eq(member_id),
-                member_role_associations::system_role.eq(role),
-            ))
-            .execute(conn)?;
-        Ok(member_id)
-    })
 }

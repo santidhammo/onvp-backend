@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//! Relationships connect database together and can be registered and unregistered
+//! Relationships connect storage together and can be registered and unregistered
 
 use diesel::{Insertable, Selectable};
 use serde::{Deserialize, Serialize};

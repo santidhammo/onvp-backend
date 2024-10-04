@@ -21,8 +21,8 @@ use crate::dal::DbConnection;
 
 use crate::dal;
 use crate::generic::result::{BackendError, BackendResult};
-use crate::model::database::prelude::*;
 use crate::model::interface::prelude::*;
+use crate::model::storage::prelude::*;
 use crate::schema::*;
 use diesel::prelude::*;
 

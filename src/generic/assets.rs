@@ -20,7 +20,7 @@
 use crate::dal;
 use crate::dal::DbConnection;
 use crate::generic::result::{BackendError, BackendResult};
-use crate::model::database::entities::Member;
+use crate::model::storage::entities::Member;
 use actix_web::web::Bytes;
 use diesel::Connection;
 use image::codecs::png::PngEncoder;

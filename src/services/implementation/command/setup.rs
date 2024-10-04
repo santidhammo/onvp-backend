@@ -16,15 +16,14 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::dal::DbPool;
-use crate::generic::activation::send_activation_email;
+use crate::dal::{DbConnection, DbPool};
 use crate::generic::result::{BackendError, BackendResult};
 use crate::injection::Injectable;
-use crate::model::interface::commands::MemberRegisterCommand;
+use crate::model::interface::commands::FirstOperatorRegisterCommand;
 use crate::model::prelude::Role;
 use crate::model::storage::extended_entities::ExtendedMember;
 use crate::repositories::traits::{MemberRepository, MemberRoleRepository};
-use crate::services::traits::command::MemberCommandService;
+use crate::services::traits::command::SetupCommandService;
 use actix_web::web::Data;
 use diesel::Connection;
 use std::sync::Arc;
@@ -35,25 +34,39 @@ pub struct Implementation {
     member_role_repository: Data<dyn MemberRoleRepository>,
 }
 
-impl MemberCommandService for Implementation {
-    fn register_inactive(&self, command: &MemberRegisterCommand) -> BackendResult<i32> {
+impl Implementation {
+    fn has_operators(&self, conn: &mut DbConnection) -> BackendResult<bool> {
+        Ok(self
+            .member_repository
+            .count_members_with_role(conn, Role::Operator)?
+            > 0)
+    }
+}
+
+impl SetupCommandService for Implementation {
+    fn register_first_operator(
+        &self,
+        command: &FirstOperatorRegisterCommand,
+    ) -> BackendResult<String> {
         let mut conn = self.pool.get()?;
-        conn.transaction::<i32, BackendError, _>(|conn| {
-            let extended_member = ExtendedMember::from(command);
+        conn.transaction::<String, BackendError, _>(|conn| {
+            if !self.has_operators(conn)? {
+                let extended_member = ExtendedMember::from(command);
 
-            let member_id = self
-                .member_repository
-                .create_inactive(conn, &extended_member)?;
+                let member_id = self
+                    .member_repository
+                    .create_inactive(conn, &extended_member)?;
 
-            self.member_role_repository
-                .associate_role(conn, member_id, Role::Member)?;
+                self.member_role_repository
+                    .associate_role(conn, member_id, Role::Member)?;
 
-            send_activation_email(
-                &command.detail_register_sub_command.email_address,
-                &extended_member.activation_string,
-            )?;
+                self.member_role_repository
+                    .associate_role(conn, member_id, Role::Operator)?;
 
-            Ok(member_id)
+                Ok(extended_member.activation_string)
+            } else {
+                Err(BackendError::bad())
+            }
         })
     }
 }
@@ -65,7 +78,7 @@ impl
             &Data<dyn MemberRepository>,
             &Data<dyn MemberRoleRepository>,
         ),
-        dyn MemberCommandService,
+        dyn SetupCommandService,
     > for Implementation
 {
     fn injectable(
@@ -74,13 +87,13 @@ impl
             &Data<dyn MemberRepository>,
             &Data<dyn MemberRoleRepository>,
         ),
-    ) -> Data<dyn MemberCommandService> {
+    ) -> Data<dyn SetupCommandService> {
         let implementation = Self {
             pool: pool.clone(),
             member_repository: member_repository.clone(),
             member_role_repository: member_role_repository.clone(),
         };
-        let arc: Arc<dyn MemberCommandService> = Arc::new(implementation);
+        let arc: Arc<dyn SetupCommandService> = Arc::new(implementation);
         Data::from(arc)
     }
 }

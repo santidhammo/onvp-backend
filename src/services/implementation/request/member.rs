@@ -18,14 +18,16 @@
  */
 
 use crate::dal;
-use crate::dal::members::with_detail_response_by_id;
 use crate::dal::{DbConnection, DbPool};
 use crate::generic::result::{BackendError, BackendResult};
 use crate::injection::Injectable;
-use crate::model::database::entities::{Member, MemberDetail};
 use crate::model::interface::prelude::{MemberResponse, SearchResult};
 use crate::model::interface::search::{SearchParams, SEARCH_PAGE_SIZE};
-use crate::schema::{member_details, members};
+use crate::model::storage::entities::{Member, MemberAddressDetail, MemberDetail};
+use crate::model::storage::extended_entities::ExtendedMember;
+use crate::repositories::traits::MemberRepository;
+
+use crate::schema::{member_address_details, member_details, members};
 use crate::services::traits::request::{MemberRequestService, SearchController};
 use actix_web::web::Data;
 use dal::create_like_string;
@@ -38,15 +40,16 @@ use std::sync::Arc;
 pub struct Implementation {
     pool: DbPool,
     page_size: usize,
+    member_repository: Data<dyn MemberRepository>,
 }
 
 impl MemberRequestService for Implementation {
-    fn find(&self, member_id: &i32) -> BackendResult<MemberResponse> {
-        let mut connection = self.pool.get()?;
-        Ok(MemberResponse::from(&with_detail_response_by_id(
-            &mut connection,
-            *member_id,
-        )?))
+    fn find(&self, member_id: i32) -> BackendResult<MemberResponse> {
+        let mut conn = self.pool.get()?;
+        let extended_member = self
+            .member_repository
+            .find_extended_by_id(&mut conn, member_id)?;
+        Ok(MemberResponse::from(&extended_member))
     }
 }
 
@@ -64,7 +67,7 @@ impl Implementation {
         params: &SearchParams,
         like_search_string: &str,
         conn: &mut PgConnection,
-    ) -> Result<(usize, Vec<(Member, MemberDetail)>), BackendError> {
+    ) -> Result<(usize, Vec<(Member, MemberDetail, MemberAddressDetail)>), BackendError> {
         use diesel::PgTextExpressionMethods;
         let filter = member_details::first_name
             .ilike(&like_search_string)
@@ -76,14 +79,19 @@ impl Implementation {
             .count()
             .get_result::<i64>(conn)? as usize;
 
-        let member_details: Vec<(Member, MemberDetail)> = members::table
+        let member_details: Vec<(Member, MemberDetail, MemberAddressDetail)> = members::table
             .inner_join(member_details::table)
+            .inner_join(member_address_details::table)
             .filter(filter)
             .order_by(member_details::last_name)
             .order_by(member_details::first_name)
             .limit(self.page_size as i64)
             .offset((params.page_offset * self.page_size) as i64)
-            .select((Member::as_select(), MemberDetail::as_select()))
+            .select((
+                Member::as_select(),
+                MemberDetail::as_select(),
+                MemberAddressDetail::as_select(),
+            ))
             .load(conn)?;
 
         Ok((total_count, member_details))
@@ -94,7 +102,7 @@ impl Implementation {
         params: &SearchParams,
         like_search_string: &str,
         conn: &mut SqliteConnection,
-    ) -> Result<(usize, Vec<(Member, MemberDetail)>), BackendError> {
+    ) -> Result<(usize, Vec<(Member, MemberDetail, MemberAddressDetail)>), BackendError> {
         use diesel::TextExpressionMethods;
         let filter = member_details::first_name
             .like(&like_search_string)
@@ -106,13 +114,18 @@ impl Implementation {
             .count()
             .get_result::<i64>(conn)? as usize;
 
-        let member_details: Vec<(Member, MemberDetail)> = members::table
+        let member_details: Vec<(Member, MemberDetail, MemberAddressDetail)> = members::table
             .inner_join(member_details::table)
+            .inner_join(member_address_details::table)
             .filter(filter)
             .order_by(member_details::last_name)
             .limit(self.page_size as i64)
             .offset(params.page_offset as i64)
-            .select((Member::as_select(), MemberDetail::as_select()))
+            .select((
+                Member::as_select(),
+                MemberDetail::as_select(),
+                MemberAddressDetail::as_select(),
+            ))
             .load(conn)?;
 
         Ok((total_count, member_details))
@@ -139,20 +152,31 @@ impl Implementation {
                 total_count,
                 page_offset: params.page_offset,
                 page_count: dal::calculate_page_count(self.page_size, total_count),
-                rows: member_details.iter().map(MemberResponse::from).collect(),
+                rows: member_details
+                    .iter()
+                    .map(|(member, member_detail, member_address_detail)| {
+                        ExtendedMember::from((member, member_detail, member_address_detail))
+                    })
+                    .map(|extended_member| MemberResponse::from(&extended_member))
+                    .collect(),
             })
         })
     }
 }
 
-impl Injectable<&DbPool, dyn MemberRequestService> for Implementation {
-    fn injectable(pool: &DbPool) -> Data<dyn MemberRequestService> {
+impl Injectable<(&DbPool, &Data<dyn MemberRepository>), dyn MemberRequestService>
+    for Implementation
+{
+    fn injectable(
+        (pool, member_repository): (&DbPool, &Data<dyn MemberRepository>),
+    ) -> Data<dyn MemberRequestService> {
         let implementation = Self {
             pool: pool.clone(),
             page_size: *SEARCH_PAGE_SIZE,
+            member_repository: member_repository.clone(),
         };
 
-        let member_command_controller_arc: Arc<dyn MemberRequestService> = Arc::new(implementation);
-        Data::from(member_command_controller_arc)
+        let arc: Arc<dyn MemberRequestService> = Arc::new(implementation);
+        Data::from(arc)
     }
 }

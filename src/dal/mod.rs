@@ -47,7 +47,7 @@ pub fn initialize_db_pool() -> DbPool {
     let manager = ConnectionManager::<DbConnection>::new(conn_spec);
     r2d2::Pool::builder()
         .build(manager)
-        .expect("database URL should be a valid URL towards PostgreSQL database")
+        .expect("storage URL should be a valid URL towards PostgreSQL storage")
 }
 
 pub(crate) fn create_like_string<T: ToString>(search_string: T) -> String {

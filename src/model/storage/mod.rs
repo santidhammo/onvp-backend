@@ -17,6 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 pub mod entities;
+pub mod extended_entities;
 pub mod relationships;
 pub mod roles;
 

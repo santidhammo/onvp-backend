@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::model::database;
+use crate::model::storage;
 use serde::Serialize;
 use utoipa::ToSchema;
 
@@ -48,40 +48,17 @@ pub struct MemberResponse {
     pub phone_number: String,
 }
 
-impl From<&(database::entities::Member, database::entities::MemberDetail)> for MemberResponse {
-    fn from(
-        (member, member_detail): &(database::entities::Member, database::entities::MemberDetail),
-    ) -> Self {
-        let member = member.clone();
-        let member_detail = member_detail.clone();
-        Self {
-            id: member.id,
-            musical_instrument_id: member.musical_instrument_id,
-            picture_asset_id: member.picture_asset_id,
-            activated: member.activated,
-            first_name: member_detail.first_name,
-            last_name: member_detail.last_name,
-            email_address: member_detail.email_address,
-            phone_number: member_detail.phone_number,
-        }
-    }
-}
-
-#[derive(Serialize, ToSchema, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct WorkgroupResponse {
-    #[serde(default)]
-    pub id: i32,
-
-    #[schema(example = "Orchestra Committee")]
-    pub name: String,
-}
-
-impl From<&database::entities::Workgroup> for WorkgroupResponse {
-    fn from(value: &database::entities::Workgroup) -> Self {
+impl From<&storage::extended_entities::ExtendedMember> for MemberResponse {
+    fn from(value: &storage::extended_entities::ExtendedMember) -> Self {
         Self {
             id: value.id,
-            name: value.name.to_string(),
+            musical_instrument_id: value.musical_instrument_id,
+            picture_asset_id: value.picture_asset_id.clone(),
+            activated: value.activated,
+            first_name: value.member_detail.first_name.clone(),
+            last_name: value.member_detail.last_name.clone(),
+            email_address: value.member_detail.email_address.clone(),
+            phone_number: value.member_detail.phone_number.clone(),
         }
     }
 }
@@ -106,4 +83,36 @@ pub struct MemberAddressResponse {
 
     #[schema(example = "Tubaton")]
     pub domicile: String,
+}
+
+impl From<&storage::extended_entities::ExtendedMember> for MemberAddressResponse {
+    fn from(value: &storage::extended_entities::ExtendedMember) -> Self {
+        Self {
+            id: value.id,
+            street: value.member_address_detail.street.clone(),
+            house_number: value.member_address_detail.house_number,
+            house_number_postfix: value.member_address_detail.house_number_postfix.clone(),
+            postal_code: value.member_address_detail.postal_code.clone(),
+            domicile: value.member_address_detail.domicile.clone(),
+        }
+    }
+}
+
+#[derive(Serialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkgroupResponse {
+    #[serde(default)]
+    pub id: i32,
+
+    #[schema(example = "Orchestra Committee")]
+    pub name: String,
+}
+
+impl From<&storage::entities::Workgroup> for WorkgroupResponse {
+    fn from(value: &storage::entities::Workgroup) -> Self {
+        Self {
+            id: value.id,
+            name: value.name.to_string(),
+        }
+    }
 }
