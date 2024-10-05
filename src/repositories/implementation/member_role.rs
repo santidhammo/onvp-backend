@@ -18,23 +18,19 @@
  */
 use crate::dal::DbConnection;
 use crate::generic::result::{BackendError, BackendResult};
-use crate::injection::Injectable;
-use crate::model::prelude::Role;
+use crate::generic::Injectable;
+use crate::model::primitives::Role;
+use crate::model::storage::roles::MemberRoleAssociation;
 use crate::repositories::traits::MemberRoleRepository;
 use crate::schema::member_role_associations;
 use actix_web::web::Data;
-use diesel::{BoolExpressionMethods, ExpressionMethods, RunQueryDsl};
+use diesel::{BoolExpressionMethods, ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
 use std::sync::Arc;
 
 pub struct Implementation;
 
 impl MemberRoleRepository for Implementation {
-    fn associate_role(
-        &self,
-        conn: &mut DbConnection,
-        member_id: i32,
-        role: Role,
-    ) -> BackendResult<()> {
+    fn associate(&self, conn: &mut DbConnection, member_id: i32, role: Role) -> BackendResult<()> {
         // The public role is assumed for any user, also users which are not a member, therefore
         // it can not be associated.
         if role == Role::Public {
@@ -49,12 +45,7 @@ impl MemberRoleRepository for Implementation {
         Ok(())
     }
 
-    fn dissociate_role(
-        &self,
-        conn: &mut DbConnection,
-        member_id: i32,
-        role: Role,
-    ) -> BackendResult<()> {
+    fn dissociate(&self, conn: &mut DbConnection, member_id: i32, role: Role) -> BackendResult<()> {
         // Every member always has the member role, this can not be removed
         if role == Role::Member {
             return Err(BackendError::bad());
@@ -73,6 +64,15 @@ impl MemberRoleRepository for Implementation {
         } else {
             Ok(())
         }
+    }
+
+    fn list_by_id(&self, conn: &mut DbConnection, member_id: i32) -> BackendResult<Vec<Role>> {
+        let filter = member_role_associations::member_id.eq(member_id);
+        let role_associations: Vec<MemberRoleAssociation> = member_role_associations::table
+            .filter(filter)
+            .select(MemberRoleAssociation::as_select())
+            .load(conn)?;
+        Ok(role_associations.iter().map(|ra| ra.system_role).collect())
     }
 }
 

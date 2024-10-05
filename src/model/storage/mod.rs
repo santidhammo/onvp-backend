@@ -20,9 +20,3 @@ pub mod entities;
 pub mod extended_entities;
 pub mod relationships;
 pub mod roles;
-
-pub mod prelude {
-    pub use super::entities::*;
-    pub use super::relationships::*;
-    pub use super::roles::*;
-}

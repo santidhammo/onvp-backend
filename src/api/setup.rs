@@ -1,5 +1,6 @@
 use crate::generic::result::BackendResult;
-use crate::model::interface::prelude::*;
+
+use crate::model::interface::commands::FirstOperatorRegisterCommand;
 use crate::services::traits::command::SetupCommandService;
 use crate::services::traits::request::SetupRequestService;
 use actix_web::web::{Data, Json};
@@ -14,7 +15,7 @@ pub const CONTEXT: &str = "/api/setup";
 #[utoipa::path(
     context_path = CONTEXT,
     responses(
-        (status = 200, description = "Returns whether or not operators are available", body=[bool]),
+        (status = 200, description = "Returns whether or not operators are available", body=bool),
         (status = 500, description = "Internal backend error", body=[String])
     )
 )]
@@ -35,9 +36,9 @@ pub async fn should_setup(service: Data<dyn SetupRequestService>) -> BackendResu
 #[utoipa::path(
     context_path = CONTEXT,
     responses(
-        (status = 200, description = "Created a new first operator", body=[String]),
-        (status = 400, description = "Bad Request", body=[String]),
-        (status = 500, description = "Internal backend error", body=[String])
+        (status = 200, description = "Created a new first operator", body=String),
+        (status = 400, description = "Bad Request", body=String),
+        (status = 500, description = "Internal backend error", body=String)
     )
 )]
 #[post("/setup_first_operator")]

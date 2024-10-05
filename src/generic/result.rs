@@ -40,11 +40,6 @@ pub struct BackendError {
 }
 
 impl BackendError {
-    pub(crate) fn var_error(message: &str) -> Self {
-        Self {
-            kind: ErrorKind::VarError(message.to_string()),
-        }
-    }
     pub(crate) fn not_enough_records() -> Self {
         Self {
             kind: ErrorKind::Database("Not enough records found".to_owned()),
@@ -58,6 +53,11 @@ impl BackendError {
     pub(crate) fn insufficient_bytes(reason: &str) -> Self {
         Self {
             kind: ErrorKind::InsufficientBytes(reason.to_string()),
+        }
+    }
+    pub(crate) fn forbidden() -> Self {
+        Self {
+            kind: ErrorKind::Forbidden,
         }
     }
 }
@@ -77,6 +77,7 @@ pub enum ErrorKind {
     VarError(String),
     ConfigError(String),
     EmailError(String),
+    Forbidden,
 }
 
 impl ErrorKind {
@@ -95,12 +96,14 @@ impl ErrorKind {
             ErrorKind::VarError(_) => "VAR_ERROR",
             ErrorKind::ConfigError(_) => "CONFIG_ERROR",
             ErrorKind::EmailError(_) => "EMAIL_ERROR",
+            ErrorKind::Forbidden => "FORBIDDEN",
         }
     }
 
     pub fn status_code(&self) -> StatusCode {
         match &self {
             ErrorKind::BadRequest => StatusCode::BAD_REQUEST,
+            ErrorKind::Forbidden => StatusCode::FORBIDDEN,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -111,7 +114,7 @@ impl ErrorKind {
             ErrorKind::ByteConversion(s) => s.to_string(),
             ErrorKind::QrCodeGeneration(s) => s.to_string(),
             ErrorKind::SystemTime(s) => s.to_string(),
-            ErrorKind::BadRequest => "".to_string(),
+            ErrorKind::BadRequest => "Bad Request".to_string(),
             ErrorKind::InsufficientBytes(s) => s.to_string(),
             ErrorKind::Aes(s) => s.to_string(),
             ErrorKind::Base64Decode(s) => s.to_string(),
@@ -120,6 +123,7 @@ impl ErrorKind {
             ErrorKind::VarError(s) => s.to_string(),
             ErrorKind::ConfigError(s) => s.to_string(),
             ErrorKind::EmailError(s) => s.to_string(),
+            ErrorKind::Forbidden => "Access Denied".to_string(),
         }
     }
 }

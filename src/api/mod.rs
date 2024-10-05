@@ -37,6 +37,7 @@ use std::time::Duration;
 use utoipa::OpenApi;
 use utoipa_scalar::{Scalar, Servable};
 
+mod authorization;
 pub mod members;
 pub mod roles;
 pub mod setup;
@@ -44,22 +45,26 @@ pub mod workgroups;
 
 use crate::dal;
 use crate::generic::security;
-use crate::model::interface::prelude::*;
-use crate::model::prelude::*;
+use crate::model::interface::client::*;
+use crate::model::interface::commands::*;
+use crate::model::interface::requests::*;
+use crate::model::interface::responses::*;
+use crate::model::interface::search::*;
+use crate::model::primitives::*;
 
 #[derive(OpenApi)]
 #[openapi(
     paths(
         setup::should_setup,
         setup::setup_first_operator,
+        authorization::login,
+        authorization::refresh,
+        authorization::logout,
+        authorization::logged_in_name,
+        authorization::logged_in_is_operator,
         members::register,
         members::activation_code,
         members::activate,
-        members::login,
-        members::check_login_status,
-        members::logout,
-        members::logged_in_name,
-        members::logged_in_is_operator,
         members::search,
         members::find,
         members::update,
@@ -69,18 +74,21 @@ use crate::model::prelude::*;
         members::picture,
         roles::associate,
         roles::dissociate,
+        roles::list,
         workgroups::register,
         workgroups::search,
         source_code::details,
     ),
     components(
-        schemas(TokenData),
-        schemas(LoginData),
+        schemas(MemberActivationCommand),
         schemas(FirstOperatorRegisterCommand),
         schemas(MemberRegisterCommand),
         schemas(MemberUpdateCommand),
         schemas(MemberUpdateAddressCommand),
         schemas(WorkgroupRegisterCommand),
+        schemas(AssociateRoleCommand),
+        schemas(DissociateRoleCommand),
+        schemas(AuthorizationRequest),
         schemas(SearchParams),
         schemas(SearchResult<MemberResponse>),
         schemas(SearchResult<WorkgroupResponse>),
@@ -88,8 +96,8 @@ use crate::model::prelude::*;
         schemas(WorkgroupResponse),
         schemas(MemberAddressResponse),
         schemas(WorkgroupResponse),
-        schemas(AssociateRoleCommand),
-        schemas(DissociateRoleCommand),
+        schemas(RoleClass),
+        schemas(Role),
     ),
     tags(
         (name = "api::members", description = "Member management endpoints"),
@@ -121,22 +129,15 @@ pub async fn run_api_server() -> std::io::Result<()> {
             .build()
             .expect("Token Verifier should be initialized");
 
-        let app = crate::injection::inject(&pool, App::new());
+        let app = crate::injection::inject(&pool, &Data::new(token_signer.clone()), App::new());
         app.wrap(Logger::default())
-            .app_data(Data::new(pool.clone()))
-            .app_data(Data::new(token_signer.clone()))
             .service(
                 web::scope(members::CONTEXT)
                     .service(members::activation_code)
                     .service(members::activate)
-                    .service(members::login)
                     .use_jwt(
                         authority.clone(),
                         web::scope("")
-                            .service(members::check_login_status)
-                            .service(members::logout)
-                            .service(members::logged_in_name)
-                            .service(members::logged_in_is_operator)
                             .service(members::picture_asset)
                             .service(members::picture)
                             .use_state_guard(
@@ -151,6 +152,18 @@ pub async fn run_api_server() -> std::io::Result<()> {
                                     .service(members::upload_picture_asset)
                                     .service(members::register),
                             ),
+                    ),
+            )
+            .service(
+                web::scope(authorization::CONTEXT)
+                    .service(authorization::login)
+                    .use_jwt(
+                        authority.clone(),
+                        web::scope("")
+                            .service(authorization::refresh)
+                            .service(authorization::logout)
+                            .service(authorization::logged_in_name)
+                            .service(authorization::logged_in_is_operator),
                     ),
             )
             .service(web::scope(workgroups::CONTEXT).use_jwt(
@@ -189,7 +202,7 @@ fn load_key_pair() -> (SecretKey, PublicKey) {
     info!("Loading JWT keys from {}", keys_location);
     let path = Path::new(&keys_location);
     let mut pem = String::new();
-    _ = File::open(path)
+    let _ = File::open(path)
         .expect("JWT_KEYS should exist")
         .read_to_string(&mut pem)
         .expect("JWT_KEYS should be readable");

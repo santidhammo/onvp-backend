@@ -16,14 +16,9 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+pub mod client;
 pub mod commands;
+pub mod requests;
 pub mod responses;
 pub mod search;
 pub mod sub_commands;
-
-pub mod prelude {
-    pub use super::commands::*;
-    pub use super::responses::*;
-    pub use super::search::*;
-    pub use super::sub_commands;
-}

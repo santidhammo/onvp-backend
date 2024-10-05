@@ -16,8 +16,18 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+use crate::generic::lazy::OTP_CIPHER;
+use crate::generic::result::{BackendError, BackendResult};
 use crate::model::storage;
+use actix_web::http::header::ContentType;
+use aes_gcm::aead::consts::U12;
+use aes_gcm::aead::generic_array::GenericArray;
+use aes_gcm::aead::Aead;
+use base64::engine::general_purpose;
+use base64::Engine;
 use serde::Serialize;
+use std::ops::Deref;
+use totp_rs::{Algorithm, Secret, TOTP};
 use utoipa::ToSchema;
 
 #[derive(Serialize, ToSchema, Clone, Debug)]
@@ -46,8 +56,15 @@ pub struct MemberResponse {
 
     #[schema(example = "+99999999999")]
     pub phone_number: String,
+
+    #[serde(skip)]
+    pub nonce: String,
+
+    #[serde(skip)]
+    pub activation_string: String,
 }
 
+/// Converts an Extended Member into a Member Response used by the associated services
 impl From<&storage::extended_entities::ExtendedMember> for MemberResponse {
     fn from(value: &storage::extended_entities::ExtendedMember) -> Self {
         Self {
@@ -59,7 +76,51 @@ impl From<&storage::extended_entities::ExtendedMember> for MemberResponse {
             last_name: value.member_detail.last_name.clone(),
             email_address: value.member_detail.email_address.clone(),
             phone_number: value.member_detail.phone_number.clone(),
+            nonce: value.nonce.clone(),
+            activation_string: value.activation_string.clone(),
         }
+    }
+}
+
+/// Attempts to generate a TOTP (one-time password)
+impl TryInto<TOTP> for MemberResponse {
+    type Error = BackendError;
+
+    fn try_into(self) -> BackendResult<TOTP> {
+        let nonce = self.decoded_nonce()?;
+        let activation_bytes = self.activation_string.as_bytes();
+        let otp_cipher = OTP_CIPHER.deref();
+        let cipher_text = otp_cipher.encrypt(&nonce, activation_bytes)?;
+        self.generate_totp(cipher_text)
+    }
+}
+
+impl MemberResponse {
+    pub fn full_name(&self) -> String {
+        format!("{} {}", self.first_name, self.last_name)
+            .trim()
+            .to_string()
+    }
+    fn generate_totp(&self, cipher_text: Vec<u8>) -> BackendResult<TOTP> {
+        Ok(TOTP::new(
+            Algorithm::SHA1,
+            6,
+            1,
+            30,
+            Secret::Raw(cipher_text).to_bytes().unwrap(),
+            Some("ONVP".to_owned()),
+            self.email_address.to_string(),
+        )?)
+    }
+
+    fn decoded_nonce(&self) -> Result<GenericArray<u8, U12>, BackendError> {
+        let decoded = general_purpose::STANDARD.decode(&self.nonce)?;
+
+        let buffer: [u8; 12] = decoded[..].try_into().map_err(|_| {
+            BackendError::insufficient_bytes("Not enough bytes available in base64 decoded Nonce")
+        })?;
+        GenericArray::try_from(buffer)
+            .map_err(|_| BackendError::insufficient_bytes("Not enough decoded bytes in Nonce"))
     }
 }
 
@@ -115,4 +176,20 @@ impl From<&storage::entities::Workgroup> for WorkgroupResponse {
             name: value.name.to_string(),
         }
     }
+}
+
+#[derive(Serialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageAssetIdResponse {
+    #[schema(example = "ABCDEF")]
+    pub asset_id: Option<String>,
+}
+
+/// Image response containing the bytes of the image and the content type
+pub struct ImageResponse {
+    /// The bytes contained in the response
+    pub bytes: Vec<u8>,
+
+    /// The content-type of the response
+    pub content_type: ContentType,
 }

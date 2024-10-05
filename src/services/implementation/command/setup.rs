@@ -18,9 +18,9 @@
  */
 use crate::dal::{DbConnection, DbPool};
 use crate::generic::result::{BackendError, BackendResult};
-use crate::injection::Injectable;
+use crate::generic::Injectable;
 use crate::model::interface::commands::FirstOperatorRegisterCommand;
-use crate::model::prelude::Role;
+use crate::model::primitives::Role;
 use crate::model::storage::extended_entities::ExtendedMember;
 use crate::repositories::traits::{MemberRepository, MemberRoleRepository};
 use crate::services::traits::command::SetupCommandService;
@@ -58,10 +58,10 @@ impl SetupCommandService for Implementation {
                     .create_inactive(conn, &extended_member)?;
 
                 self.member_role_repository
-                    .associate_role(conn, member_id, Role::Member)?;
+                    .associate(conn, member_id, Role::Member)?;
 
                 self.member_role_repository
-                    .associate_role(conn, member_id, Role::Operator)?;
+                    .associate(conn, member_id, Role::Operator)?;
 
                 Ok(extended_member.activation_string)
             } else {

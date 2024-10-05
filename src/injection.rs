@@ -16,55 +16,111 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
+use crate::generic::Injectable;
+use crate::model::interface::client::UserClaims;
+use crate::repositories::traits::{
+    AuthorizationRepository, MemberPictureRepository, MemberRepository, MemberRoleRepository,
+    WorkgroupRoleRepository,
+};
 use crate::{repositories, services};
+use actix_jwt_auth_middleware::TokenSigner;
 use actix_web::dev::{ServiceFactory, ServiceRequest};
 use actix_web::web::Data;
 use actix_web::{App, Error};
+use jwt_compact::alg::Ed25519;
 
-pub(crate) fn inject<T>(pool: &crate::dal::DbPool, app: App<T>) -> App<T>
+pub(crate) fn inject<T>(
+    pool: &crate::dal::DbPool,
+    token_signer: &Data<TokenSigner<UserClaims, Ed25519>>,
+    app: App<T>,
+) -> App<T>
 where
     T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
 {
-    let member_role_repository =
-        repositories::implementation::member_role::Implementation::injectable(());
-    let workgroup_role_repository =
-        repositories::implementation::workgroup_role::Implementation::injectable(());
-    let member_repository = repositories::implementation::member::Implementation::injectable(());
+    let repositories = DependantRepositories::dependencies();
 
     app.app_data(
         services::implementation::command::setup::Implementation::injectable((
             pool,
-            &member_repository,
-            &member_role_repository,
+            &repositories.member_repository,
+            &repositories.member_role_repository,
         )),
     )
     .app_data(
         services::implementation::command::member::Implementation::injectable((
             pool,
-            &member_repository,
-            &member_role_repository,
+            &repositories.member_repository,
+            &repositories.member_role_repository,
+        )),
+    )
+    .app_data(
+        services::implementation::command::member_picture::Implementation::injectable((
+            pool,
+            &repositories.member_picture_repository,
+        )),
+    )
+    .app_data(
+        services::implementation::command::member_activation::Implementation::injectable((
+            pool,
+            &repositories.member_repository,
         )),
     )
     .app_data(
         services::implementation::command::role::Implementation::injectable((
             pool,
-            &member_role_repository,
-            &workgroup_role_repository,
+            &repositories.member_role_repository,
+            &repositories.workgroup_role_repository,
+        )),
+    )
+    .app_data(
+        services::implementation::request::setup::Implementation::injectable((
+            pool,
+            &repositories.member_repository,
+        )),
+    )
+    .app_data(
+        services::implementation::request::authorization::Implementation::injectable((
+            pool,
+            &repositories.member_repository,
+            &repositories.authorization_repository,
+            &token_signer,
         )),
     )
     .app_data(
         services::implementation::request::member::Implementation::injectable((
             pool,
-            &member_repository,
+            &repositories.member_repository,
         )),
     )
-    .app_data(member_role_repository)
-    .app_data(member_repository)
-    .app_data(workgroup_role_repository)
+    .app_data(
+        services::implementation::request::member_picture::Implementation::injectable((
+            pool,
+            &repositories.member_repository,
+        )),
+    )
 }
 
-/// This trait is implemented by all injectables with the need of a data object itself
-pub trait Injectable<U, T: ?Sized> {
-    fn injectable(dependencies: U) -> Data<T>;
+struct DependantRepositories {
+    member_repository: Data<dyn MemberRepository>,
+    member_role_repository: Data<dyn MemberRoleRepository>,
+    member_picture_repository: Data<dyn MemberPictureRepository>,
+    workgroup_role_repository: Data<dyn WorkgroupRoleRepository>,
+    authorization_repository: Data<dyn AuthorizationRepository>,
+}
+
+impl DependantRepositories {
+    fn dependencies() -> DependantRepositories {
+        let repositories = DependantRepositories {
+            member_repository: repositories::implementation::member::Implementation::injectable(()),
+            member_role_repository:
+                repositories::implementation::member_role::Implementation::injectable(()),
+            member_picture_repository:
+                repositories::implementation::member_picture::Implementation::injectable(()),
+            workgroup_role_repository:
+                repositories::implementation::workgroup_role::Implementation::injectable(()),
+            authorization_repository:
+                repositories::implementation::authorization::Implementation::injectable(()),
+        };
+        repositories
+    }
 }

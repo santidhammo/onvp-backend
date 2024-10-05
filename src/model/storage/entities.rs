@@ -16,14 +16,10 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::generic::result::BackendError;
-use crate::model::interface::prelude::*;
+use crate::model::interface::commands::WorkgroupRegisterCommand;
+use crate::model::interface::sub_commands;
 use crate::model::storage::extended_entities::ExtendedMember;
-use aes_gcm::aead::consts::U12;
-use aes_gcm::aead::generic_array::GenericArray;
-use base64::engine::general_purpose;
-use base64::Engine;
-use diesel::{Insertable, Queryable, Selectable};
+use diesel::{AsChangeset, Insertable, Queryable, Selectable};
 
 #[derive(Clone, Debug, Queryable, Selectable, Insertable)]
 #[diesel(table_name = crate::schema::members)]
@@ -40,18 +36,6 @@ pub struct Member {
     pub activation_time: chrono::NaiveDateTime,
     pub allow_privacy_info_sharing: bool,
     pub nonce: String,
-}
-
-impl Member {
-    pub fn decoded_nonce(&self) -> Result<GenericArray<u8, U12>, BackendError> {
-        let decoded = general_purpose::STANDARD.decode(&self.nonce)?;
-
-        let buffer: [u8; 12] = decoded[..].try_into().map_err(|_| {
-            BackendError::insufficient_bytes("Not enough bytes available in base64 decoded Nonce")
-        })?;
-        GenericArray::try_from(buffer)
-            .map_err(|_| BackendError::insufficient_bytes("Not enough decoded bytes in Nonce"))
-    }
 }
 
 impl From<&ExtendedMember> for Member {
@@ -72,7 +56,7 @@ impl From<&ExtendedMember> for Member {
     }
 }
 
-#[derive(Clone, Debug, Queryable, Selectable, Insertable)]
+#[derive(Clone, Debug, Queryable, Selectable, Insertable, AsChangeset)]
 #[diesel(table_name = crate::schema::member_details)]
 pub struct MemberDetail {
     #[diesel(skip_insertion)]
@@ -105,7 +89,7 @@ impl From<&sub_commands::DetailRegisterSubCommand> for MemberDetail {
     }
 }
 
-#[derive(Clone, Debug, Queryable, Selectable, Insertable)]
+#[derive(Clone, Debug, Queryable, Selectable, Insertable, AsChangeset)]
 #[diesel(table_name = crate::schema::member_address_details)]
 pub struct MemberAddressDetail {
     #[diesel(skip_insertion)]

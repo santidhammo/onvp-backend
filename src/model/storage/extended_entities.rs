@@ -17,12 +17,17 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::generic::security::{
-    generate_activation_string, generate_encoded_nonce, FIRST_OPERATOR_ACTIVATION_MINUTES,
-    MEMBER_ACTIVATION_MINUTES,
+use crate::generic::lazy::{FIRST_OPERATOR_ACTIVATION_MINUTES, MEMBER_ACTIVATION_MINUTES};
+use crate::generic::security::generate_activation_string;
+use crate::model::interface::commands::{
+    FirstOperatorRegisterCommand, MemberRegisterCommand, MemberUpdateAddressCommand,
+    MemberUpdateCommand,
 };
-use crate::model::interface::commands::{FirstOperatorRegisterCommand, MemberRegisterCommand};
 use crate::model::storage::entities::{Member, MemberAddressDetail, MemberDetail};
+use aes_gcm::aead::OsRng;
+use aes_gcm::{AeadCore, Aes256Gcm};
+use base64::engine::general_purpose;
+use base64::Engine;
 use std::ops::Add;
 
 #[derive(Clone, Debug)]
@@ -38,6 +43,13 @@ pub struct ExtendedMember {
     pub nonce: String,
     pub member_detail: MemberDetail,
     pub member_address_detail: MemberAddressDetail,
+}
+
+impl ExtendedMember {
+    fn generate_encoded_nonce() -> String {
+        let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+        general_purpose::STANDARD.encode(&nonce)
+    }
 }
 
 impl From<(&Member, &MemberDetail, &MemberAddressDetail)> for ExtendedMember {
@@ -78,7 +90,7 @@ impl From<&MemberRegisterCommand> for ExtendedMember {
             activation_string: generate_activation_string(),
             activation_time: now.add(*MEMBER_ACTIVATION_MINUTES).naive_utc(),
             allow_privacy_info_sharing: false,
-            nonce: generate_encoded_nonce(),
+            nonce: Self::generate_encoded_nonce(),
         }
     }
 }
@@ -97,7 +109,33 @@ impl From<&FirstOperatorRegisterCommand> for ExtendedMember {
             activation_string: generate_activation_string(),
             activation_time: now.add(*FIRST_OPERATOR_ACTIVATION_MINUTES).naive_utc(),
             allow_privacy_info_sharing: false,
-            nonce: generate_encoded_nonce(),
+            nonce: Self::generate_encoded_nonce(),
         }
+    }
+}
+
+/// Merges the update command into an existing extended member
+impl From<(&ExtendedMember, &MemberUpdateCommand)> for ExtendedMember {
+    fn from((origin, command): (&ExtendedMember, &MemberUpdateCommand)) -> Self {
+        let mut cloned = origin.clone();
+        cloned.member_detail.first_name = command.first_name.clone();
+        cloned.member_detail.last_name = command.last_name.clone();
+        cloned.member_detail.email_address = command.email_address.clone();
+        cloned.member_detail.phone_number = command.phone_number.clone();
+        cloned.musical_instrument_id = command.musical_instrument_id;
+        cloned
+    }
+}
+
+/// Merges the update command into an existing extended member
+impl From<(&ExtendedMember, &MemberUpdateAddressCommand)> for ExtendedMember {
+    fn from((origin, command): (&ExtendedMember, &MemberUpdateAddressCommand)) -> Self {
+        let mut cloned = origin.clone();
+        cloned.member_address_detail.street = command.street.clone();
+        cloned.member_address_detail.house_number = command.house_number.clone();
+        cloned.member_address_detail.house_number_postfix = command.house_number_postfix.clone();
+        cloned.member_address_detail.postal_code = command.postal_code.clone();
+        cloned.member_address_detail.domicile = command.domicile.clone();
+        cloned
     }
 }

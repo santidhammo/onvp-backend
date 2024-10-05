@@ -16,10 +16,13 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
+use crate::generic::result::{BackendError, BackendResult};
 use crate::model::interface::sub_commands::{AddressRegisterSubCommand, DetailRegisterSubCommand};
-use crate::model::security::{Role, RoleClass};
+use crate::model::primitives::{Role, RoleClass};
+use actix_web::web::Bytes;
+use image::{DynamicImage, ImageReader};
 use serde::Deserialize;
+use std::io::Cursor;
 use utoipa::ToSchema;
 
 /// Command to register a new entity
@@ -110,4 +113,30 @@ pub struct DissociateRoleCommand {
 
     #[schema(example = "Member")]
     pub class: RoleClass,
+}
+
+#[derive(Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct MemberActivationCommand {
+    #[schema(example = "abc")]
+    pub activation_string: String,
+    #[schema(example = "123456")]
+    pub token: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct ImageUploadCommand {
+    pub dynamic_image: DynamicImage,
+}
+
+impl TryFrom<&Bytes> for ImageUploadCommand {
+    type Error = BackendError;
+
+    fn try_from(value: &Bytes) -> BackendResult<Self> {
+        Ok(Self {
+            dynamic_image: ImageReader::new(Cursor::new(value))
+                .with_guessed_format()?
+                .decode()?,
+        })
+    }
 }

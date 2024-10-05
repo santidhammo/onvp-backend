@@ -18,9 +18,9 @@
  */
 use crate::dal::DbPool;
 use crate::generic::result::BackendResult;
-use crate::injection::Injectable;
+use crate::generic::Injectable;
 use crate::model::interface::commands::{AssociateRoleCommand, DissociateRoleCommand};
-use crate::model::prelude::RoleClass;
+use crate::model::primitives::RoleClass;
 use crate::repositories::traits::{MemberRoleRepository, WorkgroupRoleRepository};
 use crate::services::traits::command::RoleCommandService;
 use actix_web::web::Data;
@@ -38,11 +38,11 @@ impl RoleCommandService for Implementation {
         match command.class {
             RoleClass::Member => {
                 self.member_role_repository
-                    .associate_role(&mut conn, command.id, command.role)
+                    .associate(&mut conn, command.id, command.role)
             }
             RoleClass::Workgroup => {
                 self.workgroup_role_repository
-                    .associate_role(&mut conn, command.id, command.role)
+                    .associate(&mut conn, command.id, command.role)
             }
         }
     }
@@ -52,11 +52,11 @@ impl RoleCommandService for Implementation {
         match command.class {
             RoleClass::Member => {
                 self.member_role_repository
-                    .dissociate_role(&mut conn, command.id, command.role)
+                    .dissociate(&mut conn, command.id, command.role)
             }
             RoleClass::Workgroup => {
                 self.workgroup_role_repository
-                    .dissociate_role(&mut conn, command.id, command.role)
+                    .dissociate(&mut conn, command.id, command.role)
             }
         }
     }

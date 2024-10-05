@@ -20,25 +20,24 @@
 //! Members are a very core component of the backend and involve a lot of interfaces regarding
 //! member management as well as performing requests regarding members from normal website usage.
 
-use crate::dal;
 use crate::generic::result::{BackendError, BackendResult};
-use crate::generic::{assets, security};
-use crate::model::interface::prelude::*;
-use crate::model::prelude::*;
-use crate::services::traits::command::MemberCommandService;
-use crate::services::traits::request::MemberRequestService;
-use actix_jwt_auth_middleware::TokenSigner;
-use actix_web::cookie::time::OffsetDateTime;
-use actix_web::cookie::{Cookie, Expiration, SameSite};
-use actix_web::http::header::ContentType;
-use actix_web::web::{Data, Json, Path};
-use actix_web::{get, post, web, HttpRequest, HttpResponse};
-use jwt_compact::alg::Ed25519;
-use jwt_compact::UntrustedToken;
-use log::info;
+use crate::model::interface::client::UserClaims;
+use crate::model::interface::commands::{
+    ImageUploadCommand, MemberActivationCommand, MemberRegisterCommand, MemberUpdateAddressCommand,
+    MemberUpdateCommand,
+};
+use crate::model::interface::responses::{ImageAssetIdResponse, MemberResponse};
+use crate::model::interface::search::{SearchParams, SearchResult};
+use crate::services::traits::command::{
+    MemberActivationCommandService, MemberCommandService, MemberPictureCommandService,
+};
+use crate::services::traits::request::{MemberPictureRequestService, MemberRequestService};
+use actix_web::web::{Bytes, Data, Json, Path, Query};
+use actix_web::{get, post, web, HttpResponse};
 use std::ops::Deref;
+use totp_rs::TOTP;
 
-/// This is the context of this part of the API
+/// This is the context of members part of the API
 pub const CONTEXT: &str = "/api/members";
 
 /// Register a member
@@ -62,25 +61,6 @@ pub async fn register(
     Ok(Json(controller.register_inactive(&command)?))
 }
 
-/// Get the roles of a member
-///
-/// Get the current available roles for a member
-#[utoipa::path(
-    context_path = CONTEXT,
-    responses(
-        (status = 200, description = "List of roles of the given member", body=[[Role]]),
-        (status = 400, description = "Bad Request"),
-        (status = 401, description = "Unauthorized"),
-        (status = 500, description = "Internal Server Error", body=[String])
-    )
-)]
-#[get("/{id}/roles")]
-pub async fn roles(pool: Data<dal::DbPool>, id: Path<i32>) -> BackendResult<HttpResponse> {
-    let mut conn = dal::connect(&pool)?;
-    dal::members::role_list(&mut conn, &id)?;
-    Ok(HttpResponse::Ok().finish())
-}
-
 /// Search for members
 ///
 /// Searches on first name, last name and/or email address matching the given query.
@@ -100,7 +80,7 @@ pub async fn roles(pool: Data<dal::DbPool>, id: Path<i32>) -> BackendResult<Http
 #[get("/search")]
 pub async fn search(
     controller: Data<dyn MemberRequestService>,
-    params: web::Query<SearchParams>,
+    params: Query<SearchParams>,
 ) -> BackendResult<Json<SearchResult<MemberResponse>>> {
     Ok(Json(controller.search(params.deref())?))
 }
@@ -123,7 +103,7 @@ pub async fn find(
     controller: Data<dyn MemberRequestService>,
     id: Path<i32>,
 ) -> BackendResult<Json<MemberResponse>> {
-    Ok(Json(controller.find(id.into_inner())?))
+    Ok(Json(controller.find_by_id(id.into_inner())?))
 }
 
 /// Save a member and the primary detail by id
@@ -134,17 +114,17 @@ pub async fn find(
     responses(
         (status = 200, description = "Member is updated"),
         (status = 400, description = "Bad Request"),
+        (status = 401, description = "Unauthorized", body=Option<String>),
         (status = 500, description = "Internal backend error", body=[String]),
     )
 )]
 #[post("/{id}")]
 pub async fn update(
-    pool: Data<dal::DbPool>,
+    service: Data<dyn MemberCommandService>,
     id: Path<i32>,
     command: Json<MemberUpdateCommand>,
 ) -> BackendResult<HttpResponse> {
-    let mut conn = dal::connect(&pool)?;
-    dal::members::update(&mut conn, &id, &command)?;
+    service.update(id.into_inner(), &command)?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -155,18 +135,18 @@ pub async fn update(
     context_path = CONTEXT,
     responses(
         (status = 200, description = "Member is updated"),
-        (status = 400, description = "Bad Request"),
-        (status = 500, description = "Internal backend error", body=[String]),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal backend error", body=Option<String>),
     )
 )]
 #[post("/{id}/address")]
 pub async fn update_address(
-    pool: Data<dal::DbPool>,
+    service: Data<dyn MemberCommandService>,
     id: Path<i32>,
     command: Json<MemberUpdateAddressCommand>,
 ) -> BackendResult<HttpResponse> {
-    let mut conn = dal::connect(&pool)?;
-    dal::members::update_address(&mut conn, &id, &command)?;
+    service.update_address(id.into_inner(), &command)?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -178,21 +158,20 @@ pub async fn update_address(
 #[utoipa::path(
     context_path = CONTEXT,
     responses(
-        (status = 200, description = "Successful upload of the picture", body=[String]),
-        (status = 400, description = "Bad Request"),
-        (status = 401, description = "Unauthorized"),
-        (status = 500, description = "Internal Server Error", body=[String])
+        (status = 200, description = "Successful upload of the picture", body=String),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal Server Error", body=Option<String>)
     )
 )]
 #[post("/{id}/picture.png")]
 pub async fn upload_picture_asset(
-    pool: Data<dal::DbPool>,
+    service: Data<dyn MemberPictureCommandService>,
     id: Path<i32>,
     data: web::Bytes,
 ) -> BackendResult<Json<String>> {
-    let mut conn = dal::connect(&pool)?;
-    let result = assets::handle_upload_member_picture(&mut conn, &id, &data)?;
-    Ok(Json(result))
+    let command = ImageUploadCommand::try_from(&data)?;
+    Ok(Json(service.upload(id.into_inner(), &command)?))
 }
 
 /// Retrieves the picture of a member, if available
@@ -201,30 +180,23 @@ pub async fn upload_picture_asset(
     responses(
         (status = 200, description = "Successful picture retrieval", content_type="image/png"),
         (status = 410, description = "Picture not available"),
-        (status = 400, description = "Bad Request"),
-        (status = 401, description = "Unauthorized"),
-        (status = 500, description = "Internal Server Error", body=[String])
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal Server Error", body=Option<String>)
     )
 )]
 #[get("/{id}/picture.png")]
 pub async fn picture_asset(
-    pool: Data<dal::DbPool>,
+    service: Data<dyn MemberPictureRequestService>,
     id: Path<i32>,
     claims: UserClaims,
 ) -> BackendResult<HttpResponse> {
-    let mut conn = dal::connect(&pool)?;
-    let result = if claims.has_role(Role::Operator) {
-        assets::handle_retrieve_member_picture_operator(&mut conn, &id)?
-    } else if claims.has_role(Role::Member) {
-        assets::handle_retrieve_member_picture_dpia(&mut conn, &id)?
-    } else {
-        return Err(BackendError::bad());
-    };
+    let result = service.find_asset_by_member_id(id.into_inner(), &claims)?;
     match result {
         None => Ok(HttpResponse::Gone().finish()),
         Some(data) => Ok(HttpResponse::Ok()
-            .insert_header(ContentType::png())
-            .body(data)),
+            .insert_header(data.content_type)
+            .body(Bytes::from(data.bytes))),
     }
 }
 
@@ -243,24 +215,13 @@ pub async fn picture_asset(
 )]
 #[get("/{id}/picture")]
 pub async fn picture(
-    pool: Data<dal::DbPool>,
+    service: Data<dyn MemberPictureRequestService>,
     id: Path<i32>,
     claims: UserClaims,
-) -> BackendResult<Json<Option<String>>> {
-    let mut conn = dal::connect(&pool)?;
-    let member = dal::members::find_by_id(&mut conn, &id)?;
-    let result = if claims.has_role(Role::Operator) {
-        member.picture_asset_id
-    } else if claims.has_role(Role::Member) {
-        if member.allow_privacy_info_sharing {
-            member.picture_asset_id
-        } else {
-            None
-        }
-    } else {
-        return Err(BackendError::bad());
-    };
-    Ok(Json(result))
+) -> BackendResult<Json<ImageAssetIdResponse>> {
+    Ok(Json(
+        service.find_asset_id_by_member_id(id.into_inner(), &claims)?,
+    ))
 }
 
 /// Generate an activation code
@@ -276,13 +237,15 @@ pub async fn picture(
 )]
 #[get("/activation/code/{activation_string}")]
 pub async fn activation_code(
-    pool: Data<dal::DbPool>,
+    service: Data<dyn MemberRequestService>,
     activation_string: Path<String>,
 ) -> BackendResult<Json<String>> {
-    let mut conn = dal::connect(&pool)?;
-    let member = dal::members::find_by_activation_string(&mut conn, &activation_string)?;
-    let totp = security::get_member_totp(&mut conn, &member)?;
-    Ok(Json(security::generate_qr_code(totp)?))
+    let member_response = service.find_by_activation_string(&activation_string)?;
+    let totp: TOTP = member_response.try_into()?;
+    Ok(Json(
+        totp.get_qr_base64()
+            .map_err(|e| BackendError::qr_code_generation(e))?,
+    ))
 }
 
 /// Activate a member
@@ -300,205 +263,9 @@ pub async fn activation_code(
 )]
 #[post("/activation/activate")]
 pub async fn activate(
-    pool: Data<dal::DbPool>,
-    activation_data: Json<TokenData>,
+    service: Data<dyn MemberActivationCommandService>,
+    command: Json<MemberActivationCommand>,
 ) -> BackendResult<HttpResponse> {
-    let mut conn = dal::connect(&pool)?;
-    let member =
-        dal::members::find_by_activation_string(&mut conn, &activation_data.activation_string)?;
-    let totp = security::get_member_totp(&mut conn, &member)?;
-    totp.check_current(&activation_data.token)?;
-    dal::members::activate(&mut conn, &member.id)?;
+    service.activate(&command)?;
     Ok(HttpResponse::Ok().finish())
-}
-
-/// Login a member
-///
-/// Logs in the member using the OTP code, then creates a JWT token out of that, which can be
-/// further verified against the software issuing the token.
-#[utoipa::path(
-    context_path = CONTEXT,
-    responses(
-        (status = 200, description = "Logged in successfully"),
-        (status = 400, description = "Bad Request", body=[String]),
-        (status = 500, description = "Internal Server Error", body=[String])
-    )
-)]
-#[post("/login")]
-pub async fn login(
-    pool: Data<dal::DbPool>,
-    login_data: Json<LoginData>,
-    token_signer: Data<TokenSigner<UserClaims, Ed25519>>,
-) -> BackendResult<HttpResponse> {
-    info!("Attempting member login: {}", &login_data.email_address);
-    let mut conn = dal::connect(&pool)?;
-    let totp = match pre_login(&mut conn, &login_data) {
-        Ok(totp) => totp,
-        Err(_) => return Ok(HttpResponse::Forbidden().finish()),
-    };
-
-    let is_current = match totp.check_current(&login_data.token) {
-        Ok(checked) => checked,
-        Err(_) => return Ok(HttpResponse::Forbidden().finish()),
-    };
-
-    if is_current {
-        login_or_renew(&mut conn, &login_data.email_address, &token_signer)
-    } else {
-        Ok(HttpResponse::Forbidden().finish())
-    }
-}
-
-fn pre_login(
-    conn: &mut dal::DbConnection,
-    login_data: &Json<LoginData>,
-) -> BackendResult<security::TOTP> {
-    let member = dal::members::find_by_email_address(conn, &login_data.email_address)?;
-    Ok(security::get_member_totp(conn, &member)?)
-}
-
-/// Check login status
-///
-/// Checks if the member has already logged in
-#[utoipa::path(
-    context_path = CONTEXT,
-    responses(
-        (status = 200, description = "Logged in successfully"),
-        (status = 500, description = "Internal Server Error", body=[String])
-    )
-)]
-#[get("/check_login_status")]
-pub async fn check_login_status(
-    pool: Data<dal::DbPool>,
-    user_claims: UserClaims,
-    http_request: HttpRequest,
-    token_signer: Data<TokenSigner<UserClaims, Ed25519>>,
-) -> BackendResult<HttpResponse> {
-    info!("Refreshing member login: {}", &user_claims.email_address);
-    let origin_access_cookie = http_request
-        .cookie("access_token")
-        .ok_or(BackendError::bad())?;
-    let origin_refresh_cookie = http_request
-        .cookie("refresh_token")
-        .ok_or(BackendError::bad())?;
-
-    // Convert cookies to the associated tokens. Verification is already done at this point in time,
-    // it is only necessary to refresh the situation appropriately.
-    let origin_access_token = UntrustedToken::new(origin_access_cookie.value())?;
-    let origin_refresh_token = UntrustedToken::new(origin_refresh_cookie.value())?;
-
-    // If the refresh token nearly expires, the login procedure is transparently performed, to
-    // ensure that user roles are still the same. If the access token nearly expires, then a new
-    // access token is simply created, otherwise nothing is done.
-    if security::token_nearly_expires(origin_refresh_token)? {
-        info!(
-            "Refreshing tokens for member: {}",
-            &user_claims.email_address
-        );
-        let mut conn = dal::connect(&pool)?;
-        login_or_renew(&mut conn, &user_claims.email_address, &token_signer)
-    } else if security::token_nearly_expires(origin_access_token)? {
-        info!(
-            "Create new access token for member: {}",
-            &user_claims.email_address
-        );
-        Ok(HttpResponse::Ok()
-            .cookie(token_signer.create_access_cookie(&user_claims)?)
-            .json(()))
-    } else {
-        Ok(HttpResponse::Ok().json(()))
-    }
-}
-
-/// Logout a member
-///
-/// Logs out a member, if already logged in
-#[utoipa::path(
-    context_path = CONTEXT,
-    responses(
-        (status = 200, description = "Logged in successfully"),
-        (status = 500, description = "Internal Server Error", body=[String])
-    )
-)]
-#[get("/logout")]
-pub async fn logout() -> HttpResponse {
-    let access_cookie = Cookie::build("access_token".to_string(), "")
-        .secure(true)
-        .same_site(SameSite::Strict)
-        .expires(Expiration::DateTime(OffsetDateTime::UNIX_EPOCH))
-        .finish();
-
-    let refresh_cookie = Cookie::build("refresh_token".to_string(), "")
-        .secure(true)
-        .same_site(SameSite::Strict)
-        .expires(Expiration::DateTime(OffsetDateTime::UNIX_EPOCH))
-        .finish();
-
-    HttpResponse::Ok()
-        .cookie(access_cookie)
-        .cookie(refresh_cookie)
-        .json(())
-}
-
-/// Logged in member name
-///
-/// Gets the name of the logged in member
-#[utoipa::path(
-    context_path = CONTEXT,
-    responses(
-        (status = 200, description = "The member name", body=[String]),
-        (status = 500, description = "Internal Server Error", body=[String])
-    )
-)]
-#[get("/logged_in_name")]
-pub async fn logged_in_name(
-    user_claims: UserClaims,
-    pool: Data<dal::DbPool>,
-) -> BackendResult<Json<String>> {
-    let mut conn = dal::connect(&pool)?;
-    let member_details =
-        dal::members::get_member_detail_by_email_address(&mut conn, &user_claims.email_address)?;
-    let name = format!("{} {}", member_details.first_name, member_details.last_name)
-        .trim()
-        .to_string();
-    Ok(Json(name))
-}
-
-/// Is logged in member an operator
-///
-/// Returns if the logged in member is an operator
-#[utoipa::path(
-    context_path = CONTEXT,
-    responses(
-        (status = 200, description = "Successful check on the operator role"),
-        (status = 400, description = "Bad Request", body=[String])
-    )
-)]
-#[get("/logged_in_is_operator")]
-pub async fn logged_in_is_operator(user_claims: UserClaims) -> BackendResult<HttpResponse> {
-    match user_claims.has_role(Role::Operator) {
-        true => Ok(HttpResponse::Ok().finish()),
-        false => Err(BackendError::bad()),
-    }
-}
-
-fn login_or_renew(
-    conn: &mut dal::DbConnection,
-    email_address: &str,
-    token_signer: &TokenSigner<UserClaims, Ed25519>,
-) -> BackendResult<HttpResponse> {
-    let member = dal::members::find_by_email_address(conn, email_address)?;
-    let member_roles = dal::members::get_member_roles_by_member_id(conn, &member.id)?;
-    let user_claims = UserClaims::new(&email_address, &member_roles);
-
-    let mut access_cookie = token_signer.create_access_cookie(&user_claims)?;
-    let mut refresh_cookie = token_signer.create_refresh_cookie(&user_claims)?;
-
-    access_cookie.set_same_site(SameSite::Strict);
-    refresh_cookie.set_same_site(SameSite::Strict);
-
-    Ok(HttpResponse::Ok()
-        .cookie(access_cookie)
-        .cookie(refresh_cookie)
-        .json(()))
 }

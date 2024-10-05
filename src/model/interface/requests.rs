@@ -16,31 +16,14 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-use chrono::TimeDelta;
-use onvp_backend::model::primitives::Role;
-
-mod common;
-
-#[test]
-fn test_find_member_details_by_search_string() {
-    let pool = common::setup();
-    let mut conn = pool.get().unwrap();
-    let expected_count_of_members = 20usize;
-    onvp_backend::dal::mock::members::create(
-        &mut conn,
-        expected_count_of_members as i32,
-        TimeDelta::minutes(5),
-        Role::Member,
-    )
-    .expect("Could not create members");
-    let result = onvp_backend::dal::members::search(
-        &mut conn,
-        &"".to_owned(),
-        expected_count_of_members + 1,
-        0,
-    )
-    .expect("Could not find members");
-    assert_eq!(expected_count_of_members, result.total_count);
-    assert_eq!(expected_count_of_members, result.rows.len());
+#[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthorizationRequest {
+    #[schema(example = "john@doe.void")]
+    pub email_address: String,
+    #[schema(example = "123456")]
+    pub token: String,
 }

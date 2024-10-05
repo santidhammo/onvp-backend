@@ -18,15 +18,16 @@
  */
 use crate::dal::DbConnection;
 use crate::generic::result::{BackendError, BackendResult};
-use crate::injection::Injectable;
-use crate::model::prelude::Role;
-use crate::model::storage::entities::{Member, MemberDetail};
+use crate::generic::Injectable;
+use crate::model::primitives::Role;
+use crate::model::storage::entities::{Member, MemberAddressDetail, MemberDetail};
 use crate::model::storage::extended_entities::ExtendedMember;
-use crate::model::storage::prelude::MemberAddressDetail;
 use crate::repositories::traits::MemberRepository;
 use crate::schema::{member_address_details, member_details, member_role_associations, members};
 use actix_web::web::Data;
-use diesel::{Connection, ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
+use diesel::{
+    BoolExpressionMethods, Connection, ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper,
+};
 use std::sync::Arc;
 
 pub struct Implementation;
@@ -65,7 +66,11 @@ impl MemberRepository for Implementation {
         conn: &mut DbConnection,
         id: i32,
     ) -> BackendResult<ExtendedMember> {
-        let data: (Member, MemberDetail, MemberAddressDetail) = members::table
+        let (member, member_detail, member_address_detail): (
+            Member,
+            MemberDetail,
+            MemberAddressDetail,
+        ) = members::table
             .inner_join(member_details::table)
             .inner_join(member_address_details::table)
             .filter(members::id.eq(id))
@@ -75,7 +80,102 @@ impl MemberRepository for Implementation {
                 MemberAddressDetail::as_select(),
             ))
             .first(conn)?;
-        Ok(ExtendedMember::from((&data.0, &data.1, &data.2)))
+        Ok(ExtendedMember::from((
+            &member,
+            &member_detail,
+            &member_address_detail,
+        )))
+    }
+
+    fn find_extended_by_activation_string(
+        &self,
+        conn: &mut DbConnection,
+        activation_string: &str,
+    ) -> BackendResult<ExtendedMember> {
+        let activated_filter = members::activated.eq(false);
+        let activation_time_filter = members::activation_time.gt(chrono::Utc::now().naive_utc());
+        let activation_string_filter = members::activation_string.eq(activation_string);
+
+        let (member, member_detail, member_address_detail): (
+            Member,
+            MemberDetail,
+            MemberAddressDetail,
+        ) = members::table
+            .inner_join(member_details::table)
+            .inner_join(member_address_details::table)
+            .select((
+                Member::as_select(),
+                MemberDetail::as_select(),
+                MemberAddressDetail::as_select(),
+            ))
+            .filter(
+                activated_filter
+                    .and(activation_time_filter)
+                    .and(activation_string_filter),
+            )
+            .first(conn)?;
+        Ok(ExtendedMember::from((
+            &member,
+            &member_detail,
+            &member_address_detail,
+        )))
+    }
+
+    fn find_extended_by_email_address(
+        &self,
+        conn: &mut DbConnection,
+        email_address: &str,
+    ) -> BackendResult<ExtendedMember> {
+        let activated_filter = members::activated.eq(true);
+        let email_address_filter = member_details::email_address.eq(email_address);
+        let filter = activated_filter.and(email_address_filter);
+
+        let (member, member_detail, member_address_detail): (
+            Member,
+            MemberDetail,
+            MemberAddressDetail,
+        ) = members::table
+            .inner_join(member_details::table)
+            .inner_join(member_address_details::table)
+            .select((
+                Member::as_select(),
+                MemberDetail::as_select(),
+                MemberAddressDetail::as_select(),
+            ))
+            .filter(filter)
+            .first(conn)?;
+        Ok(ExtendedMember::from((
+            &member,
+            &member_detail,
+            &member_address_detail,
+        )))
+    }
+
+    fn save(&self, conn: &mut DbConnection, member: ExtendedMember) -> BackendResult<()> {
+        conn.transaction::<_, BackendError, _>(|conn| {
+            let filter = members::id.eq(member.id);
+
+            diesel::update(members::table)
+                .filter(filter)
+                .set(members::musical_instrument_id.eq(member.musical_instrument_id.clone()))
+                .execute(conn)?;
+
+            let member_detail = member.member_detail;
+
+            diesel::update(member_details::table)
+                .filter(member_details::id.eq(member_detail.id))
+                .set(member_detail)
+                .execute(conn)?;
+
+            let member_address_detail = member.member_address_detail;
+
+            diesel::update(member_address_details::table)
+                .filter(member_address_details::id.eq(member_address_detail.id))
+                .set(member_address_detail)
+                .execute(conn)?;
+
+            Ok(())
+        })
     }
 
     fn count_members_with_role(&self, conn: &mut DbConnection, role: Role) -> BackendResult<usize> {
@@ -86,6 +186,20 @@ impl MemberRepository for Implementation {
             .get_result(conn)?;
 
         Ok(count as usize)
+    }
+
+    fn activate_by_id(&self, conn: &mut DbConnection, member_id: i32) -> BackendResult<()> {
+        let result_id: i32 = diesel::update(members::table)
+            .filter(members::id.eq(member_id))
+            .set(members::activated.eq(true))
+            .returning(members::id)
+            .get_result(conn)?;
+
+        if result_id == member_id {
+            Ok(())
+        } else {
+            Err(BackendError::bad())
+        }
     }
 }
 

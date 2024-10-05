@@ -18,15 +18,35 @@
  */
 use crate::generic::result::BackendResult;
 use crate::model::interface::commands::{
-    AssociateRoleCommand, DissociateRoleCommand, MemberRegisterCommand,
+    AssociateRoleCommand, DissociateRoleCommand, ImageUploadCommand, MemberRegisterCommand,
+    MemberUpdateAddressCommand, MemberUpdateCommand,
 };
-use crate::model::interface::prelude::FirstOperatorRegisterCommand;
+use crate::model::interface::commands::{FirstOperatorRegisterCommand, MemberActivationCommand};
 
 /// Controls actions which can be performed on member data
 pub trait MemberCommandService {
     /// Registers a new member which is not activated yet, by supplying the command received from
     /// the interface.
     fn register_inactive(&self, command: &MemberRegisterCommand) -> BackendResult<i32>;
+
+    /// Updates the regular details of an existing member
+    fn update(&self, member_id: i32, command: &MemberUpdateCommand) -> BackendResult<()>;
+
+    /// Updates the address details of an existing member
+    fn update_address(
+        &self,
+        member_id: i32,
+        command: &MemberUpdateAddressCommand,
+    ) -> BackendResult<()>;
+}
+pub trait MemberPictureCommandService {
+    fn upload(&self, member_id: i32, command: &ImageUploadCommand) -> BackendResult<String>;
+}
+
+/// Controls activation of members
+pub trait MemberActivationCommandService {
+    /// Activates a member based on the token data
+    fn activate(&self, data: &MemberActivationCommand) -> BackendResult<()>;
 }
 
 /// Controls actions which can be performed on member data

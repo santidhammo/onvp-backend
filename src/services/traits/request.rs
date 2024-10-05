@@ -17,19 +17,65 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::generic::result::BackendResult;
-use serde::Serialize;
-
-use crate::model::interface::responses::MemberResponse;
+use crate::model::interface::client::UserClaims;
+use crate::model::interface::requests::AuthorizationRequest;
+use crate::model::interface::responses::{ImageAssetIdResponse, ImageResponse, MemberResponse};
 use crate::model::interface::search::{SearchParams, SearchResult};
+use crate::model::primitives::{Role, RoleClass};
+use actix_web::cookie::Cookie;
+use serde::Serialize;
 
 /// Controls actions for data retrieval belonging to the setup process
 pub trait SetupRequestService {
+    /// Checks if setup mode should be activated
     fn should_setup(&self) -> BackendResult<bool>;
+}
+
+/// Controls actions for authorization of members
+pub trait AuthorizationRequestService {
+    /// Performs the login procedure of a member
+    fn login(&self, login_data: &AuthorizationRequest) -> BackendResult<Vec<Cookie<'static>>>;
+
+    fn refresh(
+        &self,
+        client_user_claims: &UserClaims,
+        access_cookie: &Cookie<'static>,
+        refresh_cookie: &Cookie<'static>,
+    ) -> BackendResult<Vec<Cookie<'static>>>;
+
+    fn logout(&self) -> BackendResult<Vec<Cookie<'static>>>;
+}
+
+/// Controls actions for retrieval of role information
+pub trait RoleRequestService {
+    /// Lists all roles belonging to an id of a record belonging to the associated class
+    fn list_by_id_and_class(&self, id: i32, class: RoleClass) -> BackendResult<Vec<Role>>;
 }
 
 /// Controls actions for data retrieval belonging to members
 pub trait MemberRequestService: SearchController<MemberResponse> {
-    fn find(&self, member_id: i32) -> BackendResult<MemberResponse>;
+    /// Finds a member by the member identifier
+    fn find_by_id(&self, member_id: i32) -> BackendResult<MemberResponse>;
+
+    /// Finds a member by the member's activation string
+    fn find_by_activation_string(&self, activation_string: &str) -> BackendResult<MemberResponse>;
+
+    /// Finds a member by the member's email address
+    fn find_by_email_address(&self, email_address: &str) -> BackendResult<MemberResponse>;
+}
+
+pub trait MemberPictureRequestService {
+    fn find_asset_by_member_id(
+        &self,
+        member_id: i32,
+        user_claims: &UserClaims,
+    ) -> BackendResult<Option<ImageResponse>>;
+
+    fn find_asset_id_by_member_id(
+        &self,
+        member_id: i32,
+        user_claims: &UserClaims,
+    ) -> BackendResult<ImageAssetIdResponse>;
 }
 
 pub trait SearchController<T> {

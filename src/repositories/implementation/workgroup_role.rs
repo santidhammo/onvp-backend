@@ -18,18 +18,19 @@
  */
 use crate::dal::DbConnection;
 use crate::generic::result::{BackendError, BackendResult};
-use crate::injection::Injectable;
-use crate::model::prelude::Role;
+use crate::generic::Injectable;
+use crate::model::primitives::Role;
+use crate::model::storage::roles::WorkgroupRoleAssociation;
 use crate::repositories::traits::WorkgroupRoleRepository;
 use crate::schema::workgroup_role_associations;
 use actix_web::web::Data;
-use diesel::{BoolExpressionMethods, ExpressionMethods, RunQueryDsl};
+use diesel::{BoolExpressionMethods, ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
 use std::sync::Arc;
 
 pub struct Implementation;
 
 impl WorkgroupRoleRepository for Implementation {
-    fn associate_role(
+    fn associate(
         &self,
         conn: &mut DbConnection,
         workgroup_id: i32,
@@ -49,7 +50,7 @@ impl WorkgroupRoleRepository for Implementation {
         Ok(())
     }
 
-    fn dissociate_role(
+    fn dissociate(
         &self,
         conn: &mut DbConnection,
         workgroup_id: i32,
@@ -68,6 +69,15 @@ impl WorkgroupRoleRepository for Implementation {
         } else {
             Ok(())
         }
+    }
+
+    fn list_by_id(&self, conn: &mut DbConnection, workgroup_id: i32) -> BackendResult<Vec<Role>> {
+        let filter = workgroup_role_associations::workgroup_id.eq(workgroup_id);
+        let role_associations: Vec<WorkgroupRoleAssociation> = workgroup_role_associations::table
+            .filter(filter)
+            .select(WorkgroupRoleAssociation::as_select())
+            .load(conn)?;
+        Ok(role_associations.iter().map(|ra| ra.system_role).collect())
     }
 }
 

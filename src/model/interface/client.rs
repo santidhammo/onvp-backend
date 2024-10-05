@@ -16,31 +16,25 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+use crate::model::primitives::Role;
+use actix_jwt_auth_middleware::FromRequest;
+use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-use chrono::TimeDelta;
-use onvp_backend::model::primitives::Role;
+#[derive(Serialize, Deserialize, ToSchema, Clone, Debug, FromRequest)]
+pub struct UserClaims {
+    pub email_address: String,
+    pub roles: Vec<Role>,
+}
 
-mod common;
-
-#[test]
-fn test_find_member_details_by_search_string() {
-    let pool = common::setup();
-    let mut conn = pool.get().unwrap();
-    let expected_count_of_members = 20usize;
-    onvp_backend::dal::mock::members::create(
-        &mut conn,
-        expected_count_of_members as i32,
-        TimeDelta::minutes(5),
-        Role::Member,
-    )
-    .expect("Could not create members");
-    let result = onvp_backend::dal::members::search(
-        &mut conn,
-        &"".to_owned(),
-        expected_count_of_members + 1,
-        0,
-    )
-    .expect("Could not find members");
-    assert_eq!(expected_count_of_members, result.total_count);
-    assert_eq!(expected_count_of_members, result.rows.len());
+impl UserClaims {
+    /// Checks if the user claims contain the given role
+    pub fn has_role(&self, role: Role) -> bool {
+        for intern in &self.roles {
+            if intern == &role {
+                return true;
+            }
+        }
+        false
+    }
 }

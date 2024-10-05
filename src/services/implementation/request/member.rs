@@ -20,13 +20,14 @@
 use crate::dal;
 use crate::dal::{DbConnection, DbPool};
 use crate::generic::result::{BackendError, BackendResult};
-use crate::injection::Injectable;
-use crate::model::interface::prelude::{MemberResponse, SearchResult};
-use crate::model::interface::search::{SearchParams, SEARCH_PAGE_SIZE};
+use crate::generic::Injectable;
+use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::model::storage::entities::{Member, MemberAddressDetail, MemberDetail};
 use crate::model::storage::extended_entities::ExtendedMember;
 use crate::repositories::traits::MemberRepository;
 
+use crate::generic::lazy::SEARCH_PAGE_SIZE;
+use crate::model::interface::responses::MemberResponse;
 use crate::schema::{member_address_details, member_details, members};
 use crate::services::traits::request::{MemberRequestService, SearchController};
 use actix_web::web::Data;
@@ -44,11 +45,27 @@ pub struct Implementation {
 }
 
 impl MemberRequestService for Implementation {
-    fn find(&self, member_id: i32) -> BackendResult<MemberResponse> {
+    fn find_by_id(&self, member_id: i32) -> BackendResult<MemberResponse> {
         let mut conn = self.pool.get()?;
         let extended_member = self
             .member_repository
             .find_extended_by_id(&mut conn, member_id)?;
+        Ok(MemberResponse::from(&extended_member))
+    }
+
+    fn find_by_activation_string(&self, activation_string: &str) -> BackendResult<MemberResponse> {
+        let mut conn = self.pool.get()?;
+        let extended_member = self
+            .member_repository
+            .find_extended_by_activation_string(&mut conn, activation_string)?;
+        Ok(MemberResponse::from(&extended_member))
+    }
+
+    fn find_by_email_address(&self, email_address: &str) -> BackendResult<MemberResponse> {
+        let mut conn = self.pool.get()?;
+        let extended_member = self
+            .member_repository
+            .find_extended_by_email_address(&mut conn, email_address)?;
         Ok(MemberResponse::from(&extended_member))
     }
 }

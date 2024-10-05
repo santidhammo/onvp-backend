@@ -18,9 +18,5 @@
  */
 
 pub mod interface;
-pub mod security;
+pub mod primitives;
 pub mod storage;
-
-pub mod prelude {
-    pub use super::security::*;
-}

@@ -18,7 +18,6 @@
  */
 
 use crate::generic::result::BackendError;
-use actix_jwt_auth_middleware::FromRequest;
 use diesel::backend::Backend;
 use diesel::deserialize::FromSql;
 use diesel::expression::AsExpression;
@@ -27,49 +26,6 @@ use diesel::sql_types::Integer;
 use diesel::FromSqlRow;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-
-#[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct TokenData {
-    #[schema(example = "abc")]
-    pub activation_string: String,
-    #[schema(example = "123456")]
-    pub token: String,
-}
-
-#[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct LoginData {
-    #[schema(example = "john@doe.void")]
-    pub email_address: String,
-    #[schema(example = "123456")]
-    pub token: String,
-}
-
-#[derive(Serialize, Deserialize, ToSchema, Clone, Debug, FromRequest)]
-pub struct UserClaims {
-    pub email_address: String,
-    pub roles: Vec<Role>,
-}
-
-impl UserClaims {
-    pub fn new(email_address: &str, roles: &Vec<Role>) -> Self {
-        Self {
-            email_address: email_address.to_string(),
-            roles: roles.clone(),
-        }
-    }
-
-    /// Checks if the user claims contain the given role
-    pub fn has_role(&self, role: Role) -> bool {
-        for intern in &self.roles {
-            if intern == &role {
-                return true;
-            }
-        }
-        false
-    }
-}
 
 #[derive(
     Serialize,

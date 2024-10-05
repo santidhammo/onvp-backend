@@ -17,40 +17,50 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::dal::DbPool;
-use crate::generic::result::BackendResult;
+use crate::generic::result::{BackendError, BackendResult};
 use crate::generic::Injectable;
-use crate::model::primitives::Role;
+use crate::model::interface::commands::MemberActivationCommand;
+use crate::model::interface::responses::MemberResponse;
 use crate::repositories::traits::MemberRepository;
-use crate::services::traits::request::SetupRequestService;
+use crate::services::traits::command::MemberActivationCommandService;
 use actix_web::web::Data;
+use diesel::Connection;
 use std::sync::Arc;
+use totp_rs::TOTP;
 
 pub struct Implementation {
     pool: DbPool,
     member_repository: Data<dyn MemberRepository>,
 }
 
-impl SetupRequestService for Implementation {
-    fn should_setup(&self) -> BackendResult<bool> {
+impl MemberActivationCommandService for Implementation {
+    fn activate(&self, data: &MemberActivationCommand) -> BackendResult<()> {
         let mut conn = self.pool.get()?;
-        Ok(self
-            .member_repository
-            .count_members_with_role(&mut conn, Role::Operator)?
-            == 0)
+        conn.transaction::<_, BackendError, _>(|conn| {
+            let extended_member = self
+                .member_repository
+                .find_extended_by_activation_string(conn, &data.activation_string)?;
+            let member_response = MemberResponse::from(&extended_member);
+            let totp: TOTP = member_response.try_into()?;
+            totp.check_current(&data.token)?;
+            self.member_repository
+                .activate_by_id(conn, *(&extended_member.id))?;
+            Ok(())
+        })
     }
 }
 
-impl Injectable<(&DbPool, &Data<dyn MemberRepository>), dyn SetupRequestService>
+impl Injectable<(&DbPool, &Data<dyn MemberRepository>), dyn MemberActivationCommandService>
     for Implementation
 {
     fn injectable(
         (pool, member_repository): (&DbPool, &Data<dyn MemberRepository>),
-    ) -> Data<dyn SetupRequestService> {
+    ) -> Data<dyn MemberActivationCommandService> {
         let implementation = Self {
             pool: pool.clone(),
             member_repository: member_repository.clone(),
         };
-        let arc: Arc<dyn SetupRequestService> = Arc::new(implementation);
+        let arc: Arc<dyn MemberActivationCommandService> = Arc::new(implementation);
         Data::from(arc)
     }
 }

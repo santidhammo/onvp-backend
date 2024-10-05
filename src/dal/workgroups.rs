@@ -21,8 +21,10 @@ use crate::dal::DbConnection;
 
 use crate::dal;
 use crate::generic::result::{BackendError, BackendResult};
-use crate::model::interface::prelude::*;
-use crate::model::storage::prelude::*;
+use crate::model::interface::commands::WorkgroupRegisterCommand;
+use crate::model::interface::responses::WorkgroupResponse;
+use crate::model::interface::search::SearchResult;
+use crate::model::storage::entities::Workgroup;
 use crate::schema::*;
 use diesel::prelude::*;
 

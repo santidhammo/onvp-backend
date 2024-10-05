@@ -16,19 +16,22 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+
 use crate::generic::result::BackendResult;
-use crate::model::interface::commands::DissociateRoleCommand;
-use crate::model::interface::prelude::AssociateRoleCommand;
+use crate::model::interface::commands::{AssociateRoleCommand, DissociateRoleCommand};
+use crate::model::primitives::{Role, RoleClass};
 use crate::services::traits::command::RoleCommandService;
-use actix_web::web::{Data, Json};
-use actix_web::{post, HttpResponse};
+use crate::services::traits::request::RoleRequestService;
+use actix_web::web::{Data, Json, Path};
+use actix_web::{get, post, HttpResponse};
 
-pub const CONTEXT: &str = "/api/security";
+/// This is the context of the roles part of the API
+pub const CONTEXT: &str = "/api/roles";
 
-/// Associate a role to a work group
+/// Associate a role to a member or work group
 ///
-/// Work group role association is used to allow members of a workgroup to have an extended role if
-/// they are part of the work group.
+/// Member association is used to allow members to act on specific roles
+/// Work group association is used to allow groups of members to act on specific roles
 #[utoipa::path(
     context_path = CONTEXT,
     responses(
@@ -47,10 +50,10 @@ pub async fn associate(
     Ok(HttpResponse::Ok().finish())
 }
 
-/// Dissociate a role from a work group
+/// Dissociate a role from a member or work group
 ///
-/// Work group role association is used to allow members of a workgroup to have an extended role if
-/// they are part of the work group.
+/// Member association is used to allow members to act on specific roles
+/// Work group association is used to allow groups of members to act on specific roles
 #[utoipa::path(
     context_path = CONTEXT,
     responses(
@@ -67,4 +70,24 @@ pub async fn dissociate(
 ) -> BackendResult<HttpResponse> {
     service.dissociate_role(&command)?;
     Ok(HttpResponse::Ok().finish())
+}
+
+/// Lists roles for a member or work group
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "List of roles", body=Vec<Role>),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal Server Error", body=Option<String>)
+    )
+)]
+#[get("/{class}/list/{id}")]
+pub async fn list(
+    service: Data<dyn RoleRequestService>,
+    path: Path<(RoleClass, i32)>,
+) -> BackendResult<Json<Vec<Role>>> {
+    let (class, id) = path.into_inner();
+    let roles = service.list_by_id_and_class(id, class)?;
+    Ok(Json(roles))
 }

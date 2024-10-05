@@ -18,10 +18,10 @@
  */
 use crate::dal::DbConnection;
 use crate::generic::result::BackendResult;
-use crate::injection::Injectable;
+use crate::generic::Injectable;
 use crate::model::interface::commands::MemberRegisterCommand;
 use crate::model::interface::sub_commands::{AddressRegisterSubCommand, DetailRegisterSubCommand};
-use crate::model::prelude::*;
+use crate::model::primitives::Role;
 use crate::model::storage::extended_entities::ExtendedMember;
 use chrono::TimeDelta;
 use rand::distributions::{Alphanumeric, DistString};
@@ -65,7 +65,7 @@ pub fn create(
         extended_member.activation_time = extended_member.creation_time.add(activation_delta);
 
         let member_id = member_repository.create_inactive(conn, &extended_member)?;
-        member_role_repository.associate_role(conn, member_id, role)?;
+        member_role_repository.associate(conn, member_id, role)?;
     }
 
     Ok(())

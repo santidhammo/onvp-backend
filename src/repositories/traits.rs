@@ -18,7 +18,7 @@
  */
 use crate::dal::DbConnection;
 use crate::generic::result::BackendResult;
-use crate::model::prelude::Role;
+use crate::model::primitives::Role;
 use crate::model::storage::extended_entities::ExtendedMember;
 
 pub trait MemberRepository {
@@ -34,35 +34,68 @@ pub trait MemberRepository {
         id: i32,
     ) -> BackendResult<ExtendedMember>;
 
+    fn find_extended_by_activation_string(
+        &self,
+        conn: &mut DbConnection,
+        activation_string: &str,
+    ) -> BackendResult<ExtendedMember>;
+
+    fn find_extended_by_email_address(
+        &self,
+        conn: &mut DbConnection,
+        email_address: &str,
+    ) -> BackendResult<ExtendedMember>;
+
+    fn save(&self, conn: &mut DbConnection, member: ExtendedMember) -> BackendResult<()>;
+
     fn count_members_with_role(&self, conn: &mut DbConnection, role: Role) -> BackendResult<usize>;
+
+    fn activate_by_id(&self, conn: &mut DbConnection, member_id: i32) -> BackendResult<()>;
+}
+
+pub trait MemberPictureRepository {
+    fn save_by_member_id(
+        &self,
+        conn: &mut DbConnection,
+        member_id: i32,
+        picture_asset_id: &str,
+    ) -> BackendResult<()>;
 }
 
 pub trait MemberRoleRepository {
-    fn associate_role(
-        &self,
-        conn: &mut DbConnection,
-        member_id: i32,
-        role: Role,
-    ) -> BackendResult<()>;
-    fn dissociate_role(
-        &self,
-        conn: &mut DbConnection,
-        member_id: i32,
-        role: Role,
-    ) -> BackendResult<()>;
+    /// Associates a member and a role
+    fn associate(&self, conn: &mut DbConnection, member_id: i32, role: Role) -> BackendResult<()>;
+    /// Dissociates a member from a role
+    fn dissociate(&self, conn: &mut DbConnection, member_id: i32, role: Role) -> BackendResult<()>;
+    /// Lists all roles of a specific member
+    fn list_by_id(&self, conn: &mut DbConnection, member_id: i32) -> BackendResult<Vec<Role>>;
 }
 
 pub trait WorkgroupRoleRepository {
-    fn associate_role(
+    /// Associates a work group and a role
+    fn associate(
         &self,
         conn: &mut DbConnection,
         workgroup_id: i32,
         role: Role,
     ) -> BackendResult<()>;
-    fn dissociate_role(
+    /// Dissociates a work group from a role
+    fn dissociate(
         &self,
         conn: &mut DbConnection,
         workgroup_id: i32,
         role: Role,
     ) -> BackendResult<()>;
+    /// Lists all roles of a specific workgroup
+    fn list_by_id(&self, conn: &mut DbConnection, workgroup_id: i32) -> BackendResult<Vec<Role>>;
+}
+
+/// Manages a virtual view over the different roles from both members and associated work groups
+pub trait AuthorizationRepository {
+    /// Finds all roles for a member from direct association and work group association
+    fn find_composite_roles_by_member_id(
+        &self,
+        conn: &mut DbConnection,
+        member_id: i32,
+    ) -> BackendResult<Vec<Role>>;
 }

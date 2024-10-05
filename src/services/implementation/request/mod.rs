@@ -16,6 +16,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+pub mod authorization;
 pub mod member;
-
+pub(crate) mod member_picture;
+mod role;
 pub mod setup;

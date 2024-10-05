@@ -20,8 +20,11 @@
 //! Work groups are collections of members, allowing for additional roles.
 
 use crate::dal;
+use crate::dal::DbPool;
 use crate::generic::result::{BackendError, BackendResult};
-use crate::model::interface::prelude::*;
+use crate::model::interface::commands::WorkgroupRegisterCommand;
+use crate::model::interface::responses::WorkgroupResponse;
+use crate::model::interface::search::{SearchParams, SearchResult};
 use actix_web::{get, post, web, HttpResponse};
 
 pub const CONTEXT: &str = "/api/workgroups";
@@ -42,7 +45,7 @@ pub const CONTEXT: &str = "/api/workgroups";
 )]
 #[post("/")]
 pub async fn register(
-    pool: web::Data<dal::DbPool>,
+    pool: web::Data<DbPool>,
     data: web::Json<WorkgroupRegisterCommand>,
 ) -> BackendResult<HttpResponse> {
     let mut conn = dal::connect(&pool)?;
@@ -68,7 +71,7 @@ pub async fn register(
 )]
 #[get("/search")]
 pub async fn search(
-    pool: web::Data<dal::DbPool>,
+    pool: web::Data<DbPool>,
     search_params: web::Query<SearchParams>,
 ) -> BackendResult<web::Json<SearchResult<WorkgroupResponse>>> {
     let mut conn = dal::connect(&pool)?;
