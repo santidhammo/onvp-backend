@@ -16,47 +16,63 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::dal::DbConnection;
 use crate::generic::result::BackendResult;
+use crate::generic::storage::database::DatabaseConnection;
 use crate::model::primitives::Role;
+use crate::model::storage::entities::Workgroup;
 use crate::model::storage::extended_entities::ExtendedMember;
 
 pub trait MemberRepository {
     fn create_inactive(
         &self,
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         member_extended: &ExtendedMember,
     ) -> BackendResult<i32>;
 
     fn find_extended_by_id(
         &self,
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         id: i32,
     ) -> BackendResult<ExtendedMember>;
 
     fn find_extended_by_activation_string(
         &self,
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         activation_string: &str,
     ) -> BackendResult<ExtendedMember>;
 
     fn find_extended_by_email_address(
         &self,
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         email_address: &str,
     ) -> BackendResult<ExtendedMember>;
 
-    fn save(&self, conn: &mut DbConnection, member: ExtendedMember) -> BackendResult<()>;
+    fn save(&self, conn: &mut DatabaseConnection, member: ExtendedMember) -> BackendResult<()>;
 
-    fn count_members_with_role(&self, conn: &mut DbConnection, role: Role) -> BackendResult<usize>;
+    fn count_members_with_role(
+        &self,
+        conn: &mut DatabaseConnection,
+        role: Role,
+    ) -> BackendResult<usize>;
 
-    fn activate_by_id(&self, conn: &mut DbConnection, member_id: i32) -> BackendResult<()>;
+    fn activate_by_id(&self, conn: &mut DatabaseConnection, member_id: i32) -> BackendResult<()>;
+}
+
+pub trait WorkgroupRepository {
+    fn register(&self, conn: &mut DatabaseConnection, workgroup: Workgroup) -> BackendResult<i32>;
+
+    fn search(
+        &self,
+        conn: &mut DatabaseConnection,
+        page_offset: usize,
+        term: &str,
+    ) -> BackendResult<(usize, usize, Vec<Workgroup>)>;
 }
 
 pub trait MemberPictureRepository {
     fn save_by_member_id(
         &self,
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         member_id: i32,
         picture_asset_id: &str,
     ) -> BackendResult<()>;
@@ -64,30 +80,45 @@ pub trait MemberPictureRepository {
 
 pub trait MemberRoleRepository {
     /// Associates a member and a role
-    fn associate(&self, conn: &mut DbConnection, member_id: i32, role: Role) -> BackendResult<()>;
+    fn associate(
+        &self,
+        conn: &mut DatabaseConnection,
+        member_id: i32,
+        role: Role,
+    ) -> BackendResult<()>;
     /// Dissociates a member from a role
-    fn dissociate(&self, conn: &mut DbConnection, member_id: i32, role: Role) -> BackendResult<()>;
+    fn dissociate(
+        &self,
+        conn: &mut DatabaseConnection,
+        member_id: i32,
+        role: Role,
+    ) -> BackendResult<()>;
     /// Lists all roles of a specific member
-    fn list_by_id(&self, conn: &mut DbConnection, member_id: i32) -> BackendResult<Vec<Role>>;
+    fn list_by_id(&self, conn: &mut DatabaseConnection, member_id: i32)
+        -> BackendResult<Vec<Role>>;
 }
 
 pub trait WorkgroupRoleRepository {
     /// Associates a work group and a role
     fn associate(
         &self,
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         workgroup_id: i32,
         role: Role,
     ) -> BackendResult<()>;
     /// Dissociates a work group from a role
     fn dissociate(
         &self,
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         workgroup_id: i32,
         role: Role,
     ) -> BackendResult<()>;
     /// Lists all roles of a specific workgroup
-    fn list_by_id(&self, conn: &mut DbConnection, workgroup_id: i32) -> BackendResult<Vec<Role>>;
+    fn list_by_id(
+        &self,
+        conn: &mut DatabaseConnection,
+        workgroup_id: i32,
+    ) -> BackendResult<Vec<Role>>;
 }
 
 /// Manages a virtual view over the different roles from both members and associated work groups
@@ -95,7 +126,7 @@ pub trait AuthorizationRepository {
     /// Finds all roles for a member from direct association and work group association
     fn find_composite_roles_by_member_id(
         &self,
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         member_id: i32,
     ) -> BackendResult<Vec<Role>>;
 }

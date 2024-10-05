@@ -21,3 +21,4 @@ pub mod member;
 pub(crate) mod member_picture;
 mod role;
 pub mod setup;
+mod workgroup;

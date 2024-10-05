@@ -27,14 +27,14 @@ fn test_find_member_details_by_search_string() {
     let pool = common::setup();
     let mut conn = pool.get().unwrap();
     let expected_count_of_members = 20usize;
-    onvp_backend::dal::mock::members::create(
+    onvp_backend::mock::members::create(
         &mut conn,
         expected_count_of_members as i32,
         TimeDelta::minutes(5),
         Role::Member,
     )
     .expect("Could not create members");
-    let result = onvp_backend::dal::members::search(
+    let result = onvp_backend::generic::storage::members::search(
         &mut conn,
         &"".to_owned(),
         expected_count_of_members + 1,

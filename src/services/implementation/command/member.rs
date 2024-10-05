@@ -16,9 +16,9 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::dal::DbPool;
 use crate::generic::lazy::{SendEmailConfig, SEND_ACTIVATION_EMAIL_CONFIG};
 use crate::generic::result::{BackendError, BackendResult};
+use crate::generic::storage::database::DatabaseConnectionPool;
 use crate::generic::Injectable;
 use crate::model::interface::commands::{
     MemberRegisterCommand, MemberUpdateAddressCommand, MemberUpdateCommand,
@@ -34,7 +34,7 @@ use lettre::{Message, SmtpTransport, Transport};
 use std::sync::Arc;
 
 pub struct Implementation {
-    pool: DbPool,
+    pool: DatabaseConnectionPool,
     member_repository: Data<dyn MemberRepository>,
     member_role_repository: Data<dyn MemberRoleRepository>,
     send_activation_email_config: SendEmailConfig,
@@ -94,7 +94,7 @@ impl MemberCommandService for Implementation {
 impl
     Injectable<
         (
-            &DbPool,
+            &DatabaseConnectionPool,
             &Data<dyn MemberRepository>,
             &Data<dyn MemberRoleRepository>,
         ),
@@ -103,7 +103,7 @@ impl
 {
     fn injectable(
         (pool, member_repository, member_role_repository): (
-            &DbPool,
+            &DatabaseConnectionPool,
             &Data<dyn MemberRepository>,
             &Data<dyn MemberRoleRepository>,
         ),

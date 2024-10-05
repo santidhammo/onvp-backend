@@ -18,13 +18,14 @@
  */
 
 use crate::generic::result::{BackendError, BackendResult};
-use crate::model::storage::entities::Member;
-use crate::schema::members;
-use crate::{dal, schema};
+use crate::generic::storage::database::{DatabaseConnection, DatabaseConnectionPool};
+use crate::model::storage::entities::{Member, MemberAddressDetail, MemberDetail};
+use crate::schema;
+use crate::schema::{member_address_details, member_details, members};
 use diesel::prelude::*;
 use log::info;
 
-pub fn clean_late_non_activated_members(pool: dal::DbPool) -> BackendResult<()> {
+pub fn clean_late_non_activated_members(pool: DatabaseConnectionPool) -> BackendResult<()> {
     let mut conn = pool.get()?;
 
     conn.transaction::<_, BackendError, _>(|conn| {
@@ -40,8 +41,7 @@ pub fn clean_late_non_activated_members(pool: dal::DbPool) -> BackendResult<()> 
 
         for member in result {
             {
-                let details =
-                    dal::members::find_detail_by_detail_id(conn, &member.member_details_id)?;
+                let details = find_detail_by_detail_id(conn, &member.member_details_id)?;
                 info!(
                     "Deleting member: {} with name: {}",
                     member.id,
@@ -55,11 +55,8 @@ pub fn clean_late_non_activated_members(pool: dal::DbPool) -> BackendResult<()> 
             if result != 1 {
                 return Err(BackendError::not_enough_records());
             }
-            dal::members::delete_member_detail_by_id(conn, member.member_details_id)?;
-            dal::members::delete_member_address_detail_by_id(
-                conn,
-                member.member_address_details_id,
-            )?;
+            delete_member_detail_by_id(conn, member.member_details_id)?;
+            delete_member_address_detail_by_id(conn, member.member_address_details_id)?;
             deleted += 1;
         }
 
@@ -67,4 +64,64 @@ pub fn clean_late_non_activated_members(pool: dal::DbPool) -> BackendResult<()> 
         Ok(())
     })?;
     Ok(())
+}
+
+pub fn find_detail_by_detail_id(
+    conn: &mut DatabaseConnection,
+    detail_id: &i32,
+) -> BackendResult<MemberDetail> {
+    let id_filter = member_details::id.eq(detail_id);
+
+    Ok(member_details::table
+        .select(member_details::all_columns)
+        .filter(id_filter)
+        .first::<MemberDetail>(conn)?)
+}
+
+pub fn delete_member_address_detail_by_id(
+    conn: &mut DatabaseConnection,
+    address_details_id: i32,
+) -> BackendResult<()> {
+    let details = member_address_details::table
+        .select(member_address_details::all_columns)
+        .filter(member_address_details::id.eq(address_details_id))
+        .load::<MemberAddressDetail>(conn)?;
+    let maybe_first_error = details
+        .iter()
+        .map(|detail| {
+            diesel::delete(
+                member_address_details::table.filter(member_address_details::id.eq(detail.id)),
+            )
+            .execute(conn)
+        })
+        .filter(|r| r.is_err())
+        .map(|r| r.unwrap_err())
+        .nth(0);
+    match maybe_first_error {
+        Some(first_error) => Err(first_error.into()),
+        None => Ok(()),
+    }
+}
+
+pub fn delete_member_detail_by_id(
+    conn: &mut DatabaseConnection,
+    details_id: i32,
+) -> BackendResult<()> {
+    let address_details = member_details::table
+        .select(member_details::all_columns)
+        .filter(member_details::id.eq(details_id))
+        .load::<MemberDetail>(conn)?;
+    let maybe_first_error = address_details
+        .iter()
+        .map(|detail| {
+            diesel::delete(member_details::table.filter(member_details::id.eq(detail.id)))
+                .execute(conn)
+        })
+        .filter(|r| r.is_err())
+        .map(|r| r.unwrap_err())
+        .nth(0);
+    match maybe_first_error {
+        Some(first_error) => Err(first_error.into()),
+        None => Ok(()),
+    }
 }

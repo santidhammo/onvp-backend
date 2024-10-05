@@ -16,8 +16,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::dal::DbConnection;
 use crate::generic::result::{BackendError, BackendResult};
+use crate::generic::storage::database::DatabaseConnection;
 use crate::generic::Injectable;
 use crate::model::primitives::Role;
 use crate::model::storage::roles::WorkgroupRoleAssociation;
@@ -32,7 +32,7 @@ pub struct Implementation;
 impl WorkgroupRoleRepository for Implementation {
     fn associate(
         &self,
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         workgroup_id: i32,
         role: Role,
     ) -> BackendResult<()> {
@@ -52,7 +52,7 @@ impl WorkgroupRoleRepository for Implementation {
 
     fn dissociate(
         &self,
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         workgroup_id: i32,
         role: Role,
     ) -> BackendResult<()> {
@@ -71,7 +71,11 @@ impl WorkgroupRoleRepository for Implementation {
         }
     }
 
-    fn list_by_id(&self, conn: &mut DbConnection, workgroup_id: i32) -> BackendResult<Vec<Role>> {
+    fn list_by_id(
+        &self,
+        conn: &mut DatabaseConnection,
+        workgroup_id: i32,
+    ) -> BackendResult<Vec<Role>> {
         let filter = workgroup_role_associations::workgroup_id.eq(workgroup_id);
         let role_associations: Vec<WorkgroupRoleAssociation> = workgroup_role_associations::table
             .filter(filter)

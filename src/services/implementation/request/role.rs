@@ -16,19 +16,17 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::dal::DbPool;
 use crate::generic::result::BackendResult;
+use crate::generic::storage::database::DatabaseConnectionPool;
 use crate::generic::Injectable;
 use crate::model::primitives::{Role, RoleClass};
-use crate::repositories::traits::{
-    MemberRoleRepository, WorkgroupRoleRepository,
-};
+use crate::repositories::traits::{MemberRoleRepository, WorkgroupRoleRepository};
 use crate::services::traits::request::RoleRequestService;
 use actix_web::web::Data;
 use std::sync::Arc;
 
 pub struct Implementation {
-    pool: DbPool,
+    pool: DatabaseConnectionPool,
     member_role_repository: Data<dyn MemberRoleRepository>,
     workgroup_role_repository: Data<dyn WorkgroupRoleRepository>,
 }
@@ -46,7 +44,7 @@ impl RoleRequestService for Implementation {
 impl
     Injectable<
         (
-            &DbPool,
+            &DatabaseConnectionPool,
             &Data<dyn MemberRoleRepository>,
             &Data<dyn WorkgroupRoleRepository>,
         ),
@@ -55,7 +53,7 @@ impl
 {
     fn injectable(
         (pool, member_role_repository, workgroup_role_repository): (
-            &DbPool,
+            &DatabaseConnectionPool,
             &Data<dyn MemberRoleRepository>,
             &Data<dyn WorkgroupRoleRepository>,
         ),

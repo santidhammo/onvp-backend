@@ -16,8 +16,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::dal::DbConnection;
 use crate::generic::result::BackendResult;
+use crate::generic::storage::database::DatabaseConnection;
 use crate::generic::Injectable;
 use crate::model::interface::commands::MemberRegisterCommand;
 use crate::model::interface::sub_commands::{AddressRegisterSubCommand, DetailRegisterSubCommand};
@@ -29,7 +29,7 @@ use rand::{thread_rng, Rng};
 use std::ops::Add;
 
 pub fn create(
-    conn: &mut DbConnection,
+    conn: &mut DatabaseConnection,
     count: i32,
     activation_delta: TimeDelta,
     role: Role,

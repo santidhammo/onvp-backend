@@ -19,7 +19,9 @@
 use crate::generic::result::BackendResult;
 use crate::model::interface::client::UserClaims;
 use crate::model::interface::requests::AuthorizationRequest;
-use crate::model::interface::responses::{ImageAssetIdResponse, ImageResponse, MemberResponse};
+use crate::model::interface::responses::{
+    ImageAssetIdResponse, ImageResponse, MemberResponse, WorkgroupResponse,
+};
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::model::primitives::{Role, RoleClass};
 use actix_web::cookie::Cookie;
@@ -77,6 +79,9 @@ pub trait MemberPictureRequestService {
         user_claims: &UserClaims,
     ) -> BackendResult<ImageAssetIdResponse>;
 }
+
+/// Controls actions for data retrieval belonging to work groups
+pub trait WorkgroupRequestService: SearchController<WorkgroupResponse> {}
 
 pub trait SearchController<T> {
     fn search(&self, params: &SearchParams) -> BackendResult<SearchResult<T>>

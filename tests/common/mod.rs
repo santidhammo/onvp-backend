@@ -19,16 +19,16 @@
 
 use diesel_migrations::{FileBasedMigrations, MigrationHarness};
 use dotenv::dotenv;
-use onvp_backend::dal;
+use onvp_backend::generic::storage::database;
 use std::env::set_var;
 use std::path::PathBuf;
 
-pub(crate) fn setup() -> dal::DbPool {
+pub(crate) fn setup() -> database::DatabaseConnectionPool {
     dotenv().ok();
     // Correct the storage URL to be using an in-memory, Sqlite storage instead of the configured
     // storage.
     set_var("DATABASE_URL", ":memory:");
-    let pool = dal::initialize_db_pool();
+    let pool = database::initialize_database_connection_pool();
 
     let mut conn = pool.get().unwrap();
     run_migrations(&mut conn, setup_migrations());
@@ -36,9 +36,9 @@ pub(crate) fn setup() -> dal::DbPool {
     pool
 }
 
-fn run_migrations(conn: &mut dal::DbConnection, fb_migrations: FileBasedMigrations) {
+fn run_migrations(conn: &mut database::DatabaseConnection, fb_migrations: FileBasedMigrations) {
     match conn {
-        dal::DbConnection::SQLite(sqlite_conn) => {
+        database::DatabaseConnection::SQLite(sqlite_conn) => {
             sqlite_conn.run_pending_migrations(fb_migrations).unwrap();
         }
         _ => {

@@ -16,15 +16,22 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use actix_web::web::Data;
 
-pub mod lazy;
-pub mod result;
-pub mod search_helpers;
-pub mod security;
-pub mod storage;
+use diesel::r2d2::ConnectionManager;
+use diesel::*;
 
-/// This trait is implemented by all injectables with the need of a data object itself
-pub trait Injectable<U, T: ?Sized> {
-    fn injectable(dependencies: U) -> Data<T>;
+pub type DatabaseConnectionPool = r2d2::Pool<ConnectionManager<DatabaseConnection>>;
+
+#[derive(MultiConnection)]
+pub enum DatabaseConnection {
+    PostgreSQL(PgConnection),
+    SQLite(SqliteConnection),
+}
+
+pub fn initialize_database_connection_pool() -> DatabaseConnectionPool {
+    let conn_spec = std::env::var("DATABASE_URL").expect("DATABASE_URL should be set");
+    let manager = ConnectionManager::<DatabaseConnection>::new(conn_spec);
+    r2d2::Pool::builder()
+        .build(manager)
+        .expect("storage URL should be a valid URL towards PostgreSQL storage")
 }

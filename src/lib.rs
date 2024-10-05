@@ -19,9 +19,9 @@
 
 pub mod api;
 pub mod commands;
-pub mod dal;
 pub mod generic;
 mod injection;
+pub mod mock;
 pub mod model;
 mod repositories;
 pub mod schema;

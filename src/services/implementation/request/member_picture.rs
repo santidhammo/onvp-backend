@@ -16,8 +16,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::dal::DbPool;
 use crate::generic::result::{BackendError, BackendResult};
+use crate::generic::storage::database::DatabaseConnectionPool;
 use crate::generic::Injectable;
 use crate::model::interface::client::UserClaims;
 use crate::model::interface::responses::{ImageAssetIdResponse, ImageResponse};
@@ -32,7 +32,7 @@ use std::io::Read;
 use std::sync::Arc;
 
 pub struct Implementation {
-    pool: DbPool,
+    pool: DatabaseConnectionPool,
     member_repository: Data<dyn MemberRepository>,
 }
 
@@ -126,11 +126,14 @@ impl Implementation {
     }
 }
 
-impl Injectable<(&DbPool, &Data<dyn MemberRepository>), dyn MemberPictureRequestService>
-    for Implementation
+impl
+    Injectable<
+        (&DatabaseConnectionPool, &Data<dyn MemberRepository>),
+        dyn MemberPictureRequestService,
+    > for Implementation
 {
     fn injectable(
-        (pool, member_repository): (&DbPool, &Data<dyn MemberRepository>),
+        (pool, member_repository): (&DatabaseConnectionPool, &Data<dyn MemberRepository>),
     ) -> Data<dyn MemberPictureRequestService> {
         let implementation = Self {
             pool: pool.clone(),

@@ -16,8 +16,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::dal::DbConnection;
 use crate::generic::result::BackendResult;
+use crate::generic::storage::database::DatabaseConnection;
 use crate::generic::Injectable;
 use crate::repositories::traits::MemberPictureRepository;
 use crate::schema::members;
@@ -30,7 +30,7 @@ pub struct Implementation;
 impl MemberPictureRepository for Implementation {
     fn save_by_member_id(
         &self,
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         member_id: i32,
         picture_asset_id: &str,
     ) -> BackendResult<()> {

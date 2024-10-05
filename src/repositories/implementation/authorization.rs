@@ -16,8 +16,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::dal::DbConnection;
 use crate::generic::result::BackendResult;
+use crate::generic::storage::database::DatabaseConnection;
 use crate::generic::Injectable;
 use crate::model::primitives::Role;
 use crate::repositories::traits::AuthorizationRepository;
@@ -34,7 +34,7 @@ pub struct Implementation;
 impl AuthorizationRepository for Implementation {
     fn find_composite_roles_by_member_id(
         &self,
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         member_id: i32,
     ) -> BackendResult<Vec<Role>> {
         let mut roles = member_role_associations::table

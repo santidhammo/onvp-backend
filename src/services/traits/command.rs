@@ -19,7 +19,7 @@
 use crate::generic::result::BackendResult;
 use crate::model::interface::commands::{
     AssociateRoleCommand, DissociateRoleCommand, ImageUploadCommand, MemberRegisterCommand,
-    MemberUpdateAddressCommand, MemberUpdateCommand,
+    MemberUpdateAddressCommand, MemberUpdateCommand, WorkgroupRegisterCommand,
 };
 use crate::model::interface::commands::{FirstOperatorRegisterCommand, MemberActivationCommand};
 
@@ -57,6 +57,12 @@ pub trait SetupCommandService {
         &self,
         command: &FirstOperatorRegisterCommand,
     ) -> BackendResult<String>;
+}
+
+/// Controls actions which can be performed to manage work groups
+pub trait WorkgroupCommandService {
+    /// Registers a new work group
+    fn register(&self, command: &WorkgroupRegisterCommand) -> BackendResult<i32>;
 }
 
 /// Controls actions which can be performed to manage roles

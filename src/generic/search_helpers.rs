@@ -17,39 +17,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::generic::result::BackendError;
-use diesel::prelude::*;
-use diesel::r2d2::{ConnectionManager, PooledConnection};
-use diesel::PgConnection;
-use diesel::SqliteConnection;
-
-pub mod members;
-
-pub mod mock;
-pub(crate) mod workgroups;
-
-pub fn connect(
-    pool: &DbPool,
-) -> Result<PooledConnection<ConnectionManager<DbConnection>>, BackendError> {
-    pool.get().map_err(|e| BackendError::from(e))
-}
-
-pub type DbPool = r2d2::Pool<ConnectionManager<DbConnection>>;
-
-#[derive(diesel::MultiConnection)]
-pub enum DbConnection {
-    PostgreSQL(PgConnection),
-    SQLite(SqliteConnection),
-}
-
-pub fn initialize_db_pool() -> DbPool {
-    let conn_spec = std::env::var("DATABASE_URL").expect("DATABASE_URL should be set");
-    let manager = ConnectionManager::<DbConnection>::new(conn_spec);
-    r2d2::Pool::builder()
-        .build(manager)
-        .expect("storage URL should be a valid URL towards PostgreSQL storage")
-}
-
 pub(crate) fn create_like_string<T: ToString>(search_string: T) -> String {
     let search_string = search_string.to_string();
     let search_string = if !search_string.starts_with("%") {

@@ -20,4 +20,5 @@ pub mod authorization;
 pub mod member;
 pub mod member_picture;
 pub mod member_role;
+mod workgroup;
 pub mod workgroup_role;

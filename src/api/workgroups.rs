@@ -19,13 +19,14 @@
 
 //! Work groups are collections of members, allowing for additional roles.
 
-use crate::dal;
-use crate::dal::DbPool;
-use crate::generic::result::{BackendError, BackendResult};
+use crate::generic::result::BackendResult;
 use crate::model::interface::commands::WorkgroupRegisterCommand;
 use crate::model::interface::responses::WorkgroupResponse;
 use crate::model::interface::search::{SearchParams, SearchResult};
-use actix_web::{get, post, web, HttpResponse};
+use crate::services::traits::command::WorkgroupCommandService;
+use crate::services::traits::request::WorkgroupRequestService;
+use actix_web::web::{Data, Json};
+use actix_web::{get, post, web};
 
 pub const CONTEXT: &str = "/api/workgroups";
 
@@ -45,12 +46,10 @@ pub const CONTEXT: &str = "/api/workgroups";
 )]
 #[post("/")]
 pub async fn register(
-    pool: web::Data<DbPool>,
-    data: web::Json<WorkgroupRegisterCommand>,
-) -> BackendResult<HttpResponse> {
-    let mut conn = dal::connect(&pool)?;
-    dal::workgroups::register(&mut conn, &data)?;
-    Ok(HttpResponse::Ok().finish())
+    service: Data<dyn WorkgroupCommandService>,
+    command: Json<WorkgroupRegisterCommand>,
+) -> BackendResult<Json<i32>> {
+    Ok(Json(service.register(&command)?))
 }
 
 /// Search for work groups
@@ -71,16 +70,8 @@ pub async fn register(
 )]
 #[get("/search")]
 pub async fn search(
-    pool: web::Data<DbPool>,
+    service: web::Data<dyn WorkgroupRequestService>,
     search_params: web::Query<SearchParams>,
 ) -> BackendResult<web::Json<SearchResult<WorkgroupResponse>>> {
-    let mut conn = dal::connect(&pool)?;
-    let query = search_params.term.as_ref().ok_or(BackendError::bad())?;
-
-    Ok(web::Json(dal::workgroups::search(
-        &mut conn,
-        query,
-        10,
-        search_params.page_offset,
-    )?))
+    Ok(Json(service.search(&search_params)?))
 }

@@ -16,15 +16,5 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use actix_web::web::Data;
 
-pub mod lazy;
-pub mod result;
-pub mod search_helpers;
-pub mod security;
-pub mod storage;
-
-/// This trait is implemented by all injectables with the need of a data object itself
-pub trait Injectable<U, T: ?Sized> {
-    fn injectable(dependencies: U) -> Data<T>;
-}
+pub mod database;

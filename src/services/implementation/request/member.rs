@@ -17,21 +17,20 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::dal;
-use crate::dal::{DbConnection, DbPool};
 use crate::generic::result::{BackendError, BackendResult};
-use crate::generic::Injectable;
+use crate::generic::{search_helpers, Injectable};
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::model::storage::entities::{Member, MemberAddressDetail, MemberDetail};
 use crate::model::storage::extended_entities::ExtendedMember;
 use crate::repositories::traits::MemberRepository;
 
 use crate::generic::lazy::SEARCH_PAGE_SIZE;
+use crate::generic::search_helpers::create_like_string;
+use crate::generic::storage::database::{DatabaseConnection, DatabaseConnectionPool};
 use crate::model::interface::responses::MemberResponse;
 use crate::schema::{member_address_details, member_details, members};
 use crate::services::traits::request::{MemberRequestService, SearchController};
 use actix_web::web::Data;
-use dal::create_like_string;
 use diesel::{
     BoolExpressionMethods, Connection, PgConnection, QueryDsl, RunQueryDsl, SelectableHelper,
     SqliteConnection,
@@ -39,7 +38,7 @@ use diesel::{
 use std::sync::Arc;
 
 pub struct Implementation {
-    pool: DbPool,
+    pool: DatabaseConnectionPool,
     page_size: usize,
     member_repository: Data<dyn MemberRepository>,
 }
@@ -151,24 +150,24 @@ impl Implementation {
     fn search_internal(
         &self,
         params: &SearchParams,
-        connection: &mut DbConnection,
+        connection: &mut DatabaseConnection,
         like_search_string: &str,
     ) -> BackendResult<SearchResult<MemberResponse>> {
         connection.transaction::<SearchResult<MemberResponse>, BackendError, _>(|connection| {
             // ILIKE is only supported on PostgreSQL
             let (total_count, member_details) = match connection {
-                DbConnection::PostgreSQL(ref mut conn) => {
+                DatabaseConnection::PostgreSQL(ref mut conn) => {
                     self.postgresql_search(params, like_search_string, conn)?
                 }
 
-                DbConnection::SQLite(ref mut conn) => {
+                DatabaseConnection::SQLite(ref mut conn) => {
                     self.sqlite_search(params, like_search_string, conn)?
                 }
             };
             Ok(SearchResult {
                 total_count,
                 page_offset: params.page_offset,
-                page_count: dal::calculate_page_count(self.page_size, total_count),
+                page_count: search_helpers::calculate_page_count(self.page_size, total_count),
                 rows: member_details
                     .iter()
                     .map(|(member, member_detail, member_address_detail)| {
@@ -181,11 +180,11 @@ impl Implementation {
     }
 }
 
-impl Injectable<(&DbPool, &Data<dyn MemberRepository>), dyn MemberRequestService>
+impl Injectable<(&DatabaseConnectionPool, &Data<dyn MemberRepository>), dyn MemberRequestService>
     for Implementation
 {
     fn injectable(
-        (pool, member_repository): (&DbPool, &Data<dyn MemberRepository>),
+        (pool, member_repository): (&DatabaseConnectionPool, &Data<dyn MemberRepository>),
     ) -> Data<dyn MemberRequestService> {
         let implementation = Self {
             pool: pool.clone(),

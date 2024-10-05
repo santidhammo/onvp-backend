@@ -16,9 +16,9 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::dal::{DbConnection, DbPool};
 use crate::generic::lazy::TOKEN_EXPIRY_HIGH_WATER_MARK;
 use crate::generic::result::{BackendError, BackendResult};
+use crate::generic::storage::database::{DatabaseConnection, DatabaseConnectionPool};
 use crate::generic::Injectable;
 use crate::model::interface::client::UserClaims;
 use crate::model::interface::requests::AuthorizationRequest;
@@ -41,7 +41,7 @@ use std::sync::Arc;
 use totp_rs::TOTP;
 
 pub struct Implementation {
-    pool: DbPool,
+    pool: DatabaseConnectionPool,
     member_repository: Data<dyn MemberRepository>,
     authorization_repository: Data<dyn AuthorizationRepository>,
     token_signer: Data<TokenSigner<UserClaims, Ed25519>>,
@@ -135,7 +135,7 @@ impl AuthorizationRequestService for Implementation {
 impl
     Injectable<
         (
-            &DbPool,
+            &DatabaseConnectionPool,
             &Data<dyn MemberRepository>,
             &Data<dyn AuthorizationRepository>,
             &Data<TokenSigner<UserClaims, Ed25519>>,
@@ -145,7 +145,7 @@ impl
 {
     fn injectable(
         (pool, member_repository, authorization_repository, token_signer): (
-            &DbPool,
+            &DatabaseConnectionPool,
             &Data<dyn MemberRepository>,
             &Data<dyn AuthorizationRepository>,
             &Data<TokenSigner<UserClaims, Ed25519>>,
@@ -176,7 +176,7 @@ impl Implementation {
     fn reset_authority(
         &self,
         user_claims: &&UserClaims,
-        conn: &mut PooledConnection<ConnectionManager<DbConnection>>,
+        conn: &mut PooledConnection<ConnectionManager<DatabaseConnection>>,
     ) -> Result<UserClaims, BackendError> {
         let user_claims = conn.transaction::<UserClaims, BackendError, _>(|conn| {
             let extended_member = self

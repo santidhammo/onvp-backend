@@ -43,8 +43,8 @@ pub mod roles;
 pub mod setup;
 pub mod workgroups;
 
-use crate::dal;
 use crate::generic::security;
+use crate::generic::storage::database;
 use crate::model::interface::client::*;
 use crate::model::interface::commands::*;
 use crate::model::interface::requests::*;
@@ -111,7 +111,7 @@ pub struct ApiDoc;
 pub async fn run_api_server() -> std::io::Result<()> {
     let (secret_key, public_key) = load_key_pair();
 
-    let pool = dal::initialize_db_pool();
+    let pool = database::initialize_database_connection_pool();
 
     let token_signer = TokenSigner::new()
         .signing_key(secret_key.clone())

@@ -30,7 +30,7 @@ use actix_web::{App, Error};
 use jwt_compact::alg::Ed25519;
 
 pub(crate) fn inject<T>(
-    pool: &crate::dal::DbPool,
+    pool: &crate::generic::storage::database::DatabaseConnectionPool,
     token_signer: &Data<TokenSigner<UserClaims, Ed25519>>,
     app: App<T>,
 ) -> App<T>
@@ -56,6 +56,7 @@ where
     .app_data(
         services::implementation::command::member_picture::Implementation::injectable((
             pool,
+            &repositories.member_repository,
             &repositories.member_picture_repository,
         )),
     )

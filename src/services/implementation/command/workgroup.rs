@@ -19,38 +19,40 @@
 use crate::generic::result::BackendResult;
 use crate::generic::storage::database::DatabaseConnectionPool;
 use crate::generic::Injectable;
-use crate::model::primitives::Role;
-use crate::repositories::traits::MemberRepository;
-use crate::services::traits::request::SetupRequestService;
+use crate::model::interface::commands::WorkgroupRegisterCommand;
+use crate::model::storage::entities::Workgroup;
+use crate::repositories::traits::WorkgroupRepository;
+use crate::services::traits::command::WorkgroupCommandService;
 use actix_web::web::Data;
 use std::sync::Arc;
 
 pub struct Implementation {
     pool: DatabaseConnectionPool,
-    member_repository: Data<dyn MemberRepository>,
+    workgroup_repository: Data<dyn WorkgroupRepository>,
 }
 
-impl SetupRequestService for Implementation {
-    fn should_setup(&self) -> BackendResult<bool> {
+impl WorkgroupCommandService for Implementation {
+    fn register(&self, command: &WorkgroupRegisterCommand) -> BackendResult<i32> {
         let mut conn = self.pool.get()?;
-        Ok(self
-            .member_repository
-            .count_members_with_role(&mut conn, Role::Operator)?
-            == 0)
+        self.workgroup_repository
+            .register(&mut conn, Workgroup::from(command))
     }
 }
 
-impl Injectable<(&DatabaseConnectionPool, &Data<dyn MemberRepository>), dyn SetupRequestService>
-    for Implementation
+impl
+    Injectable<
+        (&DatabaseConnectionPool, &Data<dyn WorkgroupRepository>),
+        dyn WorkgroupCommandService,
+    > for Implementation
 {
     fn injectable(
-        (pool, member_repository): (&DatabaseConnectionPool, &Data<dyn MemberRepository>),
-    ) -> Data<dyn SetupRequestService> {
+        (pool, workgroup_repository): (&DatabaseConnectionPool, &Data<dyn WorkgroupRepository>),
+    ) -> Data<dyn WorkgroupCommandService> {
         let implementation = Self {
             pool: pool.clone(),
-            member_repository: member_repository.clone(),
+            workgroup_repository: workgroup_repository.clone(),
         };
-        let arc: Arc<dyn SetupRequestService> = Arc::new(implementation);
+        let arc: Arc<dyn WorkgroupCommandService> = Arc::new(implementation);
         Data::from(arc)
     }
 }

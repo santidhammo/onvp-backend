@@ -16,8 +16,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::dal::DbConnection;
 use crate::generic::result::{BackendError, BackendResult};
+use crate::generic::storage::database::DatabaseConnection;
 use crate::generic::Injectable;
 use crate::model::primitives::Role;
 use crate::model::storage::entities::{Member, MemberAddressDetail, MemberDetail};
@@ -35,7 +35,7 @@ pub struct Implementation;
 impl MemberRepository for Implementation {
     fn create_inactive(
         &self,
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         extended_member: &ExtendedMember,
     ) -> BackendResult<i32> {
         conn.transaction::<i32, BackendError, _>(|conn| {
@@ -63,7 +63,7 @@ impl MemberRepository for Implementation {
 
     fn find_extended_by_id(
         &self,
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         id: i32,
     ) -> BackendResult<ExtendedMember> {
         let (member, member_detail, member_address_detail): (
@@ -89,7 +89,7 @@ impl MemberRepository for Implementation {
 
     fn find_extended_by_activation_string(
         &self,
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         activation_string: &str,
     ) -> BackendResult<ExtendedMember> {
         let activated_filter = members::activated.eq(false);
@@ -123,7 +123,7 @@ impl MemberRepository for Implementation {
 
     fn find_extended_by_email_address(
         &self,
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         email_address: &str,
     ) -> BackendResult<ExtendedMember> {
         let activated_filter = members::activated.eq(true);
@@ -151,7 +151,7 @@ impl MemberRepository for Implementation {
         )))
     }
 
-    fn save(&self, conn: &mut DbConnection, member: ExtendedMember) -> BackendResult<()> {
+    fn save(&self, conn: &mut DatabaseConnection, member: ExtendedMember) -> BackendResult<()> {
         conn.transaction::<_, BackendError, _>(|conn| {
             let filter = members::id.eq(member.id);
 
@@ -178,7 +178,11 @@ impl MemberRepository for Implementation {
         })
     }
 
-    fn count_members_with_role(&self, conn: &mut DbConnection, role: Role) -> BackendResult<usize> {
+    fn count_members_with_role(
+        &self,
+        conn: &mut DatabaseConnection,
+        role: Role,
+    ) -> BackendResult<usize> {
         let filter = member_role_associations::system_role.eq(role);
         let count: i64 = member_role_associations::table
             .filter(filter)
@@ -188,7 +192,7 @@ impl MemberRepository for Implementation {
         Ok(count as usize)
     }
 
-    fn activate_by_id(&self, conn: &mut DbConnection, member_id: i32) -> BackendResult<()> {
+    fn activate_by_id(&self, conn: &mut DatabaseConnection, member_id: i32) -> BackendResult<()> {
         let result_id: i32 = diesel::update(members::table)
             .filter(members::id.eq(member_id))
             .set(members::activated.eq(true))
