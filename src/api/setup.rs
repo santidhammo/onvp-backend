@@ -1,8 +1,8 @@
 use crate::generic::result::BackendResult;
 
 use crate::model::interface::commands::FirstOperatorRegisterCommand;
-use crate::services::traits::command::SetupCommandService;
-use crate::services::traits::request::SetupRequestService;
+use crate::services::definitions::command::SetupCommandService;
+use crate::services::definitions::request::SetupRequestService;
 use actix_web::web::{Data, Json};
 use actix_web::{get, post};
 

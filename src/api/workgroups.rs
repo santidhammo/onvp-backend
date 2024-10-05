@@ -23,8 +23,8 @@ use crate::generic::result::BackendResult;
 use crate::model::interface::commands::WorkgroupRegisterCommand;
 use crate::model::interface::responses::WorkgroupResponse;
 use crate::model::interface::search::{SearchParams, SearchResult};
-use crate::services::traits::command::WorkgroupCommandService;
-use crate::services::traits::request::WorkgroupRequestService;
+use crate::services::definitions::command::WorkgroupCommandService;
+use crate::services::definitions::request::WorkgroupRequestService;
 use actix_web::web::{Data, Json};
 use actix_web::{get, post, web};
 

@@ -21,7 +21,7 @@ use crate::generic::storage::database::DatabaseConnection;
 use crate::generic::Injectable;
 use crate::model::primitives::Role;
 use crate::model::storage::roles::WorkgroupRoleAssociation;
-use crate::repositories::traits::WorkgroupRoleRepository;
+use crate::repositories::definitions::WorkgroupRoleRepository;
 use crate::schema::workgroup_role_associations;
 use actix_web::web::Data;
 use diesel::{BoolExpressionMethods, ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};

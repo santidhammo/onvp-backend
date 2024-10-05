@@ -20,8 +20,8 @@ use crate::generic::result::BackendResult;
 use crate::generic::storage::database::DatabaseConnectionPool;
 use crate::generic::Injectable;
 use crate::model::primitives::Role;
-use crate::repositories::traits::MemberRepository;
-use crate::services::traits::request::SetupRequestService;
+use crate::repositories::definitions::MemberRepository;
+use crate::services::definitions::request::SetupRequestService;
 use actix_web::web::Data;
 use std::sync::Arc;
 

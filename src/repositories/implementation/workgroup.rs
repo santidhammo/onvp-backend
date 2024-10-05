@@ -21,7 +21,7 @@ use crate::generic::result::{BackendError, BackendResult};
 use crate::generic::storage::database::DatabaseConnection;
 use crate::generic::{search_helpers, Injectable};
 use crate::model::storage::entities::Workgroup;
-use crate::repositories::traits::WorkgroupRepository;
+use crate::repositories::definitions::WorkgroupRepository;
 use crate::schema::workgroups;
 use actix_web::web::Data;
 use diesel::{Connection, QueryDsl, RunQueryDsl, SelectableHelper};

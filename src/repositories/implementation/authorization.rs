@@ -20,7 +20,7 @@ use crate::generic::result::BackendResult;
 use crate::generic::storage::database::DatabaseConnection;
 use crate::generic::Injectable;
 use crate::model::primitives::Role;
-use crate::repositories::traits::AuthorizationRepository;
+use crate::repositories::definitions::AuthorizationRepository;
 use crate::schema::{
     member_role_associations, workgroup_member_relationships, workgroup_role_associations,
 };

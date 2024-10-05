@@ -22,7 +22,7 @@ use crate::generic::Injectable;
 use crate::model::primitives::Role;
 use crate::model::storage::entities::{Member, MemberAddressDetail, MemberDetail};
 use crate::model::storage::extended_entities::ExtendedMember;
-use crate::repositories::traits::MemberRepository;
+use crate::repositories::definitions::MemberRepository;
 use crate::schema::{member_address_details, member_details, member_role_associations, members};
 use actix_web::web::Data;
 use diesel::{

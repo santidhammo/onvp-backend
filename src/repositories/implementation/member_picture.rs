@@ -19,7 +19,7 @@
 use crate::generic::result::BackendResult;
 use crate::generic::storage::database::DatabaseConnection;
 use crate::generic::Injectable;
-use crate::repositories::traits::MemberPictureRepository;
+use crate::repositories::definitions::MemberPictureRepository;
 use crate::schema::members;
 use actix_web::web::Data;
 use diesel::{ExpressionMethods, RunQueryDsl};

@@ -21,8 +21,8 @@ use crate::generic::storage::database::DatabaseConnectionPool;
 use crate::generic::Injectable;
 use crate::model::interface::commands::WorkgroupRegisterCommand;
 use crate::model::storage::entities::Workgroup;
-use crate::repositories::traits::WorkgroupRepository;
-use crate::services::traits::command::WorkgroupCommandService;
+use crate::repositories::definitions::WorkgroupRepository;
+use crate::services::definitions::command::WorkgroupCommandService;
 use actix_web::web::Data;
 use std::sync::Arc;
 

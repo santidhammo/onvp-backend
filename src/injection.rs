@@ -18,7 +18,7 @@
  */
 use crate::generic::Injectable;
 use crate::model::interface::client::UserClaims;
-use crate::repositories::traits::{
+use crate::repositories::definitions::{
     AuthorizationRepository, MemberPictureRepository, MemberRepository, MemberRoleRepository,
     WorkgroupRoleRepository,
 };

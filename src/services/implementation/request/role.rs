@@ -20,8 +20,8 @@ use crate::generic::result::BackendResult;
 use crate::generic::storage::database::DatabaseConnectionPool;
 use crate::generic::Injectable;
 use crate::model::primitives::{Role, RoleClass};
-use crate::repositories::traits::{MemberRoleRepository, WorkgroupRoleRepository};
-use crate::services::traits::request::RoleRequestService;
+use crate::repositories::definitions::{MemberRoleRepository, WorkgroupRoleRepository};
+use crate::services::definitions::request::RoleRequestService;
 use actix_web::web::Data;
 use std::sync::Arc;
 

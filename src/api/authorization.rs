@@ -21,7 +21,7 @@ use crate::generic::result::{BackendError, BackendResult};
 use crate::model::interface::client::UserClaims;
 use crate::model::interface::requests::AuthorizationRequest;
 use crate::model::primitives::Role;
-use crate::services::traits::request::{AuthorizationRequestService, MemberRequestService};
+use crate::services::definitions::request::{AuthorizationRequestService, MemberRequestService};
 use actix_web::web::{Data, Json};
 use actix_web::{get, post, HttpRequest, HttpResponse};
 use log::info;

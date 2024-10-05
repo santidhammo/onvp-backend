@@ -21,7 +21,7 @@ use crate::generic::storage::database::DatabaseConnection;
 use crate::generic::Injectable;
 use crate::model::primitives::Role;
 use crate::model::storage::roles::MemberRoleAssociation;
-use crate::repositories::traits::MemberRoleRepository;
+use crate::repositories::definitions::MemberRoleRepository;
 use crate::schema::member_role_associations;
 use actix_web::web::Data;
 use diesel::{BoolExpressionMethods, ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};

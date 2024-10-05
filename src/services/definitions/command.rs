@@ -18,10 +18,10 @@
  */
 use crate::generic::result::BackendResult;
 use crate::model::interface::commands::{
-    AssociateRoleCommand, DissociateRoleCommand, ImageUploadCommand, MemberRegisterCommand,
-    MemberUpdateAddressCommand, MemberUpdateCommand, WorkgroupRegisterCommand,
+    AssociateRoleCommand, DissociateRoleCommand, FirstOperatorRegisterCommand, ImageUploadCommand,
+    MemberActivationCommand, MemberRegisterCommand, MemberUpdateAddressCommand,
+    MemberUpdateCommand, WorkgroupRegisterCommand,
 };
-use crate::model::interface::commands::{FirstOperatorRegisterCommand, MemberActivationCommand};
 
 /// Controls actions which can be performed on member data
 pub trait MemberCommandService {

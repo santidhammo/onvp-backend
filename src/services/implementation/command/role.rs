@@ -21,8 +21,8 @@ use crate::generic::storage::database::DatabaseConnectionPool;
 use crate::generic::Injectable;
 use crate::model::interface::commands::{AssociateRoleCommand, DissociateRoleCommand};
 use crate::model::primitives::RoleClass;
-use crate::repositories::traits::{MemberRoleRepository, WorkgroupRoleRepository};
-use crate::services::traits::command::RoleCommandService;
+use crate::repositories::definitions::{MemberRoleRepository, WorkgroupRoleRepository};
+use crate::services::definitions::command::RoleCommandService;
 use actix_web::web::Data;
 use std::sync::Arc;
 

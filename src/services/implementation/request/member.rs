@@ -22,14 +22,14 @@ use crate::generic::{search_helpers, Injectable};
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::model::storage::entities::{Member, MemberAddressDetail, MemberDetail};
 use crate::model::storage::extended_entities::ExtendedMember;
-use crate::repositories::traits::MemberRepository;
+use crate::repositories::definitions::MemberRepository;
 
 use crate::generic::lazy::SEARCH_PAGE_SIZE;
 use crate::generic::search_helpers::create_like_string;
 use crate::generic::storage::database::{DatabaseConnection, DatabaseConnectionPool};
 use crate::model::interface::responses::MemberResponse;
 use crate::schema::{member_address_details, member_details, members};
-use crate::services::traits::request::{MemberRequestService, SearchController};
+use crate::services::definitions::request::{MemberRequestService, SearchController};
 use actix_web::web::Data;
 use diesel::{
     BoolExpressionMethods, Connection, PgConnection, QueryDsl, RunQueryDsl, SelectableHelper,

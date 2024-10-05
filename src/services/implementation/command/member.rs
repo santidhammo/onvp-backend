@@ -25,8 +25,8 @@ use crate::model::interface::commands::{
 };
 use crate::model::primitives::Role;
 use crate::model::storage::extended_entities::ExtendedMember;
-use crate::repositories::traits::{MemberRepository, MemberRoleRepository};
-use crate::services::traits::command::MemberCommandService;
+use crate::repositories::definitions::{MemberRepository, MemberRoleRepository};
+use crate::services::definitions::command::MemberCommandService;
 use actix_web::web::Data;
 use diesel::Connection;
 use lettre::transport::smtp::client::Tls;

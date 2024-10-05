@@ -28,10 +28,10 @@ use crate::model::interface::commands::{
 };
 use crate::model::interface::responses::{ImageAssetIdResponse, MemberResponse};
 use crate::model::interface::search::{SearchParams, SearchResult};
-use crate::services::traits::command::{
+use crate::services::definitions::command::{
     MemberActivationCommandService, MemberCommandService, MemberPictureCommandService,
 };
-use crate::services::traits::request::{MemberPictureRequestService, MemberRequestService};
+use crate::services::definitions::request::{MemberPictureRequestService, MemberRequestService};
 use actix_web::web::{Bytes, Data, Json, Path, Query};
 use actix_web::{get, post, web, HttpResponse};
 use std::ops::Deref;

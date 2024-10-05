@@ -20,8 +20,8 @@
 use crate::generic::result::BackendResult;
 use crate::model::interface::commands::{AssociateRoleCommand, DissociateRoleCommand};
 use crate::model::primitives::{Role, RoleClass};
-use crate::services::traits::command::RoleCommandService;
-use crate::services::traits::request::RoleRequestService;
+use crate::services::definitions::command::RoleCommandService;
+use crate::services::definitions::request::RoleRequestService;
 use actix_web::web::{Data, Json, Path};
 use actix_web::{get, post, HttpResponse};
 
