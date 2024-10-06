@@ -70,10 +70,8 @@ impl AuthorizationRequestService for Implementation {
 
                 let mut access_cookie = self.token_signer.create_access_cookie(&user_claims)?;
                 let mut refresh_cookie = self.token_signer.create_refresh_cookie(&user_claims)?;
-                access_cookie.set_same_site(SameSite::Strict);
-                refresh_cookie.set_same_site(SameSite::Strict);
-                access_cookie.set_path("/");
-                refresh_cookie.set_path("/");
+                Self::set_cookie_site_policy(&mut access_cookie);
+                Self::set_cookie_site_policy(&mut refresh_cookie);
                 let cookies = vec![access_cookie, refresh_cookie];
 
                 Ok(AuthorizationResponse {
@@ -113,17 +111,14 @@ impl AuthorizationRequestService for Implementation {
                         self.token_signer.create_access_cookie(&new_user_claims)?;
                     let mut refresh_cookie =
                         self.token_signer.create_refresh_cookie(&new_user_claims)?;
-                    access_cookie.set_same_site(SameSite::Strict);
-                    access_cookie.set_path("/");
-                    refresh_cookie.set_same_site(SameSite::Strict);
-                    refresh_cookie.set_path("/");
+                    Self::set_cookie_site_policy(&mut access_cookie);
+                    Self::set_cookie_site_policy(&mut refresh_cookie);
                     (new_user_claims, vec![access_cookie, refresh_cookie])
                 } else if Self::token_nearly_expires(origin_access_token)? {
                     let mut access_cookie = self
                         .token_signer
                         .create_access_cookie(&client_user_claims)?;
-                    access_cookie.set_same_site(SameSite::Strict);
-                    access_cookie.set_path("/");
+                    Self::set_cookie_site_policy(&mut access_cookie);
                     (client_user_claims.clone(), vec![access_cookie])
                 } else {
                     (client_user_claims.clone(), vec![])
@@ -217,5 +212,10 @@ impl Implementation {
             Ok(user_claims)
         })?;
         Ok(user_claims)
+    }
+
+    fn set_cookie_site_policy(access_cookie: &mut Cookie) {
+        access_cookie.set_same_site(SameSite::Strict);
+        access_cookie.set_path("/");
     }
 }
