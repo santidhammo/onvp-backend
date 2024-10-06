@@ -72,6 +72,8 @@ impl AuthorizationRequestService for Implementation {
                 let mut refresh_cookie = self.token_signer.create_refresh_cookie(&user_claims)?;
                 access_cookie.set_same_site(SameSite::Strict);
                 refresh_cookie.set_same_site(SameSite::Strict);
+                access_cookie.set_path("/");
+                refresh_cookie.set_path("/");
                 let cookies = vec![access_cookie, refresh_cookie];
 
                 Ok(AuthorizationResponse {
@@ -112,13 +114,16 @@ impl AuthorizationRequestService for Implementation {
                     let mut refresh_cookie =
                         self.token_signer.create_refresh_cookie(&new_user_claims)?;
                     access_cookie.set_same_site(SameSite::Strict);
+                    access_cookie.set_path("/");
                     refresh_cookie.set_same_site(SameSite::Strict);
+                    refresh_cookie.set_path("/");
                     (new_user_claims, vec![access_cookie, refresh_cookie])
                 } else if Self::token_nearly_expires(origin_access_token)? {
                     let mut access_cookie = self
                         .token_signer
                         .create_access_cookie(&client_user_claims)?;
                     access_cookie.set_same_site(SameSite::Strict);
+                    access_cookie.set_path("/");
                     (client_user_claims.clone(), vec![access_cookie])
                 } else {
                     (client_user_claims.clone(), vec![])

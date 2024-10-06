@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::generic::result::{BackendError, BackendResult};
+use crate::generic::result::BackendResult;
 use crate::model::interface::client::UserClaims;
 use crate::model::interface::requests::AuthorizationRequest;
 use crate::services::definitions::request::AuthorizationRequestService;
@@ -70,20 +70,12 @@ pub async fn refresh(
     user_claims: UserClaims,
     http_request: HttpRequest,
 ) -> BackendResult<HttpResponse> {
-    info!("Refreshing member login: {}", &user_claims.email_address);
-    let origin_access_cookie = http_request
-        .cookie("access_token")
-        .ok_or(BackendError::bad())?;
-    let origin_refresh_cookie = http_request
-        .cookie("refresh_token")
-        .ok_or(BackendError::bad())?;
-
+    info!("Attempting member refresh: {}", &user_claims.email_address);
     let authorization_response = authorization_request_service.refresh(
         &user_claims,
-        &origin_access_cookie,
-        &origin_refresh_cookie,
+        &cookies::get_origin_access_cookie(&http_request)?,
+        &cookies::get_origin_refresh_cookie(&http_request)?,
     )?;
-
     let mut response = HttpResponse::Ok();
     for cookie in &authorization_response.clone().cookies {
         response.cookie(cookie.clone());
@@ -109,4 +101,30 @@ pub async fn logout(service: Data<dyn AuthorizationRequestService>) -> BackendRe
         response.cookie(cookie.clone());
     }
     Ok(response.finish())
+}
+
+mod cookies {
+    use crate::generic::result::BackendError;
+    use actix_web::cookie::Cookie;
+    use actix_web::HttpRequest;
+
+    pub(super) fn get_origin_refresh_cookie(
+        http_request: &HttpRequest,
+    ) -> Result<Cookie<'static>, BackendError> {
+        let name = "refresh_token";
+        let origin_refresh_cookie = get_cookie(http_request, name)?;
+        Ok(origin_refresh_cookie)
+    }
+
+    pub(super) fn get_origin_access_cookie(
+        http_request: &HttpRequest,
+    ) -> Result<Cookie<'static>, BackendError> {
+        let name = "access_token";
+        let origin_access_cookie = get_cookie(http_request, name)?;
+        Ok(origin_access_cookie)
+    }
+
+    fn get_cookie(http_request: &HttpRequest, name: &str) -> Result<Cookie<'static>, BackendError> {
+        http_request.cookie(name).ok_or(BackendError::bad())
+    }
 }
