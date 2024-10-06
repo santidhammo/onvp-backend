@@ -60,8 +60,6 @@ use crate::model::primitives::*;
         authorization::login,
         authorization::refresh,
         authorization::logout,
-        authorization::logged_in_name,
-        authorization::logged_in_is_operator,
         members::register,
         members::activation_code,
         members::activate,
@@ -161,9 +159,7 @@ pub async fn run_api_server() -> std::io::Result<()> {
                         authority.clone(),
                         web::scope("")
                             .service(authorization::refresh)
-                            .service(authorization::logout)
-                            .service(authorization::logged_in_name)
-                            .service(authorization::logged_in_is_operator),
+                            .service(authorization::logout),
                     ),
             )
             .service(web::scope(workgroups::CONTEXT).use_jwt(

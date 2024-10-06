@@ -59,14 +59,6 @@ impl MemberRequestService for Implementation {
             .find_extended_by_activation_string(&mut conn, activation_string)?;
         Ok(MemberResponse::from(&extended_member))
     }
-
-    fn find_by_email_address(&self, email_address: &str) -> BackendResult<MemberResponse> {
-        let mut conn = self.pool.get()?;
-        let extended_member = self
-            .member_repository
-            .find_extended_by_email_address(&mut conn, email_address)?;
-        Ok(MemberResponse::from(&extended_member))
-    }
 }
 
 impl SearchController<MemberResponse> for Implementation {

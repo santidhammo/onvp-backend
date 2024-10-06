@@ -18,7 +18,10 @@
  */
 use crate::generic::lazy::OTP_CIPHER;
 use crate::generic::result::{BackendError, BackendResult};
+use crate::model::primitives::Role;
 use crate::model::storage;
+use crate::model::storage::extended_entities::ExtendedMember;
+use actix_web::cookie::Cookie;
 use actix_web::http::header::ContentType;
 use aes_gcm::aead::consts::U12;
 use aes_gcm::aead::generic_array::GenericArray;
@@ -42,7 +45,7 @@ pub struct MemberResponse {
     #[schema(example = "xyz.png")]
     pub picture_asset_id: Option<String>,
 
-    #[serde(default)]
+    #[schema(example = true)]
     pub activated: bool,
 
     #[schema(example = "John")]
@@ -50,6 +53,9 @@ pub struct MemberResponse {
 
     #[schema(example = "Doe")]
     pub last_name: String,
+
+    #[schema(example = "John Doe")]
+    pub full_name: String,
 
     #[schema(example = "john@doe.void")]
     pub email_address: String,
@@ -65,8 +71,8 @@ pub struct MemberResponse {
 }
 
 /// Converts an Extended Member into a Member Response used by the associated services
-impl From<&storage::extended_entities::ExtendedMember> for MemberResponse {
-    fn from(value: &storage::extended_entities::ExtendedMember) -> Self {
+impl From<&ExtendedMember> for MemberResponse {
+    fn from(value: &ExtendedMember) -> Self {
         Self {
             id: value.id,
             musical_instrument_id: value.musical_instrument_id,
@@ -74,6 +80,12 @@ impl From<&storage::extended_entities::ExtendedMember> for MemberResponse {
             activated: value.activated,
             first_name: value.member_detail.first_name.clone(),
             last_name: value.member_detail.last_name.clone(),
+            full_name: format!(
+                "{} {}",
+                value.member_detail.first_name, value.member_detail.last_name
+            )
+            .trim()
+            .to_string(),
             email_address: value.member_detail.email_address.clone(),
             phone_number: value.member_detail.phone_number.clone(),
             nonce: value.nonce.clone(),
@@ -146,8 +158,8 @@ pub struct MemberAddressResponse {
     pub domicile: String,
 }
 
-impl From<&storage::extended_entities::ExtendedMember> for MemberAddressResponse {
-    fn from(value: &storage::extended_entities::ExtendedMember) -> Self {
+impl From<&ExtendedMember> for MemberAddressResponse {
+    fn from(value: &ExtendedMember) -> Self {
         Self {
             id: value.id,
             street: value.member_address_detail.street.clone(),
@@ -157,6 +169,17 @@ impl From<&storage::extended_entities::ExtendedMember> for MemberAddressResponse
             domicile: value.member_address_detail.domicile.clone(),
         }
     }
+}
+
+/// Used to reply on login and refresh calls to the authorization, including the member response
+/// of the member logged in, and the roles of that member.
+#[derive(Serialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthorizationResponse {
+    pub member: MemberResponse,
+    pub composite_roles: Vec<Role>,
+    #[serde(skip)]
+    pub cookies: Vec<Cookie<'static>>,
 }
 
 #[derive(Serialize, ToSchema, Clone, Debug)]

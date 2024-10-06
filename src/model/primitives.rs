@@ -42,6 +42,7 @@ use utoipa::ToSchema;
 )]
 #[diesel(sql_type = Integer)]
 #[repr(u8)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Role {
     Public = 0x0,
     Member = 0x1,
@@ -97,7 +98,7 @@ impl TryFrom<u8> for Role {
 }
 
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum RoleClass {
     Member,
     Workgroup,

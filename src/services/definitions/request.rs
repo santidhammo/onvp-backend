@@ -20,7 +20,7 @@ use crate::generic::result::BackendResult;
 use crate::model::interface::client::UserClaims;
 use crate::model::interface::requests::AuthorizationRequest;
 use crate::model::interface::responses::{
-    ImageAssetIdResponse, ImageResponse, MemberResponse, WorkgroupResponse,
+    AuthorizationResponse, ImageAssetIdResponse, ImageResponse, MemberResponse, WorkgroupResponse,
 };
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::model::primitives::{Role, RoleClass};
@@ -36,15 +36,17 @@ pub trait SetupRequestService {
 /// Controls actions for authorization of members
 pub trait AuthorizationRequestService {
     /// Performs the login procedure of a member
-    fn login(&self, login_data: &AuthorizationRequest) -> BackendResult<Vec<Cookie<'static>>>;
+    fn login(&self, login_data: &AuthorizationRequest) -> BackendResult<AuthorizationResponse>;
 
+    /// Refreshes the member's current login, updates roles if refresh is due
     fn refresh(
         &self,
         client_user_claims: &UserClaims,
         access_cookie: &Cookie<'static>,
         refresh_cookie: &Cookie<'static>,
-    ) -> BackendResult<Vec<Cookie<'static>>>;
+    ) -> BackendResult<AuthorizationResponse>;
 
+    /// Logs out a member
     fn logout(&self) -> BackendResult<Vec<Cookie<'static>>>;
 }
 
@@ -61,9 +63,6 @@ pub trait MemberRequestService: SearchController<MemberResponse> {
 
     /// Finds a member by the member's activation string
     fn find_by_activation_string(&self, activation_string: &str) -> BackendResult<MemberResponse>;
-
-    /// Finds a member by the member's email address
-    fn find_by_email_address(&self, email_address: &str) -> BackendResult<MemberResponse>;
 }
 
 pub trait MemberPictureRequestService {

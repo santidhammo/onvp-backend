@@ -20,8 +20,7 @@
 use crate::generic::result::{BackendError, BackendResult};
 use crate::model::interface::client::UserClaims;
 use crate::model::interface::requests::AuthorizationRequest;
-use crate::model::primitives::Role;
-use crate::services::definitions::request::{AuthorizationRequestService, MemberRequestService};
+use crate::services::definitions::request::AuthorizationRequestService;
 use actix_web::web::{Data, Json};
 use actix_web::{get, post, HttpRequest, HttpResponse};
 use log::info;
@@ -43,16 +42,16 @@ pub const CONTEXT: &str = "/api/authorization";
 )]
 #[post("/login")]
 pub async fn login(
-    service: Data<dyn AuthorizationRequestService>,
+    authorization_request_service: Data<dyn AuthorizationRequestService>,
     login_data: Json<AuthorizationRequest>,
 ) -> BackendResult<HttpResponse> {
     info!("Attempting member login: {}", &login_data.email_address);
-    let cookies = service.login(&login_data)?;
+    let authorization_response = authorization_request_service.login(&login_data)?;
     let mut response = HttpResponse::Ok();
-    for cookie in cookies {
-        response.cookie(cookie);
+    for cookie in &authorization_response.clone().cookies {
+        response.cookie(cookie.clone());
     }
-    Ok(response.finish())
+    Ok(response.json(authorization_response))
 }
 
 /// Check login status
@@ -67,7 +66,7 @@ pub async fn login(
 )]
 #[get("/refresh")]
 pub async fn refresh(
-    service: Data<dyn AuthorizationRequestService>,
+    authorization_request_service: Data<dyn AuthorizationRequestService>,
     user_claims: UserClaims,
     http_request: HttpRequest,
 ) -> BackendResult<HttpResponse> {
@@ -79,12 +78,17 @@ pub async fn refresh(
         .cookie("refresh_token")
         .ok_or(BackendError::bad())?;
 
-    let cookies = service.refresh(&user_claims, &origin_access_cookie, &origin_refresh_cookie)?;
+    let authorization_response = authorization_request_service.refresh(
+        &user_claims,
+        &origin_access_cookie,
+        &origin_refresh_cookie,
+    )?;
+
     let mut response = HttpResponse::Ok();
-    for cookie in cookies {
-        response.cookie(cookie);
+    for cookie in &authorization_response.clone().cookies {
+        response.cookie(cookie.clone());
     }
-    Ok(response.finish())
+    Ok(response.json(authorization_response))
 }
 
 /// Logout a member
@@ -102,44 +106,7 @@ pub async fn logout(service: Data<dyn AuthorizationRequestService>) -> BackendRe
     let cookies = service.logout()?;
     let mut response = HttpResponse::Ok();
     for cookie in cookies {
-        response.cookie(cookie);
+        response.cookie(cookie.clone());
     }
     Ok(response.finish())
-}
-
-/// Logged in member name
-///
-/// Gets the name of the logged in member
-#[utoipa::path(
-    context_path = CONTEXT,
-    responses(
-        (status = 200, description = "The member name", body=[String]),
-        (status = 500, description = "Internal Server Error", body=[String])
-    )
-)]
-#[get("/logged_in_name")]
-pub async fn logged_in_name(
-    user_claims: UserClaims,
-    service: Data<dyn MemberRequestService>,
-) -> BackendResult<Json<String>> {
-    let member_response = service.find_by_email_address(&user_claims.email_address)?;
-    Ok(Json(member_response.full_name()))
-}
-
-/// Is logged in member an operator
-///
-/// Returns if the logged in member is an operator
-#[utoipa::path(
-    context_path = CONTEXT,
-    responses(
-        (status = 200, description = "Successful check on the operator role"),
-        (status = 400, description = "Bad Request", body=[String])
-    )
-)]
-#[get("/logged_in_is_operator")]
-pub async fn logged_in_is_operator(user_claims: UserClaims) -> BackendResult<HttpResponse> {
-    match user_claims.has_role(Role::Operator) {
-        true => Ok(HttpResponse::Ok().finish()),
-        false => Err(BackendError::bad()),
-    }
 }

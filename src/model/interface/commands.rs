@@ -98,6 +98,7 @@ pub struct AssociateRoleCommand {
     pub role: Role,
 
     #[schema(example = "Member")]
+    #[serde(rename = "roleClass")]
     pub class: RoleClass,
 }
 
@@ -112,6 +113,7 @@ pub struct DissociateRoleCommand {
     pub role: Role,
 
     #[schema(example = "Member")]
+    #[serde(rename = "roleClass")]
     pub class: RoleClass,
 }
 

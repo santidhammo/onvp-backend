@@ -22,7 +22,7 @@ use crate::generic::storage::database::{DatabaseConnection, DatabaseConnectionPo
 use crate::generic::Injectable;
 use crate::model::interface::client::UserClaims;
 use crate::model::interface::requests::AuthorizationRequest;
-use crate::model::interface::responses::MemberResponse;
+use crate::model::interface::responses::{AuthorizationResponse, MemberResponse};
 use crate::repositories::definitions::{AuthorizationRepository, MemberRepository};
 use crate::services::definitions::request::AuthorizationRequestService;
 use actix_jwt_auth_middleware::TokenSigner;
@@ -48,9 +48,9 @@ pub struct Implementation {
 }
 
 impl AuthorizationRequestService for Implementation {
-    fn login(&self, login_data: &AuthorizationRequest) -> BackendResult<Vec<Cookie<'static>>> {
+    fn login(&self, login_data: &AuthorizationRequest) -> BackendResult<AuthorizationResponse> {
         let mut conn = self.pool.get()?;
-        conn.transaction::<Vec<Cookie<'static>>, BackendError, _>(|conn| {
+        conn.transaction::<AuthorizationResponse, BackendError, _>(|conn| {
             let extended_member = self
                 .member_repository
                 .find_extended_by_email_address(conn, &login_data.email_address)?;
@@ -72,7 +72,13 @@ impl AuthorizationRequestService for Implementation {
                 let mut refresh_cookie = self.token_signer.create_refresh_cookie(&user_claims)?;
                 access_cookie.set_same_site(SameSite::Strict);
                 refresh_cookie.set_same_site(SameSite::Strict);
-                Ok(vec![access_cookie, refresh_cookie])
+                let cookies = vec![access_cookie, refresh_cookie];
+
+                Ok(AuthorizationResponse {
+                    member: MemberResponse::from(&extended_member),
+                    composite_roles: user_claims.roles,
+                    cookies,
+                })
             } else {
                 Err(BackendError::forbidden())
             }
@@ -84,35 +90,50 @@ impl AuthorizationRequestService for Implementation {
         client_user_claims: &UserClaims,
         access_cookie: &Cookie<'static>,
         refresh_cookie: &Cookie<'static>,
-    ) -> BackendResult<Vec<Cookie<'static>>> {
-        // Convert cookies to the associated tokens. Verification is already done at this point in time,
-        // it is only necessary to refresh the situation appropriately.
-        let origin_access_token = UntrustedToken::new(access_cookie.value())?;
-        let origin_refresh_token = UntrustedToken::new(refresh_cookie.value())?;
-        // If the refresh token nearly expires, the login procedure is transparently performed, to
-        // ensure that user roles are still the same. If the access token nearly expires, then a new
-        // access token is simply created, otherwise nothing is done.
-        if Self::token_nearly_expires(origin_refresh_token)? {
-            let mut conn = self.pool.get()?;
-            info!(
-                "Refreshing tokens for member: {}",
-                &client_user_claims.email_address
-            );
-            let new_user_claims = self.reset_authority(&client_user_claims, &mut conn)?;
-            let mut access_cookie = self.token_signer.create_access_cookie(&new_user_claims)?;
-            let mut refresh_cookie = self.token_signer.create_refresh_cookie(&new_user_claims)?;
-            access_cookie.set_same_site(SameSite::Strict);
-            refresh_cookie.set_same_site(SameSite::Strict);
-            Ok(vec![access_cookie, refresh_cookie])
-        } else if Self::token_nearly_expires(origin_access_token)? {
-            let mut access_cookie = self
-                .token_signer
-                .create_access_cookie(&client_user_claims)?;
-            access_cookie.set_same_site(SameSite::Strict);
-            Ok(vec![access_cookie])
-        } else {
-            Ok(vec![])
-        }
+    ) -> BackendResult<AuthorizationResponse> {
+        let mut conn = self.pool.get()?;
+        conn.transaction::<AuthorizationResponse, BackendError, _>(|conn| {
+            // Convert cookies to the associated tokens. Verification is already done at this point in time,
+            // it is only necessary to refresh the situation appropriately.
+            let origin_access_token = UntrustedToken::new(access_cookie.value())?;
+            let origin_refresh_token = UntrustedToken::new(refresh_cookie.value())?;
+            // If the refresh token nearly expires, the login procedure is transparently performed, to
+            // ensure that user roles are still the same. If the access token nearly expires, then a new
+            // access token is simply created, otherwise nothing is done.
+            let (new_user_claims, new_cookies) =
+                if Self::token_nearly_expires(origin_refresh_token)? {
+                    info!(
+                        "Refreshing tokens for member: {}",
+                        &client_user_claims.email_address
+                    );
+                    let new_user_claims = self.reset_authority(&client_user_claims, conn)?;
+                    let mut access_cookie =
+                        self.token_signer.create_access_cookie(&new_user_claims)?;
+                    let mut refresh_cookie =
+                        self.token_signer.create_refresh_cookie(&new_user_claims)?;
+                    access_cookie.set_same_site(SameSite::Strict);
+                    refresh_cookie.set_same_site(SameSite::Strict);
+                    (new_user_claims, vec![access_cookie, refresh_cookie])
+                } else if Self::token_nearly_expires(origin_access_token)? {
+                    let mut access_cookie = self
+                        .token_signer
+                        .create_access_cookie(&client_user_claims)?;
+                    access_cookie.set_same_site(SameSite::Strict);
+                    (client_user_claims.clone(), vec![access_cookie])
+                } else {
+                    (client_user_claims.clone(), vec![])
+                };
+
+            let extended_member = self
+                .member_repository
+                .find_extended_by_email_address(conn, &client_user_claims.email_address)?;
+
+            Ok(AuthorizationResponse {
+                member: MemberResponse::from(&extended_member),
+                composite_roles: new_user_claims.roles,
+                cookies: new_cookies,
+            })
+        })
     }
 
     fn logout(&self) -> BackendResult<Vec<Cookie<'static>>> {
