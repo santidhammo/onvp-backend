@@ -65,6 +65,7 @@ use crate::model::primitives::*;
         members::activate,
         members::search,
         members::find,
+        members::find_address,
         members::update,
         members::update_address,
         members::upload_picture_asset,
@@ -145,6 +146,7 @@ pub async fn run_api_server() -> std::io::Result<()> {
                                 web::scope("")
                                     .service(members::search)
                                     .service(members::find)
+                                    .service(members::find_address)
                                     .service(members::update)
                                     .service(members::update_address)
                                     .service(members::upload_picture_asset)
