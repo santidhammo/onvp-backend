@@ -24,7 +24,7 @@ use crate::repositories::definitions::MemberRepository;
 
 use crate::generic::search_helpers::create_like_string;
 use crate::generic::storage::database::DatabaseConnectionPool;
-use crate::model::interface::responses::MemberResponse;
+use crate::model::interface::responses::{MemberAddressResponse, MemberResponse};
 use crate::services::definitions::request::{MemberRequestService, SearchController};
 use actix_web::web::Data;
 use std::sync::Arc;
@@ -41,6 +41,14 @@ impl MemberRequestService for Implementation {
             .member_repository
             .find_extended_by_id(&mut conn, member_id)?;
         Ok(MemberResponse::from(&extended_member))
+    }
+
+    fn find_address_by_id(&self, member_id: i32) -> BackendResult<MemberAddressResponse> {
+        let mut conn = self.pool.get()?;
+        let extended_member = self
+            .member_repository
+            .find_extended_by_id(&mut conn, member_id)?;
+        Ok(MemberAddressResponse::from(&extended_member))
     }
 
     fn find_by_activation_string(&self, activation_string: &str) -> BackendResult<MemberResponse> {

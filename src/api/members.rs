@@ -26,7 +26,9 @@ use crate::model::interface::commands::{
     ImageUploadCommand, MemberActivationCommand, MemberRegisterCommand, MemberUpdateAddressCommand,
     MemberUpdateCommand,
 };
-use crate::model::interface::responses::{ImageAssetIdResponse, MemberResponse};
+use crate::model::interface::responses::{
+    ImageAssetIdResponse, MemberAddressResponse, MemberResponse,
+};
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::services::definitions::command::{
     MemberActivationCommandService, MemberCommandService, MemberPictureCommandService,
@@ -92,10 +94,10 @@ pub async fn search(
 #[utoipa::path(
     context_path = CONTEXT,
     responses(
-        (status = 200, description = "Member and primary detail", body=[MemberWithDetail]),
-        (status = 400, description = "Bad Request"),
-        (status = 401, description = "Unauthorized"),
-        (status = 500, description = "Internal Server Error", body=[String])
+        (status = 200, description = "Member and primary detail", body=MemberResponse),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal Server Error", body=Option<String>)
     )
 )]
 #[get("/{id}")]
@@ -104,6 +106,26 @@ pub async fn find(
     id: Path<i32>,
 ) -> BackendResult<Json<MemberResponse>> {
     Ok(Json(controller.find_by_id(id.into_inner())?))
+}
+/// Gets a member address by id
+///
+/// Searches for a member address by using the member identifier. If found,
+/// a single record with the member address is returned.
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "Member address", body=MemberAddressResponse),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal Server Error", body=Option<String>)
+    )
+)]
+#[get("/{id}/address")]
+pub async fn find_address(
+    controller: Data<dyn MemberRequestService>,
+    id: Path<i32>,
+) -> BackendResult<Json<MemberAddressResponse>> {
+    Ok(Json(controller.find_address_by_id(id.into_inner())?))
 }
 
 /// Save a member and the primary detail by id
