@@ -70,6 +70,7 @@ pub struct MemberUpdateCommand {
 }
 
 #[derive(Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct MemberUpdateAddressCommand {
     #[schema(example = "Orchestra Road")]
     pub street: String,
