@@ -56,6 +56,13 @@ pub trait MemberRepository {
     ) -> BackendResult<usize>;
 
     fn activate_by_id(&self, conn: &mut DatabaseConnection, member_id: i32) -> BackendResult<()>;
+
+    fn search(
+        &self,
+        conn: &mut DatabaseConnection,
+        page_offset: usize,
+        term: &str,
+    ) -> BackendResult<(usize, usize, Vec<ExtendedMember>)>;
 }
 
 pub trait WorkgroupRepository {

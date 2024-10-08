@@ -99,7 +99,7 @@ impl WorkgroupRepository for Implementation {
 
 impl Injectable<(), dyn WorkgroupRepository> for Implementation {
     fn injectable(_: ()) -> Data<dyn WorkgroupRepository> {
-        let arc: Arc<dyn WorkgroupRepository> = Arc::new(Implementation {
+        let arc: Arc<dyn WorkgroupRepository> = Arc::new(Self {
             page_size: *SEARCH_PAGE_SIZE,
         });
         Data::from(arc)
