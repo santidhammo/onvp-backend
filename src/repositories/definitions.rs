@@ -63,6 +63,8 @@ pub trait MemberRepository {
         page_offset: usize,
         term: &str,
     ) -> BackendResult<(usize, usize, Vec<ExtendedMember>)>;
+
+    fn unregister(&self, conn: &mut DatabaseConnection, member_id: i32) -> BackendResult<()>;
 }
 
 pub trait WorkgroupRepository {
@@ -78,6 +80,8 @@ pub trait WorkgroupRepository {
         page_offset: usize,
         term: &str,
     ) -> BackendResult<(usize, usize, Vec<Workgroup>)>;
+
+    fn unregister(&self, conn: &mut DatabaseConnection, workgroup_id: i32) -> BackendResult<()>;
 }
 
 pub trait MemberPictureRepository {

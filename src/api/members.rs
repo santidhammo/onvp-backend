@@ -35,7 +35,7 @@ use crate::services::definitions::command::{
 };
 use crate::services::definitions::request::{MemberPictureRequestService, MemberRequestService};
 use actix_web::web::{Bytes, Data, Json, Path, Query};
-use actix_web::{get, post, web, HttpResponse};
+use actix_web::{delete, get, post, web, HttpResponse};
 use std::ops::Deref;
 use totp_rs::TOTP;
 
@@ -290,5 +290,26 @@ pub async fn activate(
     command: Json<MemberActivationCommand>,
 ) -> BackendResult<HttpResponse> {
     service.activate(&command)?;
+    Ok(HttpResponse::Ok().finish())
+}
+
+/// Unregister a member
+///
+/// Unregisters an existing member
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "Member is unregistered"),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal backend error", body=Option<String>),
+    )
+)]
+#[delete("/{id}")]
+pub async fn unregister(
+    service: Data<dyn MemberCommandService>,
+    id: Path<i32>,
+) -> BackendResult<HttpResponse> {
+    service.unregister(id.into_inner())?;
     Ok(HttpResponse::Ok().finish())
 }

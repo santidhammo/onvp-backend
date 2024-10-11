@@ -48,6 +48,12 @@ impl WorkgroupCommandService for Implementation {
             Ok(())
         })
     }
+
+    fn unregister(&self, workgroup_id: i32) -> BackendResult<()> {
+        let mut conn = self.pool.get()?;
+        self.workgroup_repository
+            .unregister(&mut conn, workgroup_id)
+    }
 }
 
 impl

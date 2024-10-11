@@ -231,6 +231,37 @@ impl MemberRepository for Implementation {
             Ok((total_count, self.page_size, extended_members))
         })
     }
+
+    fn unregister(&self, conn: &mut DatabaseConnection, member_id: i32) -> BackendResult<()> {
+        conn.transaction::<_, BackendError, _>(|conn| {
+            let extended_member = self.find_extended_by_id(conn, member_id)?;
+            let member_detail_id = extended_member.member_detail.id;
+            let member_address_detail_id = extended_member.member_address_detail.id;
+
+            diesel::delete(
+                member_role_associations::table
+                    .filter(member_role_associations::member_id.eq(member_id)),
+            )
+            .execute(conn)?;
+
+            let deleted_rows = diesel::delete(members::table)
+                .filter(members::id.eq(member_id))
+                .execute(conn)?;
+
+            diesel::delete(member_address_details::table)
+                .filter(member_address_details::id.eq(member_address_detail_id))
+                .execute(conn)?;
+            diesel::delete(member_details::table)
+                .filter(member_details::id.eq(member_detail_id))
+                .execute(conn)?;
+
+            if deleted_rows == 0 {
+                Err(BackendError::not_enough_records())
+            } else {
+                Ok(())
+            }
+        })
+    }
 }
 
 impl Implementation {

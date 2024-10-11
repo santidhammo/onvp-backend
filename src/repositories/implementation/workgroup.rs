@@ -22,6 +22,7 @@ use crate::generic::storage::database::DatabaseConnection;
 use crate::generic::{search_helpers, Injectable};
 use crate::model::storage::entities::Workgroup;
 use crate::repositories::definitions::WorkgroupRepository;
+use crate::schema::workgroup_role_associations;
 use crate::schema::workgroups;
 use actix_web::web::Data;
 use diesel::{Connection, ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
@@ -110,6 +111,24 @@ impl WorkgroupRepository for Implementation {
             }
         });
         result
+    }
+
+    fn unregister(&self, conn: &mut DatabaseConnection, workgroup_id: i32) -> BackendResult<()> {
+        conn.transaction::<_, BackendError, _>(|conn| {
+            diesel::delete(workgroup_role_associations::table)
+                .filter(workgroup_role_associations::workgroup_id.eq(workgroup_id))
+                .execute(conn)?;
+
+            let deleted_rows = diesel::delete(workgroups::table)
+                .filter(workgroups::id.eq(workgroup_id))
+                .execute(conn)?;
+
+            if deleted_rows == 0 {
+                Err(BackendError::not_enough_records())
+            } else {
+                Ok(())
+            }
+        })
     }
 }
 

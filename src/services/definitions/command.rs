@@ -38,6 +38,9 @@ pub trait MemberCommandService {
         member_id: i32,
         command: &MemberUpdateAddressCommand,
     ) -> BackendResult<()>;
+
+    /// Unregisters an existing member
+    fn unregister(&self, member_id: i32) -> BackendResult<()>;
 }
 pub trait MemberPictureCommandService {
     fn upload(&self, member_id: i32, command: &ImageUploadCommand) -> BackendResult<String>;
@@ -66,6 +69,9 @@ pub trait WorkgroupCommandService {
 
     /// Updates an existing work group
     fn update(&self, workgroup_id: i32, command: &WorkgroupUpdateCommand) -> BackendResult<()>;
+
+    /// Unregisters an existing work group
+    fn unregister(&self, workgroup_id: i32) -> BackendResult<()>;
 }
 
 /// Controls actions which can be performed to manage roles

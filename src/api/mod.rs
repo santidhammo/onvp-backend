@@ -71,6 +71,7 @@ use crate::model::primitives::*;
         members::upload_picture_asset,
         members::picture_asset,
         members::picture,
+        members::unregister,
         roles::associate,
         roles::dissociate,
         roles::list,
@@ -78,6 +79,7 @@ use crate::model::primitives::*;
         workgroups::search,
         workgroups::find,
         workgroups::update,
+        workgroups::unregister,
         source_code::details,
     ),
     components(
@@ -87,6 +89,7 @@ use crate::model::primitives::*;
         schemas(MemberUpdateCommand),
         schemas(MemberUpdateAddressCommand),
         schemas(WorkgroupRegisterCommand),
+        schemas(WorkgroupUpdateCommand),
         schemas(AssociateRoleCommand),
         schemas(DissociateRoleCommand),
         schemas(AuthorizationRequest),
@@ -152,7 +155,9 @@ pub async fn run_api_server() -> std::io::Result<()> {
                                     .service(members::update)
                                     .service(members::update_address)
                                     .service(members::upload_picture_asset)
-                                    .service(members::register),
+                                    .service(members::register)
+                                    .service(members::unregister),
+
                             ),
                     ),
             )
@@ -172,8 +177,11 @@ pub async fn run_api_server() -> std::io::Result<()> {
                     .service(workgroups::search)
                     .service(workgroups::find)
                     .use_state_guard(
-                    |claims: UserClaims| async move { security::operator_state_guard(&claims) },
-                    web::scope("").service(workgroups::register).service(workgroups::update),
+                        |claims: UserClaims| async move { security::operator_state_guard(&claims) },
+                        web::scope("")
+                        .service(workgroups::register)
+                        .service(workgroups::update)
+                        .service(workgroups::unregister),
                 ),
             ))
             .service(

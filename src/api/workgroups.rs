@@ -26,7 +26,7 @@ use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::services::definitions::command::WorkgroupCommandService;
 use crate::services::definitions::request::WorkgroupRequestService;
 use actix_web::web::{Data, Json, Path};
-use actix_web::{get, post, web, HttpResponse};
+use actix_web::{delete, get, post, web, HttpResponse};
 
 pub const CONTEXT: &str = "/api/workgroups";
 
@@ -116,5 +116,26 @@ pub async fn update(
     command: Json<WorkgroupUpdateCommand>,
 ) -> BackendResult<HttpResponse> {
     service.update(id.into_inner(), &command)?;
+    Ok(HttpResponse::Ok().finish())
+}
+
+/// Unregister a work group
+///
+/// Unregisters an existing work group
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "Work group is unregistered"),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal backend error", body=Option<String>),
+    )
+)]
+#[delete("/{id}")]
+pub async fn unregister(
+    service: Data<dyn WorkgroupCommandService>,
+    id: Path<i32>,
+) -> BackendResult<HttpResponse> {
+    service.unregister(id.into_inner())?;
     Ok(HttpResponse::Ok().finish())
 }

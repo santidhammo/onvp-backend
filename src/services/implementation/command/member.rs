@@ -89,6 +89,11 @@ impl MemberCommandService for Implementation {
             Ok(())
         })
     }
+
+    fn unregister(&self, member_id: i32) -> BackendResult<()> {
+        let mut conn = self.pool.get()?;
+        self.member_repository.unregister(&mut conn, member_id)
+    }
 }
 
 impl
