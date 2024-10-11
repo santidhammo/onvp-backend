@@ -20,13 +20,13 @@
 //! Work groups are collections of members, allowing for additional roles.
 
 use crate::generic::result::BackendResult;
-use crate::model::interface::commands::WorkgroupRegisterCommand;
+use crate::model::interface::commands::{WorkgroupRegisterCommand, WorkgroupUpdateCommand};
 use crate::model::interface::responses::WorkgroupResponse;
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::services::definitions::command::WorkgroupCommandService;
 use crate::services::definitions::request::WorkgroupRequestService;
-use actix_web::web::{Data, Json};
-use actix_web::{get, post, web};
+use actix_web::web::{Data, Json, Path};
+use actix_web::{get, post, web, HttpResponse};
 
 pub const CONTEXT: &str = "/api/workgroups";
 
@@ -70,8 +70,51 @@ pub async fn register(
 )]
 #[get("/search")]
 pub async fn search(
-    service: web::Data<dyn WorkgroupRequestService>,
+    service: Data<dyn WorkgroupRequestService>,
     search_params: web::Query<SearchParams>,
-) -> BackendResult<web::Json<SearchResult<WorkgroupResponse>>> {
+) -> BackendResult<Json<SearchResult<WorkgroupResponse>>> {
     Ok(Json(service.search(&search_params)?))
+}
+
+/// Get a work group by id
+///
+/// Searches for a work group by using the work group identifier. If found,
+/// a single record with the work group is returned.
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "Work group", body=WorkgroupResponse),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal Server Error", body=Option<String>)
+    )
+)]
+#[get("/{id}")]
+pub async fn find(
+    service: Data<dyn WorkgroupRequestService>,
+    id: Path<i32>,
+) -> BackendResult<Json<WorkgroupResponse>> {
+    Ok(Json(service.find_by_id(id.into_inner())?))
+}
+
+/// Save a work group by id
+///
+/// Updates an existing work group record given the data.
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "Work group is updated"),
+        (status = 400, description = "Bad Request"),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal backend error", body=[String]),
+    )
+)]
+#[post("/{id}")]
+pub async fn update(
+    service: Data<dyn WorkgroupCommandService>,
+    id: Path<i32>,
+    command: Json<WorkgroupUpdateCommand>,
+) -> BackendResult<HttpResponse> {
+    service.update(id.into_inner(), &command)?;
+    Ok(HttpResponse::Ok().finish())
 }

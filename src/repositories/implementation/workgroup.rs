@@ -24,7 +24,7 @@ use crate::model::storage::entities::Workgroup;
 use crate::repositories::definitions::WorkgroupRepository;
 use crate::schema::workgroups;
 use actix_web::web::Data;
-use diesel::{Connection, QueryDsl, RunQueryDsl, SelectableHelper};
+use diesel::{Connection, ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
 use std::sync::Arc;
 
 pub struct Implementation {
@@ -38,6 +38,22 @@ impl WorkgroupRepository for Implementation {
             .returning(workgroups::id)
             .execute(conn)?;
         Ok(result as i32)
+    }
+
+    fn find_by_id(&self, conn: &mut DatabaseConnection, id: i32) -> BackendResult<Workgroup> {
+        let workgroup: Workgroup = workgroups::table
+            .filter(workgroups::id.eq(id))
+            .select(Workgroup::as_select())
+            .first(conn)?;
+        Ok(workgroup)
+    }
+
+    fn save(&self, conn: &mut DatabaseConnection, workgroup: Workgroup) -> BackendResult<()> {
+        diesel::update(workgroups::table)
+            .filter(workgroups::id.eq(workgroup.id))
+            .set(workgroup)
+            .execute(conn)?;
+        Ok(())
     }
 
     fn search(

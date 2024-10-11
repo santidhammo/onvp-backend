@@ -84,7 +84,9 @@ pub trait MemberPictureRequestService {
 }
 
 /// Controls actions for data retrieval belonging to work groups
-pub trait WorkgroupRequestService: SearchController<WorkgroupResponse> {}
+pub trait WorkgroupRequestService: SearchController<WorkgroupResponse> {
+    fn find_by_id(&self, id: i32) -> BackendResult<WorkgroupResponse>;
+}
 
 pub trait SearchController<T> {
     fn search(&self, params: &SearchParams) -> BackendResult<SearchResult<T>>

@@ -32,7 +32,14 @@ pub struct Implementation {
     workgroup_repository: Data<dyn WorkgroupRepository>,
 }
 
-impl WorkgroupRequestService for Implementation {}
+impl WorkgroupRequestService for Implementation {
+    fn find_by_id(&self, id: i32) -> BackendResult<WorkgroupResponse> {
+        let mut conn = self.pool.get()?;
+        self.workgroup_repository
+            .find_by_id(&mut conn, id)
+            .map(|w| WorkgroupResponse::from(&w))
+    }
+}
 
 impl SearchController<WorkgroupResponse> for Implementation {
     fn search(&self, params: &SearchParams) -> BackendResult<SearchResult<WorkgroupResponse>>

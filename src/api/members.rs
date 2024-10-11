@@ -81,10 +81,10 @@ pub async fn register(
 )]
 #[get("/search")]
 pub async fn search(
-    controller: Data<dyn MemberRequestService>,
-    params: Query<SearchParams>,
+    service: Data<dyn MemberRequestService>,
+    search_params: Query<SearchParams>,
 ) -> BackendResult<Json<SearchResult<MemberResponse>>> {
-    Ok(Json(controller.search(params.deref())?))
+    Ok(Json(service.search(search_params.deref())?))
 }
 
 /// Get a member and the primary detail by id
@@ -102,11 +102,12 @@ pub async fn search(
 )]
 #[get("/{id}")]
 pub async fn find(
-    controller: Data<dyn MemberRequestService>,
+    service: Data<dyn MemberRequestService>,
     id: Path<i32>,
 ) -> BackendResult<Json<MemberResponse>> {
-    Ok(Json(controller.find_by_id(id.into_inner())?))
+    Ok(Json(service.find_by_id(id.into_inner())?))
 }
+
 /// Gets a member address by id
 ///
 /// Searches for a member address by using the member identifier. If found,

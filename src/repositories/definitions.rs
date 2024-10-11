@@ -68,6 +68,10 @@ pub trait MemberRepository {
 pub trait WorkgroupRepository {
     fn register(&self, conn: &mut DatabaseConnection, workgroup: Workgroup) -> BackendResult<i32>;
 
+    fn find_by_id(&self, conn: &mut DatabaseConnection, id: i32) -> BackendResult<Workgroup>;
+
+    fn save(&self, conn: &mut DatabaseConnection, workgroup: Workgroup) -> BackendResult<()>;
+
     fn search(
         &self,
         conn: &mut DatabaseConnection,

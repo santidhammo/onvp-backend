@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::model::interface::commands::WorkgroupRegisterCommand;
+use crate::model::interface::commands::{WorkgroupRegisterCommand, WorkgroupUpdateCommand};
 use crate::model::interface::sub_commands;
 use crate::model::storage::extended_entities::ExtendedMember;
 use diesel::{AsChangeset, Insertable, Queryable, Selectable};
@@ -114,7 +114,7 @@ impl From<&sub_commands::AddressRegisterSubCommand> for MemberAddressDetail {
     }
 }
 
-#[derive(Clone, Debug, Queryable, Selectable, Insertable)]
+#[derive(Clone, Debug, Queryable, Selectable, Insertable, AsChangeset)]
 #[diesel(table_name = crate::schema::workgroups)]
 pub struct Workgroup {
     #[diesel(skip_insertion)]
@@ -129,5 +129,14 @@ impl From<&WorkgroupRegisterCommand> for Workgroup {
 
             name: input.name.to_string(),
         }
+    }
+}
+
+/// Merges the update command into an existing extended member
+impl From<(&Workgroup, &WorkgroupUpdateCommand)> for Workgroup {
+    fn from((origin, command): (&Workgroup, &WorkgroupUpdateCommand)) -> Self {
+        let mut cloned = origin.clone();
+        cloned.name = command.name.clone();
+        cloned
     }
 }

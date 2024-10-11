@@ -33,6 +33,13 @@ pub struct WorkgroupRegisterCommand {
     pub name: String,
 }
 
+#[derive(Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkgroupUpdateCommand {
+    #[schema(example = "Orchestra Committee")]
+    pub name: String,
+}
+
 /// To register a new member, registration data is necessary. The registration data consists
 /// of the data necessary to create the member itself, alongside the member details and member
 /// address details.

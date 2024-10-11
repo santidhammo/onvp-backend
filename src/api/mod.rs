@@ -76,6 +76,8 @@ use crate::model::primitives::*;
         roles::list,
         workgroups::register,
         workgroups::search,
+        workgroups::find,
+        workgroups::update,
         source_code::details,
     ),
     components(
@@ -166,9 +168,12 @@ pub async fn run_api_server() -> std::io::Result<()> {
             )
             .service(web::scope(workgroups::CONTEXT).use_jwt(
                 authority.clone(),
-                web::scope("").service(workgroups::search).use_state_guard(
+                web::scope("")
+                    .service(workgroups::search)
+                    .service(workgroups::find)
+                    .use_state_guard(
                     |claims: UserClaims| async move { security::operator_state_guard(&claims) },
-                    web::scope("").service(workgroups::register),
+                    web::scope("").service(workgroups::register).service(workgroups::update),
                 ),
             ))
             .service(
