@@ -9,7 +9,7 @@ CREATE TABLE members (
     activation_string VARCHAR NOT NULL,
     activation_time TIMESTAMP NOT NULL,
     -- If set, other members are allowed to see the details of the member. The member should have given written
-    -- permission in accordance with the Digital Privacy Information Act (DPIA). The default value therefore is
+    -- permission in accordance with the GDPR. The default value therefore is
     -- set to false, to make sure that a conscientious decision is made.
     allow_privacy_info_sharing BOOLEAN NOT NULL DEFAULT FALSE,
     nonce VARCHAR NOT NULL,
