@@ -20,7 +20,7 @@ use crate::generic::Injectable;
 use crate::model::interface::client::UserClaims;
 use crate::repositories::definitions::{
     AuthorizationRepository, MemberPictureRepository, MemberRepository, MemberRoleRepository,
-    WorkgroupRoleRepository,
+    WorkgroupRepository, WorkgroupRoleRepository,
 };
 use crate::{repositories, services};
 use actix_jwt_auth_middleware::TokenSigner;
@@ -51,6 +51,12 @@ where
             pool,
             &repositories.member_repository,
             &repositories.member_role_repository,
+        )),
+    )
+    .app_data(
+        services::implementation::command::workgroup::Implementation::injectable((
+            pool,
+            &repositories.workgroup_repository,
         )),
     )
     .app_data(
@@ -94,6 +100,12 @@ where
         )),
     )
     .app_data(
+        services::implementation::request::workgroup::Implementation::injectable((
+            pool,
+            &repositories.workgroup_repository,
+        )),
+    )
+    .app_data(
         services::implementation::request::member_picture::Implementation::injectable((
             pool,
             &repositories.member_repository,
@@ -103,6 +115,7 @@ where
 
 struct DependantRepositories {
     member_repository: Data<dyn MemberRepository>,
+    workgroup_repository: Data<dyn WorkgroupRepository>,
     member_role_repository: Data<dyn MemberRoleRepository>,
     member_picture_repository: Data<dyn MemberPictureRepository>,
     workgroup_role_repository: Data<dyn WorkgroupRoleRepository>,
@@ -113,6 +126,8 @@ impl DependantRepositories {
     fn dependencies() -> DependantRepositories {
         let repositories = DependantRepositories {
             member_repository: repositories::implementation::member::Implementation::injectable(()),
+            workgroup_repository:
+                repositories::implementation::workgroup::Implementation::injectable(()),
             member_role_repository:
                 repositories::implementation::member_role::Implementation::injectable(()),
             member_picture_repository:

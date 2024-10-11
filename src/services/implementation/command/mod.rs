@@ -21,4 +21,4 @@ pub mod member_activation;
 pub mod member_picture;
 pub mod role;
 pub mod setup;
-mod workgroup;
+pub mod workgroup;

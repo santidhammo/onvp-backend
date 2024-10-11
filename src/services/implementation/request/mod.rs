@@ -18,7 +18,7 @@
  */
 pub mod authorization;
 pub mod member;
-pub(crate) mod member_picture;
-mod role;
+pub mod member_picture;
+pub mod role;
 pub mod setup;
-mod workgroup;
+pub mod workgroup;
