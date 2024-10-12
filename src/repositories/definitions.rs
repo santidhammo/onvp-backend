@@ -88,6 +88,25 @@ pub trait WorkgroupRepository {
     ) -> BackendResult<(usize, usize, Vec<Workgroup>)>;
 
     fn unregister(&self, conn: &mut DatabaseConnection, workgroup_id: i32) -> BackendResult<()>;
+
+    fn find_members_by_id(
+        &self,
+        conn: &mut DatabaseConnection,
+        workgroup_id: i32,
+    ) -> BackendResult<Vec<ExtendedMember>>;
+
+    fn associate_member_to_workgroup(
+        &self,
+        conn: &mut DatabaseConnection,
+        member_id: i32,
+        workgroup_id: i32,
+    ) -> BackendResult<()>;
+    fn dissociate_member_from_workgroup(
+        &self,
+        conn: &mut DatabaseConnection,
+        member_id: i32,
+        workgroup_id: i32,
+    ) -> BackendResult<()>;
 }
 
 pub trait MemberPictureRepository {

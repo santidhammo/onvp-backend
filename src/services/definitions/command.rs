@@ -18,7 +18,8 @@
  */
 use crate::generic::result::BackendResult;
 use crate::model::interface::commands::{
-    AssociateRoleCommand, DissociateRoleCommand, FirstOperatorRegisterCommand, ImageUploadCommand,
+    AssociateMemberToWorkgroupCommand, AssociateRoleCommand, DissociateMemberFromWorkgroupCommand,
+    DissociateRoleCommand, FirstOperatorRegisterCommand, ImageUploadCommand,
     MemberActivationCommand, MemberRegisterCommand, MemberUpdateAddressCommand,
     MemberUpdateCommand, WorkgroupRegisterCommand, WorkgroupUpdateCommand,
 };
@@ -72,6 +73,18 @@ pub trait WorkgroupCommandService {
 
     /// Unregisters an existing work group
     fn unregister(&self, workgroup_id: i32) -> BackendResult<()>;
+
+    /// Associates a member to a work group
+    fn associate_member_to_workgroup(
+        &self,
+        command: &AssociateMemberToWorkgroupCommand,
+    ) -> BackendResult<()>;
+
+    ///Dissociates a member to a work group
+    fn dissociate_member_from_workgroup(
+        &self,
+        command: &DissociateMemberFromWorkgroupCommand,
+    ) -> BackendResult<()>;
 }
 
 /// Controls actions which can be performed to manage roles

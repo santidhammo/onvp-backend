@@ -20,12 +20,19 @@ use crate::generic::lazy::SEARCH_PAGE_SIZE;
 use crate::generic::result::{BackendError, BackendResult};
 use crate::generic::storage::database::DatabaseConnection;
 use crate::generic::{search_helpers, Injectable};
-use crate::model::storage::entities::Workgroup;
+use crate::model::storage::entities::{Member, MemberAddressDetail, MemberDetail, Workgroup};
+use crate::model::storage::extended_entities::ExtendedMember;
 use crate::repositories::definitions::WorkgroupRepository;
+use crate::schema::member_address_details;
+use crate::schema::member_details;
+use crate::schema::members;
+use crate::schema::workgroup_member_relationships;
 use crate::schema::workgroup_role_associations;
 use crate::schema::workgroups;
 use actix_web::web::Data;
-use diesel::{Connection, ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
+use diesel::{
+    BoolExpressionMethods, Connection, ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper,
+};
 use std::sync::Arc;
 
 pub struct Implementation {
@@ -129,6 +136,64 @@ impl WorkgroupRepository for Implementation {
                 Ok(())
             }
         })
+    }
+
+    fn find_members_by_id(
+        &self,
+        conn: &mut DatabaseConnection,
+        workgroup_id: i32,
+    ) -> BackendResult<Vec<ExtendedMember>> {
+        let result: Vec<(Member, MemberDetail, MemberAddressDetail)> =
+            workgroup_member_relationships::table
+                .inner_join(
+                    members::table
+                        .inner_join(member_details::table)
+                        .inner_join(member_address_details::table),
+                )
+                .filter(workgroup_member_relationships::workgroup_id.eq(workgroup_id))
+                .select((
+                    Member::as_select(),
+                    MemberDetail::as_select(),
+                    MemberAddressDetail::as_select(),
+                ))
+                .load(conn)?;
+        Ok(result
+            .iter()
+            .map(|(member, member_detail, member_address_detail)| {
+                ExtendedMember::from((member, member_detail, member_address_detail))
+            })
+            .collect())
+    }
+
+    fn associate_member_to_workgroup(
+        &self,
+        conn: &mut DatabaseConnection,
+        member_id: i32,
+        workgroup_id: i32,
+    ) -> BackendResult<()> {
+        diesel::insert_into(workgroup_member_relationships::table)
+            .values((
+                workgroup_member_relationships::member_id.eq(member_id),
+                workgroup_member_relationships::workgroup_id.eq(workgroup_id),
+            ))
+            .execute(conn)?;
+        Ok(())
+    }
+
+    fn dissociate_member_from_workgroup(
+        &self,
+        conn: &mut DatabaseConnection,
+        member_id: i32,
+        workgroup_id: i32,
+    ) -> BackendResult<()> {
+        diesel::delete(workgroup_member_relationships::table)
+            .filter(
+                workgroup_member_relationships::member_id
+                    .eq(member_id)
+                    .and(workgroup_member_relationships::workgroup_id.eq(workgroup_id)),
+            )
+            .execute(conn)?;
+        Ok(())
     }
 }
 

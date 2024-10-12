@@ -19,7 +19,7 @@
 use crate::generic::result::BackendResult;
 use crate::generic::storage::database::DatabaseConnectionPool;
 use crate::generic::{search_helpers, Injectable};
-use crate::model::interface::responses::WorkgroupResponse;
+use crate::model::interface::responses::{MemberResponse, WorkgroupResponse};
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::repositories::definitions::WorkgroupRepository;
 use crate::services::definitions::request::{SearchController, WorkgroupRequestService};
@@ -38,6 +38,13 @@ impl WorkgroupRequestService for Implementation {
         self.workgroup_repository
             .find_by_id(&mut conn, id)
             .map(|w| WorkgroupResponse::from(&w))
+    }
+
+    fn find_members_by_id(&self, id: i32) -> BackendResult<Vec<MemberResponse>> {
+        let mut conn = self.pool.get()?;
+        self.workgroup_repository
+            .find_members_by_id(&mut conn, id)
+            .map(|v| v.iter().map(|w| MemberResponse::from(w)).collect())
     }
 }
 

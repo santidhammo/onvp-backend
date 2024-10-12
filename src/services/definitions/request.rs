@@ -89,6 +89,8 @@ pub trait MemberPictureRequestService {
 /// Controls actions for data retrieval belonging to work groups
 pub trait WorkgroupRequestService: SearchController<WorkgroupResponse> {
     fn find_by_id(&self, id: i32) -> BackendResult<WorkgroupResponse>;
+
+    fn find_members_by_id(&self, id: i32) -> BackendResult<Vec<MemberResponse>>;
 }
 
 pub trait SearchController<T> {

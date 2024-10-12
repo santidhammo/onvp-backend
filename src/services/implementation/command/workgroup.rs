@@ -19,7 +19,10 @@
 use crate::generic::result::{BackendError, BackendResult};
 use crate::generic::storage::database::DatabaseConnectionPool;
 use crate::generic::Injectable;
-use crate::model::interface::commands::{WorkgroupRegisterCommand, WorkgroupUpdateCommand};
+use crate::model::interface::commands::{
+    AssociateMemberToWorkgroupCommand, DissociateMemberFromWorkgroupCommand,
+    WorkgroupRegisterCommand, WorkgroupUpdateCommand,
+};
 use crate::model::storage::entities::Workgroup;
 use crate::repositories::definitions::WorkgroupRepository;
 use crate::services::definitions::command::WorkgroupCommandService;
@@ -53,6 +56,30 @@ impl WorkgroupCommandService for Implementation {
         let mut conn = self.pool.get()?;
         self.workgroup_repository
             .unregister(&mut conn, workgroup_id)
+    }
+
+    fn associate_member_to_workgroup(
+        &self,
+        command: &AssociateMemberToWorkgroupCommand,
+    ) -> BackendResult<()> {
+        let mut conn = self.pool.get()?;
+        self.workgroup_repository.associate_member_to_workgroup(
+            &mut conn,
+            command.member_id,
+            command.workgroup_id,
+        )
+    }
+
+    fn dissociate_member_from_workgroup(
+        &self,
+        command: &DissociateMemberFromWorkgroupCommand,
+    ) -> BackendResult<()> {
+        let mut conn = self.pool.get()?;
+        self.workgroup_repository.dissociate_member_from_workgroup(
+            &mut conn,
+            command.member_id,
+            command.workgroup_id,
+        )
     }
 }
 

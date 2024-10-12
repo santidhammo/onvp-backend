@@ -81,6 +81,9 @@ use crate::model::primitives::*;
         workgroups::find,
         workgroups::update,
         workgroups::unregister,
+        workgroups::find_members,
+        workgroups::associate,
+        workgroups::dissociate,
         source_code::details,
     ),
     components(
@@ -183,9 +186,12 @@ pub async fn run_api_server() -> std::io::Result<()> {
                     .use_state_guard(
                         |claims: UserClaims| async move { security::operator_state_guard(&claims) },
                         web::scope("")
-                        .service(workgroups::register)
-                        .service(workgroups::update)
-                        .service(workgroups::unregister),
+                            .service(workgroups::register)
+                            .service(workgroups::update)
+                            .service(workgroups::find_members)
+                            .service(workgroups::associate)
+                            .service(workgroups::dissociate)
+                            .service(workgroups::unregister),
                 ),
             ))
             .service(

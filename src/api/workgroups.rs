@@ -20,8 +20,11 @@
 //! Work groups are collections of members, allowing for additional roles.
 
 use crate::generic::result::BackendResult;
-use crate::model::interface::commands::{WorkgroupRegisterCommand, WorkgroupUpdateCommand};
-use crate::model::interface::responses::WorkgroupResponse;
+use crate::model::interface::commands::{
+    AssociateMemberToWorkgroupCommand, DissociateMemberFromWorkgroupCommand,
+    WorkgroupRegisterCommand, WorkgroupUpdateCommand,
+};
+use crate::model::interface::responses::{MemberResponse, WorkgroupResponse};
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::services::definitions::command::WorkgroupCommandService;
 use crate::services::definitions::request::WorkgroupRequestService;
@@ -137,5 +140,60 @@ pub async fn unregister(
     id: Path<i32>,
 ) -> BackendResult<HttpResponse> {
     service.unregister(id.into_inner())?;
+    Ok(HttpResponse::Ok().finish())
+}
+
+/// List all the members of the work group
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "List of members in the work group", body=Vec<MemberResponse>),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal backend error", body=Option<String>),
+    )
+)]
+#[get("/{id}/members")]
+pub async fn find_members(
+    service: Data<dyn WorkgroupRequestService>,
+    id: Path<i32>,
+) -> BackendResult<Json<Vec<MemberResponse>>> {
+    Ok(Json(service.find_members_by_id(id.into_inner())?))
+}
+/// Associate a member to a work group
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "Successful association of a member to a work group"),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal Server Error", body=Option<String>)
+    )
+)]
+#[post("/associate")]
+pub async fn associate(
+    service: Data<dyn WorkgroupCommandService>,
+    command: Json<AssociateMemberToWorkgroupCommand>,
+) -> BackendResult<HttpResponse> {
+    service.associate_member_to_workgroup(&command)?;
+    Ok(HttpResponse::Ok().finish())
+}
+
+/// Dissociate a member to a work group
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "Successful dissociation of a member from a work group"),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal Server Error", body=Option<String>)
+    )
+)]
+#[post("/dissociate")]
+pub async fn dissociate(
+    service: Data<dyn WorkgroupCommandService>,
+    command: Json<DissociateMemberFromWorkgroupCommand>,
+) -> BackendResult<HttpResponse> {
+    service.dissociate_member_from_workgroup(&command)?;
     Ok(HttpResponse::Ok().finish())
 }
