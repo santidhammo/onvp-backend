@@ -27,7 +27,7 @@ use crate::model::interface::commands::{
     MemberUpdateCommand,
 };
 use crate::model::interface::responses::{
-    ImageAssetIdResponse, MemberAddressResponse, MemberResponse,
+    ImageAssetIdResponse, MemberAddressResponse, MemberResponse, WorkgroupResponse,
 };
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::services::definitions::command::{
@@ -171,6 +171,26 @@ pub async fn update_address(
 ) -> BackendResult<HttpResponse> {
     service.update_address(id.into_inner(), &command)?;
     Ok(HttpResponse::Ok().finish())
+}
+
+/// Get the work groups of a member
+///
+/// Given the member identification, get the associated work groups
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "List of work groups is returned", body=[WorkgroupResponse]),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal backend error", body=Option<String>),
+    )
+)]
+#[get("/{id}/workgroups")]
+pub async fn find_workgroups(
+    service: Data<dyn MemberRequestService>,
+    id: Path<i32>,
+) -> BackendResult<Json<Vec<WorkgroupResponse>>> {
+    Ok(Json(service.find_workgroups(id.into_inner())?))
 }
 
 /// Upload the picture of a member

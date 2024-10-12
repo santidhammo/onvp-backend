@@ -24,7 +24,9 @@ use crate::repositories::definitions::MemberRepository;
 
 use crate::generic::search_helpers::create_like_string;
 use crate::generic::storage::database::DatabaseConnectionPool;
-use crate::model::interface::responses::{MemberAddressResponse, MemberResponse};
+use crate::model::interface::responses::{
+    MemberAddressResponse, MemberResponse, WorkgroupResponse,
+};
 use crate::services::definitions::request::{MemberRequestService, SearchController};
 use actix_web::web::Data;
 use std::sync::Arc;
@@ -57,6 +59,14 @@ impl MemberRequestService for Implementation {
             .member_repository
             .find_extended_by_activation_string(&mut conn, activation_string)?;
         Ok(MemberResponse::from(&extended_member))
+    }
+
+    fn find_workgroups(&self, member_id: i32) -> BackendResult<Vec<WorkgroupResponse>> {
+        let mut conn = self.pool.get()?;
+        let workgroups = self
+            .member_repository
+            .find_workgroups(&mut conn, member_id)?;
+        Ok(workgroups.iter().map(WorkgroupResponse::from).collect())
     }
 }
 

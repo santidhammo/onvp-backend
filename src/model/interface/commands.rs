@@ -25,7 +25,7 @@ use serde::Deserialize;
 use std::io::Cursor;
 use utoipa::ToSchema;
 
-/// Command to register a new entity
+/// Command to register a new work group
 #[derive(Deserialize, ToSchema, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkgroupRegisterCommand {
@@ -33,6 +33,7 @@ pub struct WorkgroupRegisterCommand {
     pub name: String,
 }
 
+/// Command to update an existing work group
 #[derive(Deserialize, ToSchema, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkgroupUpdateCommand {
@@ -93,6 +94,28 @@ pub struct MemberUpdateAddressCommand {
 
     #[schema(example = "Tubaton")]
     pub domicile: String,
+}
+
+/// Command to associate a member to a work group
+#[derive(Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct AssociateMemberToWorkgroupCommand {
+    #[schema(example = "1")]
+    pub member_id: i32,
+
+    #[schema(example = "1")]
+    pub workgroup_id: i32,
+}
+
+/// Command to dissociate a member from a work group
+#[derive(Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct DissociateMemberFromWorkgroupCommand {
+    #[schema(example = "1")]
+    pub member_id: i32,
+
+    #[schema(example = "1")]
+    pub workgroup_id: i32,
 }
 
 /// Associates a class with a given identifier to a given role

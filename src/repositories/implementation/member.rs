@@ -21,10 +21,13 @@ use crate::generic::result::{BackendError, BackendResult};
 use crate::generic::storage::database::DatabaseConnection;
 use crate::generic::{search_helpers, Injectable};
 use crate::model::primitives::Role;
-use crate::model::storage::entities::{Member, MemberAddressDetail, MemberDetail};
+use crate::model::storage::entities::{Member, MemberAddressDetail, MemberDetail, Workgroup};
 use crate::model::storage::extended_entities::ExtendedMember;
 use crate::repositories::definitions::MemberRepository;
-use crate::schema::{member_address_details, member_details, member_role_associations, members};
+use crate::schema::{
+    member_address_details, member_details, member_role_associations, members,
+    workgroup_member_relationships, workgroups,
+};
 use actix_web::web::Data;
 use diesel::{
     BoolExpressionMethods, Connection, ExpressionMethods, PgConnection, QueryDsl, RunQueryDsl,
@@ -153,6 +156,19 @@ impl MemberRepository for Implementation {
             &member_detail,
             &member_address_detail,
         )))
+    }
+
+    fn find_workgroups(
+        &self,
+        conn: &mut DatabaseConnection,
+        id: i32,
+    ) -> BackendResult<Vec<Workgroup>> {
+        let result: Vec<Workgroup> = workgroup_member_relationships::table
+            .inner_join(workgroups::table)
+            .filter(workgroup_member_relationships::member_id.eq(id))
+            .select(Workgroup::as_select())
+            .load(conn)?;
+        Ok(result)
     }
 
     fn save(&self, conn: &mut DatabaseConnection, member: ExtendedMember) -> BackendResult<()> {

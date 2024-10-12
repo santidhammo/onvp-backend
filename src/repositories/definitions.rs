@@ -47,6 +47,12 @@ pub trait MemberRepository {
         email_address: &str,
     ) -> BackendResult<ExtendedMember>;
 
+    fn find_workgroups(
+        &self,
+        conn: &mut DatabaseConnection,
+        id: i32,
+    ) -> BackendResult<Vec<Workgroup>>;
+
     fn save(&self, conn: &mut DatabaseConnection, member: ExtendedMember) -> BackendResult<()>;
 
     fn count_members_with_role(

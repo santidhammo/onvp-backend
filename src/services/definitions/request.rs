@@ -67,6 +67,9 @@ pub trait MemberRequestService: SearchController<MemberResponse> {
 
     /// Finds a member by the member's activation string
     fn find_by_activation_string(&self, activation_string: &str) -> BackendResult<MemberResponse>;
+
+    /// Lists the work groups associated to the member
+    fn find_workgroups(&self, member_id: i32) -> BackendResult<Vec<WorkgroupResponse>>;
 }
 
 pub trait MemberPictureRequestService {
