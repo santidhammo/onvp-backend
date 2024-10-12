@@ -161,14 +161,16 @@ pub async fn run_api_server() -> std::io::Result<()> {
                             ),
                     ),
             )
+
             .service(
                 web::scope(authorization::CONTEXT)
                     .service(authorization::login)
+                    .service(authorization::logout)
                     .use_jwt(
                         authority.clone(),
                         web::scope("")
                             .service(authorization::refresh)
-                            .service(authorization::logout),
+
                     ),
             )
             .service(web::scope(workgroups::CONTEXT).use_jwt(
@@ -191,7 +193,8 @@ pub async fn run_api_server() -> std::io::Result<()> {
                         |claims: UserClaims| async move { security::operator_state_guard(&claims) },
                         web::scope("")
                             .service(roles::associate)
-                            .service(roles::dissociate),
+                            .service(roles::dissociate)
+                            .service(roles::list),
                     ),
                 ),
             )

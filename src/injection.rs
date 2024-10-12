@@ -111,6 +111,13 @@ where
             &repositories.member_repository,
         )),
     )
+    .app_data(
+        services::implementation::request::role::Implementation::injectable((
+            pool,
+            &repositories.member_role_repository,
+            &repositories.workgroup_role_repository,
+        )),
+    )
 }
 
 struct DependantRepositories {
