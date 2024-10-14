@@ -88,9 +88,25 @@ pub trait MemberPictureRequestService {
 
 /// Controls actions for data retrieval belonging to work groups
 pub trait WorkgroupRequestService: SearchController<WorkgroupResponse> {
+    /// Find the work group
+    ///
+    /// Finds the work group using the identifier of the work group
     fn find_by_id(&self, id: i32) -> BackendResult<WorkgroupResponse>;
 
+    /// Find all the members belonging to the work group
+    ///
+    /// Finds the work group members using the identifier of the work group
     fn find_members_by_id(&self, id: i32) -> BackendResult<Vec<MemberResponse>>;
+
+    /// Search for all members available to the work group
+    ///
+    /// Searches the members available to the work group (thus the members *not* in
+    /// the work group) using the work group identifier and the search parameters
+    fn available_members_search(
+        &self,
+        workgroup_id: i32,
+        params: &SearchParams,
+    ) -> BackendResult<SearchResult<MemberResponse>>;
 }
 
 pub trait SearchController<T> {

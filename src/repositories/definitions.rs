@@ -107,6 +107,14 @@ pub trait WorkgroupRepository {
         member_id: i32,
         workgroup_id: i32,
     ) -> BackendResult<()>;
+
+    fn available_members_search(
+        &self,
+        conn: &mut DatabaseConnection,
+        workgroup_id: i32,
+        page_offset: usize,
+        term: &str,
+    ) -> BackendResult<(usize, usize, Vec<ExtendedMember>)>;
 }
 
 pub trait MemberPictureRepository {

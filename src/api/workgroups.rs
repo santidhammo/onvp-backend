@@ -28,8 +28,9 @@ use crate::model::interface::responses::{MemberResponse, WorkgroupResponse};
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::services::definitions::command::WorkgroupCommandService;
 use crate::services::definitions::request::WorkgroupRequestService;
-use actix_web::web::{Data, Json, Path};
+use actix_web::web::{Data, Json, Path, Query};
 use actix_web::{delete, get, post, web, HttpResponse};
+use std::ops::Deref;
 
 pub const CONTEXT: &str = "/api/workgroups";
 
@@ -160,6 +161,31 @@ pub async fn find_members(
 ) -> BackendResult<Json<Vec<MemberResponse>>> {
     Ok(Json(service.find_members_by_id(id.into_inner())?))
 }
+
+/// Searches for members which are available for the work group
+///
+/// Searches for all members which are not part of the given work group
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "List of available members to the work group", body=SearchResult<MemberResponse>),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal backend error", body=Option<String>),
+    )
+)]
+#[get("/{id}/members/available/search")]
+pub async fn available_members_search(
+    service: Data<dyn WorkgroupRequestService>,
+    id: Path<i32>,
+    search_params: Query<SearchParams>,
+) -> BackendResult<Json<SearchResult<MemberResponse>>> {
+    Ok(Json(service.available_members_search(
+        id.into_inner(),
+        search_params.deref(),
+    )?))
+}
+
 /// Associate a member to a work group
 #[utoipa::path(
     context_path = CONTEXT,

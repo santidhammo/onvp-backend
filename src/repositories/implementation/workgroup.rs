@@ -30,8 +30,10 @@ use crate::schema::workgroup_member_relationships;
 use crate::schema::workgroup_role_associations;
 use crate::schema::workgroups;
 use actix_web::web::Data;
+use diesel::dsl::{exists, not};
 use diesel::{
-    BoolExpressionMethods, Connection, ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper,
+    BoolExpressionMethods, Connection, ExpressionMethods, PgConnection, QueryDsl, RunQueryDsl,
+    SelectableHelper, SqliteConnection,
 };
 use std::sync::Arc;
 
@@ -194,6 +196,131 @@ impl WorkgroupRepository for Implementation {
             )
             .execute(conn)?;
         Ok(())
+    }
+
+    fn available_members_search(
+        &self,
+        conn: &mut DatabaseConnection,
+        workgroup_id: i32,
+        page_offset: usize,
+        term: &str,
+    ) -> BackendResult<(usize, usize, Vec<ExtendedMember>)> {
+        let like_search_string = search_helpers::create_like_string(term);
+        conn.transaction::<(usize, usize, Vec<ExtendedMember>), BackendError, _>(|conn| {
+            // ILIKE is only supported on PostgreSQL
+            let (total_count, extended_members) = match conn {
+                DatabaseConnection::PostgreSQL(ref mut conn) => {
+                    self.postgresql_search(conn, workgroup_id, page_offset, &like_search_string)
+                }
+
+                DatabaseConnection::SQLite(ref mut conn) => {
+                    self.sqlite_search(conn, workgroup_id, page_offset, &like_search_string)
+                }
+            }?;
+            Ok((total_count, self.page_size, extended_members))
+        })
+    }
+}
+
+impl Implementation {
+    fn postgresql_search(
+        &self,
+        conn: &mut PgConnection,
+        workgroup_id: i32,
+        page_offset: usize,
+        like_search_string: &str,
+    ) -> Result<(usize, Vec<ExtendedMember>), BackendError> {
+        use diesel::PgTextExpressionMethods;
+
+        let sub_table = workgroup_member_relationships::table
+            .select(workgroup_member_relationships::member_id)
+            .filter(
+                workgroup_member_relationships::workgroup_id
+                    .eq(workgroup_id)
+                    .and(workgroup_member_relationships::member_id.eq(members::id)),
+            );
+
+        let filter = member_details::first_name
+            .ilike(&like_search_string)
+            .or(member_details::last_name.ilike(&like_search_string))
+            .or(member_details::email_address.ilike(&like_search_string))
+            .and(not(exists(sub_table)));
+
+        let total_count: usize = members::table
+            .inner_join(member_details::table)
+            .filter(filter)
+            .distinct()
+            .count()
+            .get_result::<i64>(conn)? as usize;
+
+        let result: Vec<(Member, MemberDetail)> = members::table
+            .inner_join(member_details::table)
+            .filter(filter)
+            .distinct()
+            .order_by(member_details::last_name)
+            .order_by(member_details::first_name)
+            .limit(self.page_size as i64)
+            .offset((page_offset * self.page_size) as i64)
+            .select((Member::as_select(), MemberDetail::as_select()))
+            .load(conn)?;
+
+        Ok((
+            total_count,
+            result
+                .iter()
+                .map(|(member, member_detail)| ExtendedMember::from((member, member_detail)))
+                .collect(),
+        ))
+    }
+
+    fn sqlite_search(
+        &self,
+        conn: &mut SqliteConnection,
+        workgroup_id: i32,
+        page_offset: usize,
+        like_search_string: &str,
+    ) -> Result<(usize, Vec<ExtendedMember>), BackendError> {
+        use diesel::TextExpressionMethods;
+
+        let sub_table = workgroup_member_relationships::table
+            .select(workgroup_member_relationships::member_id)
+            .filter(
+                workgroup_member_relationships::workgroup_id
+                    .eq(workgroup_id)
+                    .and(workgroup_member_relationships::member_id.eq(members::id)),
+            );
+
+        let filter = member_details::first_name
+            .like(&like_search_string)
+            .or(member_details::last_name.like(&like_search_string))
+            .or(member_details::email_address.like(&like_search_string))
+            .and(not(exists(sub_table)));
+
+        let total_count: usize = members::table
+            .inner_join(member_details::table)
+            .filter(filter)
+            .distinct()
+            .count()
+            .get_result::<i64>(conn)? as usize;
+
+        let result: Vec<(Member, MemberDetail)> = members::table
+            .inner_join(member_details::table)
+            .filter(filter)
+            .distinct()
+            .order_by(member_details::last_name)
+            .order_by(member_details::first_name)
+            .limit(self.page_size as i64)
+            .offset((page_offset * self.page_size) as i64)
+            .select((Member::as_select(), MemberDetail::as_select()))
+            .load(conn)?;
+
+        Ok((
+            total_count,
+            result
+                .iter()
+                .map(|(member, member_detail)| ExtendedMember::from((member, member_detail)))
+                .collect(),
+        ))
     }
 }
 

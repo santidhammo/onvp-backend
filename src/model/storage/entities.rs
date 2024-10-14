@@ -101,6 +101,19 @@ pub struct MemberAddressDetail {
     pub domicile: String,
 }
 
+impl MemberAddressDetail {
+    pub(crate) fn gdpr_fake() -> MemberAddressDetail {
+        Self {
+            id: 0, // Skipped during creation
+            street: "".to_owned(),
+            house_number: 0,
+            house_number_postfix: None,
+            postal_code: "0000AA".to_owned(),
+            domicile: "".to_owned(),
+        }
+    }
+}
+
 impl From<&sub_commands::AddressRegisterSubCommand> for MemberAddressDetail {
     fn from(input: &sub_commands::AddressRegisterSubCommand) -> Self {
         Self {

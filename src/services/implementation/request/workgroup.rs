@@ -17,6 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::generic::result::BackendResult;
+use crate::generic::search_helpers::create_like_string;
 use crate::generic::storage::database::DatabaseConnectionPool;
 use crate::generic::{search_helpers, Injectable};
 use crate::model::interface::responses::{MemberResponse, WorkgroupResponse};
@@ -45,6 +46,24 @@ impl WorkgroupRequestService for Implementation {
         self.workgroup_repository
             .find_members_by_id(&mut conn, id)
             .map(|v| v.iter().map(|w| MemberResponse::from(w)).collect())
+    }
+
+    fn available_members_search(
+        &self,
+        workgroup_id: i32,
+        params: &SearchParams,
+    ) -> BackendResult<SearchResult<MemberResponse>> {
+        let term = create_like_string(params.term.clone().unwrap_or_default());
+        let mut conn = self.pool.get()?;
+        let (total_count, page_size, results) = self
+            .workgroup_repository
+            .available_members_search(&mut conn, workgroup_id, params.page_offset, &term)?;
+        Ok(SearchResult {
+            total_count,
+            page_offset: params.page_offset,
+            page_count: search_helpers::calculate_page_count(page_size, total_count),
+            rows: results.iter().map(MemberResponse::from).collect(),
+        })
     }
 }
 

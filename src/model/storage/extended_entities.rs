@@ -76,6 +76,32 @@ impl From<(&Member, &MemberDetail, &MemberAddressDetail)> for ExtendedMember {
     }
 }
 
+/// Performs a GDPR scrubbed implementation to extract information from the database
+impl From<(&Member, &MemberDetail)> for ExtendedMember {
+    fn from((member, member_detail): (&Member, &MemberDetail)) -> Self {
+        Self {
+            id: member.id,
+            musical_instrument_id: member.musical_instrument_id,
+            picture_asset_id: member.picture_asset_id.clone(),
+            activated: member.activated,
+            creation_time: member.creation_time,
+            activation_string: member.activation_string.clone(),
+            activation_time: member.activation_time,
+            allow_privacy_info_sharing: member.allow_privacy_info_sharing,
+            nonce: "".to_owned(),
+            // Scrub the member detail from possible GDPR data
+            member_detail: MemberDetail {
+                id: member_detail.id,
+                first_name: member_detail.first_name.clone(),
+                last_name: member_detail.last_name.clone(),
+                email_address: "".to_owned(),
+                phone_number: "".to_owned(),
+            },
+            member_address_detail: MemberAddressDetail::gdpr_fake(),
+        }
+    }
+}
+
 impl From<&MemberRegisterCommand> for ExtendedMember {
     fn from(value: &MemberRegisterCommand) -> Self {
         let now = chrono::Utc::now();

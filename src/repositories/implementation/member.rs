@@ -346,6 +346,7 @@ impl Implementation {
             .inner_join(member_address_details::table)
             .filter(filter)
             .order_by(member_details::last_name)
+            .order_by(member_details::first_name)
             .limit(self.page_size as i64)
             .offset((page_offset * self.page_size) as i64)
             .select((

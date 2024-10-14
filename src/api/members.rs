@@ -69,7 +69,7 @@ pub async fn register(
 #[utoipa::path(
     context_path = CONTEXT,
     responses(
-        (status = 200, description = "A list of matching members", body=[SearchResult<MemberResponse>]),
+        (status = 200, description = "A list of matching members", body=SearchResult<MemberResponse>),
         (status = 400, description = "Bad Request"),
         (status = 401, description = "Unauthorized"),
         (status = 500, description = "Internal Server Error", body=[String])
