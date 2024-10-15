@@ -68,6 +68,9 @@ pub struct MemberResponse {
 
     #[serde(skip)]
     pub activation_string: String,
+
+    #[schema(example = "Description of this member")]
+    pub description: Option<String>,
 }
 
 /// Converts an Extended Member into a Member Response used by the associated services
@@ -90,6 +93,7 @@ impl From<&ExtendedMember> for MemberResponse {
             phone_number: value.member_detail.phone_number.clone(),
             nonce: value.nonce.clone(),
             activation_string: value.activation_string.clone(),
+            description: value.description.clone(),
         }
     }
 }

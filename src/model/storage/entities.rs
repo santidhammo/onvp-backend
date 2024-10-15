@@ -36,6 +36,7 @@ pub struct Member {
     pub activation_time: chrono::NaiveDateTime,
     pub allow_privacy_info_sharing: bool,
     pub nonce: String,
+    pub description: Option<String>,
 }
 
 impl From<&ExtendedMember> for Member {
@@ -52,6 +53,7 @@ impl From<&ExtendedMember> for Member {
             nonce: value.nonce.clone(),
             member_details_id: value.member_detail.id,
             member_address_details_id: value.member_address_detail.id,
+            description: value.description.clone(),
         }
     }
 }

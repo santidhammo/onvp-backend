@@ -177,7 +177,10 @@ impl MemberRepository for Implementation {
 
             diesel::update(members::table)
                 .filter(filter)
-                .set(members::musical_instrument_id.eq(member.musical_instrument_id.clone()))
+                .set((
+                    members::musical_instrument_id.eq(member.musical_instrument_id.clone()),
+                    members::description.eq(member.description.clone()),
+                ))
                 .execute(conn)?;
 
             let member_detail = member.member_detail;

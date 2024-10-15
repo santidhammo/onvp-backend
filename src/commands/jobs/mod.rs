@@ -38,7 +38,6 @@ pub fn clean_late_non_activated_members(pool: DatabaseConnectionPool) -> Backend
             .load::<Member>(conn)?;
 
         let mut deleted = 0;
-
         for member in result {
             {
                 let details = find_detail_by_detail_id(conn, &member.member_details_id)?;

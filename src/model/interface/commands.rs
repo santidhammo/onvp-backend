@@ -75,6 +75,9 @@ pub struct MemberUpdateCommand {
 
     #[schema(example = "+99999999999")]
     pub phone_number: String,
+
+    #[schema(example = "Describe something about this member")]
+    pub description: Option<String>,
 }
 
 #[derive(Deserialize, ToSchema, Clone, Debug)]

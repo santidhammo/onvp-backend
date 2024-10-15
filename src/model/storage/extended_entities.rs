@@ -43,6 +43,7 @@ pub struct ExtendedMember {
     pub nonce: String,
     pub member_detail: MemberDetail,
     pub member_address_detail: MemberAddressDetail,
+    pub description: Option<String>,
 }
 
 impl ExtendedMember {
@@ -72,6 +73,7 @@ impl From<(&Member, &MemberDetail, &MemberAddressDetail)> for ExtendedMember {
             nonce: member.nonce.clone(),
             member_detail: member_detail.clone(),
             member_address_detail: member_address_detail.clone(),
+            description: member.description.clone(),
         }
     }
 }
@@ -98,6 +100,7 @@ impl From<(&Member, &MemberDetail)> for ExtendedMember {
                 phone_number: "".to_owned(),
             },
             member_address_detail: MemberAddressDetail::gdpr_fake(),
+            description: member.description.clone(),
         }
     }
 }
@@ -117,6 +120,7 @@ impl From<&MemberRegisterCommand> for ExtendedMember {
             activation_time: now.add(*MEMBER_ACTIVATION_MINUTES).naive_utc(),
             allow_privacy_info_sharing: false,
             nonce: Self::generate_encoded_nonce(),
+            description: None,
         }
     }
 }
@@ -136,6 +140,7 @@ impl From<&FirstOperatorRegisterCommand> for ExtendedMember {
             activation_time: now.add(*FIRST_OPERATOR_ACTIVATION_MINUTES).naive_utc(),
             allow_privacy_info_sharing: false,
             nonce: Self::generate_encoded_nonce(),
+            description: None,
         }
     }
 }
@@ -149,6 +154,7 @@ impl From<(&ExtendedMember, &MemberUpdateCommand)> for ExtendedMember {
         cloned.member_detail.email_address = command.email_address.clone();
         cloned.member_detail.phone_number = command.phone_number.clone();
         cloned.musical_instrument_id = command.musical_instrument_id;
+        cloned.description = command.description.clone();
         cloned
     }
 }
