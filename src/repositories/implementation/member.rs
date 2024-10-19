@@ -180,6 +180,7 @@ impl MemberRepository for Implementation {
                 .set((
                     members::musical_instrument_id.eq(member.musical_instrument_id.clone()),
                     members::description.eq(member.description.clone()),
+                    members::allow_privacy_info_sharing.eq(member.allow_privacy_info_sharing),
                 ))
                 .execute(conn)?;
 

@@ -67,9 +67,11 @@ use crate::model::primitives::*;
         members::search,
         members::find,
         members::find_address,
+        members::find_privacy_info_sharing,
         members::find_workgroups,
         members::update,
         members::update_address,
+        members::update_privacy_info_sharing,
         members::upload_picture_asset,
         members::picture_asset,
         members::picture,
@@ -161,12 +163,13 @@ pub async fn run_api_server() -> std::io::Result<()> {
                                     .service(members::find)
                                     .service(members::find_address)
                                     .service(members::find_workgroups)
+                                    .service(members::find_privacy_info_sharing)
                                     .service(members::update)
                                     .service(members::update_address)
+                                    .service(members::update_privacy_info_sharing)
                                     .service(members::upload_picture_asset)
                                     .service(members::register)
                                     .service(members::unregister),
-
                             ),
                     ),
             )

@@ -176,6 +176,25 @@ impl From<&ExtendedMember> for MemberAddressResponse {
     }
 }
 
+#[derive(Serialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct MemberPrivacyInfoSharingResponse {
+    #[serde(default)]
+    pub id: i32,
+
+    #[schema(example = true)]
+    pub allow: bool,
+}
+
+impl From<&ExtendedMember> for MemberPrivacyInfoSharingResponse {
+    fn from(value: &ExtendedMember) -> Self {
+        Self {
+            id: value.id,
+            allow: value.allow_privacy_info_sharing,
+        }
+    }
+}
+
 /// Used to reply on login and refresh calls to the authorization, including the member response
 /// of the member logged in, and the roles of that member.
 #[derive(Serialize, ToSchema, Clone, Debug)]

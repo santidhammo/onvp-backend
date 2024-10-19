@@ -21,7 +21,7 @@ use crate::generic::lazy::{FIRST_OPERATOR_ACTIVATION_MINUTES, MEMBER_ACTIVATION_
 use crate::generic::security::generate_activation_string;
 use crate::model::interface::commands::{
     FirstOperatorRegisterCommand, MemberRegisterCommand, MemberUpdateAddressCommand,
-    MemberUpdateCommand,
+    MemberUpdateCommand, MemberUpdatePrivacyInfoSharingCommand,
 };
 use crate::model::storage::entities::{Member, MemberAddressDetail, MemberDetail};
 use aes_gcm::aead::OsRng;
@@ -168,6 +168,15 @@ impl From<(&ExtendedMember, &MemberUpdateAddressCommand)> for ExtendedMember {
         cloned.member_address_detail.house_number_postfix = command.house_number_postfix.clone();
         cloned.member_address_detail.postal_code = command.postal_code.clone();
         cloned.member_address_detail.domicile = command.domicile.clone();
+        cloned
+    }
+}
+
+/// Merges the update command into an existing extended member
+impl From<(&ExtendedMember, &MemberUpdatePrivacyInfoSharingCommand)> for ExtendedMember {
+    fn from((origin, command): (&ExtendedMember, &MemberUpdatePrivacyInfoSharingCommand)) -> Self {
+        let mut cloned = origin.clone();
+        cloned.allow_privacy_info_sharing = command.allow;
         cloned
     }
 }

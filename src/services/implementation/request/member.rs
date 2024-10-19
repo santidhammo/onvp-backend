@@ -25,7 +25,7 @@ use crate::repositories::definitions::MemberRepository;
 use crate::generic::search_helpers::create_like_string;
 use crate::generic::storage::database::DatabaseConnectionPool;
 use crate::model::interface::responses::{
-    MemberAddressResponse, MemberResponse, WorkgroupResponse,
+    MemberAddressResponse, MemberPrivacyInfoSharingResponse, MemberResponse, WorkgroupResponse,
 };
 use crate::services::definitions::request::{MemberRequestService, SearchController};
 use actix_web::web::Data;
@@ -51,6 +51,17 @@ impl MemberRequestService for Implementation {
             .member_repository
             .find_extended_by_id(&mut conn, member_id)?;
         Ok(MemberAddressResponse::from(&extended_member))
+    }
+
+    fn find_privacy_info_sharing_by_id(
+        &self,
+        member_id: i32,
+    ) -> BackendResult<MemberPrivacyInfoSharingResponse> {
+        let mut conn = self.pool.get()?;
+        let extended_member = self
+            .member_repository
+            .find_extended_by_id(&mut conn, member_id)?;
+        Ok(MemberPrivacyInfoSharingResponse::from(&extended_member))
     }
 
     fn find_by_activation_string(&self, activation_string: &str) -> BackendResult<MemberResponse> {

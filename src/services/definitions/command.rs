@@ -21,7 +21,8 @@ use crate::model::interface::commands::{
     AssociateMemberToWorkgroupCommand, AssociateRoleCommand, DissociateMemberFromWorkgroupCommand,
     DissociateRoleCommand, FirstOperatorRegisterCommand, ImageUploadCommand,
     MemberActivationCommand, MemberRegisterCommand, MemberUpdateAddressCommand,
-    MemberUpdateCommand, WorkgroupRegisterCommand, WorkgroupUpdateCommand,
+    MemberUpdateCommand, MemberUpdatePrivacyInfoSharingCommand, WorkgroupRegisterCommand,
+    WorkgroupUpdateCommand,
 };
 
 /// Controls actions which can be performed on member data
@@ -38,6 +39,13 @@ pub trait MemberCommandService {
         &self,
         member_id: i32,
         command: &MemberUpdateAddressCommand,
+    ) -> BackendResult<()>;
+
+    /// Updates whether the member allows for (weak) privacy related information to be shared
+    fn update_privacy_info_sharing(
+        &self,
+        member_id: i32,
+        command: &MemberUpdatePrivacyInfoSharingCommand,
     ) -> BackendResult<()>;
 
     /// Unregisters an existing member

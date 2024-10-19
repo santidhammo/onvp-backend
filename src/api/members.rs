@@ -24,10 +24,11 @@ use crate::generic::result::{BackendError, BackendResult};
 use crate::model::interface::client::UserClaims;
 use crate::model::interface::commands::{
     ImageUploadCommand, MemberActivationCommand, MemberRegisterCommand, MemberUpdateAddressCommand,
-    MemberUpdateCommand,
+    MemberUpdateCommand, MemberUpdatePrivacyInfoSharingCommand,
 };
 use crate::model::interface::responses::{
-    ImageAssetIdResponse, MemberAddressResponse, MemberResponse, WorkgroupResponse,
+    ImageAssetIdResponse, MemberAddressResponse, MemberPrivacyInfoSharingResponse, MemberResponse,
+    WorkgroupResponse,
 };
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::services::definitions::command::{
@@ -129,6 +130,29 @@ pub async fn find_address(
     Ok(Json(controller.find_address_by_id(id.into_inner())?))
 }
 
+/// Gets a member privacy information sharing details
+///
+/// Searches for a member privacy information sharing details by using the member identifier.
+/// If found, a single record with the member privacy information sharing details is returned.
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "Member privacy information sharing details", body=MemberPrivacyInfoSharingResponse),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal Server Error", body=Option<String>)
+    )
+)]
+#[get("/{id}/privacy")]
+pub async fn find_privacy_info_sharing(
+    controller: Data<dyn MemberRequestService>,
+    id: Path<i32>,
+) -> BackendResult<Json<MemberPrivacyInfoSharingResponse>> {
+    Ok(Json(
+        controller.find_privacy_info_sharing_by_id(id.into_inner())?,
+    ))
+}
+
 /// Save a member and the primary detail by id
 ///
 /// Updates an existing member and primary detail record given the data.
@@ -170,6 +194,28 @@ pub async fn update_address(
     command: Json<MemberUpdateAddressCommand>,
 ) -> BackendResult<HttpResponse> {
     service.update_address(id.into_inner(), &command)?;
+    Ok(HttpResponse::Ok().finish())
+}
+
+/// Update the privacy information sharing details of a member
+///
+/// Given the new privacy information sharing details of a member, save the details
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "Member is updated"),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal backend error", body=Option<String>),
+    )
+)]
+#[post("/{id}/privacy")]
+pub async fn update_privacy_info_sharing(
+    service: Data<dyn MemberCommandService>,
+    id: Path<i32>,
+    command: Json<MemberUpdatePrivacyInfoSharingCommand>,
+) -> BackendResult<HttpResponse> {
+    service.update_privacy_info_sharing(id.into_inner(), &command)?;
     Ok(HttpResponse::Ok().finish())
 }
 

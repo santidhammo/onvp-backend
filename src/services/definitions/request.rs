@@ -21,7 +21,7 @@ use crate::model::interface::client::UserClaims;
 use crate::model::interface::requests::AuthorizationRequest;
 use crate::model::interface::responses::{
     AuthorizationResponse, FacebookResponse, ImageAssetIdResponse, ImageResponse,
-    MemberAddressResponse, MemberResponse, WorkgroupResponse,
+    MemberAddressResponse, MemberPrivacyInfoSharingResponse, MemberResponse, WorkgroupResponse,
 };
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::model::primitives::{Role, RoleClass};
@@ -64,6 +64,12 @@ pub trait MemberRequestService: SearchController<MemberResponse> {
 
     /// Finds a member address by the member identifier
     fn find_address_by_id(&self, member_id: i32) -> BackendResult<MemberAddressResponse>;
+
+    /// Finds a member privacy information sharing details record by member identifier
+    fn find_privacy_info_sharing_by_id(
+        &self,
+        member_id: i32,
+    ) -> BackendResult<MemberPrivacyInfoSharingResponse>;
 
     /// Finds a member by the member's activation string
     fn find_by_activation_string(&self, activation_string: &str) -> BackendResult<MemberResponse>;

@@ -22,6 +22,7 @@ use crate::generic::storage::database::DatabaseConnectionPool;
 use crate::generic::Injectable;
 use crate::model::interface::commands::{
     MemberRegisterCommand, MemberUpdateAddressCommand, MemberUpdateCommand,
+    MemberUpdatePrivacyInfoSharingCommand,
 };
 use crate::model::primitives::Role;
 use crate::model::storage::extended_entities::ExtendedMember;
@@ -78,6 +79,22 @@ impl MemberCommandService for Implementation {
         &self,
         member_id: i32,
         command: &MemberUpdateAddressCommand,
+    ) -> BackendResult<()> {
+        let mut conn = self.pool.get()?;
+        conn.transaction::<_, BackendError, _>(|conn| {
+            let origin = self
+                .member_repository
+                .find_extended_by_id(conn, member_id)?;
+            let new = ExtendedMember::from((&origin, command));
+            self.member_repository.save(conn, new)?;
+            Ok(())
+        })
+    }
+
+    fn update_privacy_info_sharing(
+        &self,
+        member_id: i32,
+        command: &MemberUpdatePrivacyInfoSharingCommand,
     ) -> BackendResult<()> {
         let mut conn = self.pool.get()?;
         conn.transaction::<_, BackendError, _>(|conn| {

@@ -82,6 +82,13 @@ pub struct MemberUpdateCommand {
 
 #[derive(Deserialize, ToSchema, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
+pub struct MemberUpdatePrivacyInfoSharingCommand {
+    #[schema(example = true)]
+    pub allow: bool,
+}
+
+#[derive(Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct MemberUpdateAddressCommand {
     #[schema(example = "Orchestra Road")]
     pub street: String,
