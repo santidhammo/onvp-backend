@@ -20,8 +20,8 @@ use crate::generic::result::BackendResult;
 use crate::model::interface::client::UserClaims;
 use crate::model::interface::requests::AuthorizationRequest;
 use crate::model::interface::responses::{
-    AuthorizationResponse, ImageAssetIdResponse, ImageResponse, MemberAddressResponse,
-    MemberResponse, WorkgroupResponse,
+    AuthorizationResponse, FacebookResponse, ImageAssetIdResponse, ImageResponse,
+    MemberAddressResponse, MemberResponse, WorkgroupResponse,
 };
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::model::primitives::{Role, RoleClass};
@@ -108,6 +108,9 @@ pub trait WorkgroupRequestService: SearchController<WorkgroupResponse> {
         params: &SearchParams,
     ) -> BackendResult<SearchResult<MemberResponse>>;
 }
+
+/// Controls actions for data retrieval belonging to the facebook
+pub trait FacebookRequestService: SearchController<FacebookResponse> {}
 
 pub trait SearchController<T> {
     fn search(&self, params: &SearchParams) -> BackendResult<SearchResult<T>>

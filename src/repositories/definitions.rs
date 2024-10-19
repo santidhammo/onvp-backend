@@ -20,7 +20,7 @@ use crate::generic::result::BackendResult;
 use crate::generic::storage::database::DatabaseConnection;
 use crate::model::primitives::Role;
 use crate::model::storage::entities::Workgroup;
-use crate::model::storage::extended_entities::ExtendedMember;
+use crate::model::storage::extended_entities::{ExtendedMember, FacebookMember};
 
 pub trait MemberRepository {
     fn create_inactive(
@@ -177,4 +177,14 @@ pub trait AuthorizationRepository {
         conn: &mut DatabaseConnection,
         member_id: i32,
     ) -> BackendResult<Vec<Role>>;
+}
+
+/// Manages a public repository for the face book, with a more minimalist amount of data
+pub trait FacebookRepository {
+    fn search(
+        &self,
+        conn: &mut DatabaseConnection,
+        page_offset: usize,
+        term: &str,
+    ) -> BackendResult<(usize, usize, Vec<FacebookMember>)>;
 }

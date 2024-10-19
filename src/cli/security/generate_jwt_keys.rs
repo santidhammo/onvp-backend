@@ -24,6 +24,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
+#[allow(dead_code)] // Cargo thinks this is dead code, but it is not
 fn main() -> Result<(), Box<dyn Error>> {
     let keypair = KeyPair::generate();
 

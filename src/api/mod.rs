@@ -38,6 +38,7 @@ use utoipa::OpenApi;
 use utoipa_scalar::{Scalar, Servable};
 
 mod authorization;
+mod facebook;
 pub mod members;
 pub mod roles;
 pub mod setup;
@@ -85,6 +86,7 @@ use crate::model::primitives::*;
         workgroups::available_members_search,
         workgroups::associate,
         workgroups::dissociate,
+        facebook::search,
         source_code::details,
     ),
     components(
@@ -105,6 +107,7 @@ use crate::model::primitives::*;
         schemas(WorkgroupResponse),
         schemas(MemberAddressResponse),
         schemas(WorkgroupResponse),
+        schemas(FacebookResponse),
         schemas(RoleClass),
         schemas(Role),
     ),
@@ -208,6 +211,7 @@ pub async fn run_api_server() -> std::io::Result<()> {
                     ),
                 ),
             )
+            .service(web::scope(facebook::CONTEXT).service(facebook::search))
             .service(
                 web::scope(setup::CONTEXT)
                     .service(setup::should_setup)

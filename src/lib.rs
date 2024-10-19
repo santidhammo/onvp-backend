@@ -20,12 +20,12 @@
 pub mod api;
 pub mod commands;
 pub mod generic;
-mod injection;
+pub mod injection;
 pub mod mock;
 pub mod model;
-mod repositories;
+pub mod repositories;
 pub mod schema;
-mod services;
+pub mod services;
 
 use crate::generic::result::BackendResult;
 use rand::distributions::{Alphanumeric, DistString};

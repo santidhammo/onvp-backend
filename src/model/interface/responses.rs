@@ -20,7 +20,8 @@ use crate::generic::lazy::OTP_CIPHER;
 use crate::generic::result::{BackendError, BackendResult};
 use crate::model::primitives::Role;
 use crate::model::storage;
-use crate::model::storage::extended_entities::ExtendedMember;
+use crate::model::storage::entities::Workgroup;
+use crate::model::storage::extended_entities::{ExtendedMember, FacebookMember};
 use actix_web::cookie::Cookie;
 use actix_web::http::header::ContentType;
 use aes_gcm::aead::consts::U12;
@@ -219,4 +220,39 @@ pub struct ImageResponse {
 
     /// The content-type of the response
     pub content_type: ContentType,
+}
+
+#[derive(Serialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct FacebookResponse {
+    #[schema(example = 1)]
+    pub musical_instrument_id: Option<i32>,
+
+    #[schema(example = "xyz.png")]
+    pub picture_asset_id: Option<String>,
+
+    #[schema(example = "John Doe")]
+    pub full_name: String,
+
+    #[schema(example = "Description of this member")]
+    pub description: Option<String>,
+
+    pub workgroup_names: Vec<String>,
+}
+
+impl From<(&FacebookMember, &Vec<Workgroup>)> for FacebookResponse {
+    fn from((facebook_member, workgroups): (&FacebookMember, &Vec<Workgroup>)) -> Self {
+        Self {
+            musical_instrument_id: facebook_member.musical_instrument_id.clone(),
+            picture_asset_id: facebook_member.picture_asset_id.clone(),
+            full_name: format!(
+                "{} {}",
+                facebook_member.first_name, facebook_member.last_name
+            )
+            .trim()
+            .to_string(),
+            description: facebook_member.description.clone(),
+            workgroup_names: workgroups.iter().map(|w| w.name.clone()).collect(),
+        }
+    }
 }

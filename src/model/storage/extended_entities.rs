@@ -171,3 +171,29 @@ impl From<(&ExtendedMember, &MemberUpdateAddressCommand)> for ExtendedMember {
         cloned
     }
 }
+
+/// A facebook member is a very GDPR scrubbed set of member information meant for public usage
+#[derive(Clone, Debug)]
+pub struct FacebookMember {
+    pub id: i32,
+    pub first_name: String,
+    pub last_name: String,
+    pub musical_instrument_id: Option<i32>,
+    pub picture_asset_id: Option<String>,
+    pub allow_privacy_info_sharing: bool,
+    pub description: Option<String>,
+}
+
+impl From<(&Member, &MemberDetail)> for FacebookMember {
+    fn from((member, member_detail): (&Member, &MemberDetail)) -> Self {
+        Self {
+            id: member.id,
+            first_name: member_detail.first_name.clone(),
+            last_name: member_detail.last_name.clone(),
+            musical_instrument_id: member.musical_instrument_id,
+            picture_asset_id: member.picture_asset_id.clone(),
+            allow_privacy_info_sharing: member.allow_privacy_info_sharing,
+            description: member.description.clone(),
+        }
+    }
+}
