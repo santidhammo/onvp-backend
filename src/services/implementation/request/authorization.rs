@@ -137,17 +137,18 @@ impl AuthorizationRequestService for Implementation {
     }
 
     fn logout(&self) -> BackendResult<Vec<Cookie<'static>>> {
-        let access_cookie = Cookie::build("access_token".to_string(), "")
+        let mut access_cookie = Cookie::build("access_token".to_string(), "")
             .secure(true)
-            .same_site(SameSite::Strict)
             .expires(Expiration::DateTime(OffsetDateTime::UNIX_EPOCH))
             .finish();
 
-        let refresh_cookie = Cookie::build("refresh_token".to_string(), "")
+        let mut refresh_cookie = Cookie::build("refresh_token".to_string(), "")
             .secure(true)
-            .same_site(SameSite::Strict)
             .expires(Expiration::DateTime(OffsetDateTime::UNIX_EPOCH))
             .finish();
+
+        Self::set_cookie_site_policy(&mut access_cookie);
+        Self::set_cookie_site_policy(&mut refresh_cookie);
 
         Ok(vec![access_cookie, refresh_cookie])
     }
