@@ -16,6 +16,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+pub mod traits;
+
 use crate::generic::result::BackendResult;
 use crate::model::interface::client::UserClaims;
 use crate::model::interface::requests::AuthorizationRequest;
@@ -25,6 +27,7 @@ use crate::model::interface::responses::{
 };
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::model::primitives::{Role, RoleClass};
+use crate::services::definitions::request::traits::RoleContainer;
 use actix_web::cookie::Cookie;
 use serde::Serialize;
 
@@ -82,13 +85,13 @@ pub trait MemberPictureRequestService {
     fn find_asset_by_member_id(
         &self,
         member_id: i32,
-        user_claims: &UserClaims,
+        role_container: &dyn RoleContainer,
     ) -> BackendResult<Option<ImageResponse>>;
 
     fn find_asset_id_by_member_id(
         &self,
         member_id: i32,
-        user_claims: &UserClaims,
+        role_container: &dyn RoleContainer,
     ) -> BackendResult<ImageAssetIdResponse>;
 }
 

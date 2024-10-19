@@ -19,9 +19,10 @@
 use crate::generic::result::BackendResult;
 use crate::model::interface::responses::FacebookResponse;
 use crate::model::interface::search::{SearchParams, SearchResult};
-use crate::services::definitions::request::FacebookRequestService;
-use actix_web::get;
-use actix_web::web::{Data, Json, Query};
+use crate::model::primitives::Role;
+use crate::services::definitions::request::{FacebookRequestService, MemberPictureRequestService};
+use actix_web::web::{Bytes, Data, Json, Path, Query};
+use actix_web::{get, HttpResponse};
 use std::ops::Deref;
 
 pub const CONTEXT: &str = "/api/facebook";
@@ -49,4 +50,29 @@ pub async fn search(
     search_params: Query<SearchParams>,
 ) -> BackendResult<Json<SearchResult<FacebookResponse>>> {
     Ok(Json(service.search(search_params.deref())?))
+}
+
+/// Retrieves the picture of a member, if available
+#[utoipa::path(
+    context_path = CONTEXT,
+    responses(
+        (status = 200, description = "Successful picture retrieval", content_type="image/png"),
+        (status = 410, description = "Picture not available"),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal Server Error", body=Option<String>)
+    )
+)]
+#[get("/{id}/picture.png")]
+pub async fn picture_asset(
+    service: Data<dyn MemberPictureRequestService>,
+    id: Path<i32>,
+) -> BackendResult<HttpResponse> {
+    let result = service.find_asset_by_member_id(id.into_inner(), &Role::Public)?;
+    match result {
+        None => Ok(HttpResponse::Gone().finish()),
+        Some(data) => Ok(HttpResponse::Ok()
+            .insert_header(data.content_type)
+            .body(Bytes::from(data.bytes))),
+    }
 }

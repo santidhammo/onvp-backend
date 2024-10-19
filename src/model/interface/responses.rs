@@ -245,6 +245,9 @@ pub struct ImageResponse {
 #[serde(rename_all = "camelCase")]
 pub struct FacebookResponse {
     #[schema(example = 1)]
+    pub id: i32,
+
+    #[schema(example = 1)]
     pub musical_instrument_id: Option<i32>,
 
     #[schema(example = "xyz.png")]
@@ -262,6 +265,7 @@ pub struct FacebookResponse {
 impl From<(&FacebookMember, &Vec<Workgroup>)> for FacebookResponse {
     fn from((facebook_member, workgroups): (&FacebookMember, &Vec<Workgroup>)) -> Self {
         Self {
+            id: facebook_member.id,
             musical_instrument_id: facebook_member.musical_instrument_id.clone(),
             picture_asset_id: facebook_member.picture_asset_id.clone(),
             full_name: format!(

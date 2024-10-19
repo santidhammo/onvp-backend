@@ -89,6 +89,7 @@ use crate::model::primitives::*;
         workgroups::associate,
         workgroups::dissociate,
         facebook::search,
+        facebook::picture_asset,
         source_code::details,
     ),
     components(
@@ -214,7 +215,11 @@ pub async fn run_api_server() -> std::io::Result<()> {
                     ),
                 ),
             )
-            .service(web::scope(facebook::CONTEXT).service(facebook::search))
+            .service(
+                web::scope(facebook::CONTEXT)
+                    .service(facebook::search)
+                    .service(facebook::picture_asset),
+            )
             .service(
                 web::scope(setup::CONTEXT)
                     .service(setup::should_setup)

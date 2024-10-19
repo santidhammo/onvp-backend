@@ -19,11 +19,11 @@
 use crate::generic::result::{BackendError, BackendResult};
 use crate::generic::storage::database::DatabaseConnectionPool;
 use crate::generic::Injectable;
-use crate::model::interface::client::UserClaims;
 use crate::model::interface::responses::{ImageAssetIdResponse, ImageResponse};
 use crate::model::primitives::Role;
 use crate::model::storage::extended_entities::ExtendedMember;
 use crate::repositories::definitions::MemberRepository;
+use crate::services::definitions::request::traits::RoleContainer;
 use crate::services::definitions::request::MemberPictureRequestService;
 use actix_web::http::header::ContentType;
 use actix_web::web::Data;
@@ -40,11 +40,11 @@ impl MemberPictureRequestService for Implementation {
     fn find_asset_by_member_id(
         &self,
         member_id: i32,
-        user_claims: &UserClaims,
+        role_container: &dyn RoleContainer,
     ) -> BackendResult<Option<ImageResponse>> {
-        let result = if user_claims.has_role(Role::Operator) {
+        let result = if role_container.has_role(Role::Operator) {
             self.handle_retrieve_member_picture_operator(member_id)?
-        } else if user_claims.has_role(Role::Member) {
+        } else if role_container.has_role(Role::Public) {
             self.handle_retrieve_member_picture_dpia(member_id)?
         } else {
             return Err(BackendError::bad());
@@ -58,15 +58,15 @@ impl MemberPictureRequestService for Implementation {
     fn find_asset_id_by_member_id(
         &self,
         member_id: i32,
-        user_claims: &UserClaims,
+        role_container: &dyn RoleContainer,
     ) -> BackendResult<ImageAssetIdResponse> {
         let mut conn = self.pool.get()?;
         let extended_member = self
             .member_repository
             .find_extended_by_id(&mut conn, member_id)?;
-        let result = if user_claims.has_role(Role::Operator) {
+        let result = if role_container.has_role(Role::Operator) {
             extended_member.picture_asset_id
-        } else if user_claims.has_role(Role::Member) {
+        } else if role_container.has_role(Role::Public) {
             if extended_member.allow_privacy_info_sharing {
                 extended_member.picture_asset_id
             } else {
