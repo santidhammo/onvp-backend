@@ -27,7 +27,10 @@ use crate::generic::storage::database::DatabaseConnectionPool;
 use crate::generic::{search_helpers, Injectable};
 use crate::model::interface::responses::FacebookResponse;
 use crate::model::interface::search::{SearchParams, SearchResult};
-use crate::repositories::definitions::{FacebookRepository, MemberRepository};
+use crate::model::primitives::Role;
+use crate::repositories::definitions::{
+    AuthorizationRepository, FacebookRepository, MemberRepository,
+};
 use crate::services::definitions::request::{FacebookRequestService, SearchController};
 use actix_web::web::Data;
 use diesel::Connection;
@@ -38,6 +41,7 @@ pub struct Implementation {
     pool: DatabaseConnectionPool,
     facebook_repository: Data<dyn FacebookRepository>,
     member_repository: Data<dyn MemberRepository>,
+    authorization_repository: Data<dyn AuthorizationRepository>,
 }
 
 impl SearchController<FacebookResponse> for Implementation {
@@ -56,11 +60,21 @@ impl SearchController<FacebookResponse> for Implementation {
             let rows: Vec<FacebookResponse> = results
                 .iter()
                 .map(|m| {
-                    let a = self
+                    let workgroup_names = self
                         .member_repository
                         .find_workgroups(conn, m.id)
                         .unwrap_or(vec![]);
-                    FacebookResponse::from((m, &a))
+                    let roles = self
+                        .authorization_repository
+                        .find_composite_roles_by_member_id(conn, m.id)
+                        .unwrap_or(vec![])
+                        .iter()
+                        .map(|r| *r)
+                        .filter(|r| {
+                            r != &Role::Operator && r != &Role::Public && r != &Role::Member
+                        })
+                        .collect();
+                    FacebookResponse::from((m, &workgroup_names, &roles))
                 })
                 .collect();
 
@@ -82,21 +96,24 @@ impl
             &DatabaseConnectionPool,
             &Data<dyn FacebookRepository>,
             &Data<dyn MemberRepository>,
+            &Data<dyn AuthorizationRepository>,
         ),
         dyn FacebookRequestService,
     > for Implementation
 {
     fn injectable(
-        (pool, facebook_repository, member_repository): (
+        (pool, facebook_repository, member_repository, authorization_repository): (
             &DatabaseConnectionPool,
             &Data<dyn FacebookRepository>,
             &Data<dyn MemberRepository>,
+            &Data<dyn AuthorizationRepository>,
         ),
     ) -> Data<dyn FacebookRequestService> {
         let implementation = Self {
             pool: pool.clone(),
             facebook_repository: facebook_repository.clone(),
             member_repository: member_repository.clone(),
+            authorization_repository: authorization_repository.clone(),
         };
 
         let arc: Arc<dyn FacebookRequestService> = Arc::new(implementation);

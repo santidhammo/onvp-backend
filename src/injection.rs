@@ -123,6 +123,7 @@ where
             pool,
             &repositories.facebook_repository,
             &repositories.member_repository,
+            &repositories.authorization_repository,
         )),
     )
 }

@@ -260,10 +260,14 @@ pub struct FacebookResponse {
     pub description: Option<String>,
 
     pub workgroup_names: Vec<String>,
+
+    pub roles: Vec<Role>,
 }
 
-impl From<(&FacebookMember, &Vec<Workgroup>)> for FacebookResponse {
-    fn from((facebook_member, workgroups): (&FacebookMember, &Vec<Workgroup>)) -> Self {
+impl From<(&FacebookMember, &Vec<Workgroup>, &Vec<Role>)> for FacebookResponse {
+    fn from(
+        (facebook_member, workgroups, roles): (&FacebookMember, &Vec<Workgroup>, &Vec<Role>),
+    ) -> Self {
         Self {
             id: facebook_member.id,
             musical_instrument_id: facebook_member.musical_instrument_id.clone(),
@@ -276,6 +280,7 @@ impl From<(&FacebookMember, &Vec<Workgroup>)> for FacebookResponse {
             .to_string(),
             description: facebook_member.description.clone(),
             workgroup_names: workgroups.iter().map(|w| w.name.clone()).collect(),
+            roles: roles.clone(),
         }
     }
 }
