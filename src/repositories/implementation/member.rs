@@ -24,14 +24,32 @@ use crate::model::primitives::Role;
 use crate::model::storage::entities::{Member, MemberAddressDetail, MemberDetail, Workgroup};
 use crate::model::storage::extended_entities::ExtendedMember;
 use crate::repositories::definitions::MemberRepository;
+use crate::repositories::implementation::search_expressions::MemberSearchExpressionGenerator;
 use crate::schema::{
     member_address_details, member_details, member_role_associations, members,
     workgroup_member_relationships, workgroups,
 };
 use actix_web::web::Data;
+use diesel::backend::{Backend, SqlDialect};
+use diesel::connection::LoadConnection;
+use diesel::deserialize::{FromSql, FromStaticSqlRow};
+use diesel::dsl::{AsSelect, InnerJoinQuerySource, Limit};
+use diesel::expression::is_aggregate::No;
+use diesel::expression::ValidGrouping;
+use diesel::internal::derives::as_expression::Bound;
+use diesel::internal::derives::multiconnection::sql_dialect::select_statement_syntax::AnsiSqlSelectStatement;
+use diesel::internal::derives::multiconnection::{
+    DieselReserveSpecialization, LimitClause, LimitOffsetClause, NoLimitClause, NoOffsetClause,
+    OffsetClause,
+};
+use diesel::query_builder::{QueryFragment, QueryId};
+use diesel::query_dsl::limit_dsl::LimitDsl;
+use diesel::query_dsl::select_dsl::SelectDsl;
+use diesel::serialize::ToSql;
+use diesel::sql_types::{BigInt, Bool, HasSqlType};
 use diesel::{
-    BoolExpressionMethods, Connection, ExpressionMethods, PgConnection, QueryDsl, RunQueryDsl,
-    SelectableHelper, SqliteConnection,
+    AppearsOnTable, BoolExpressionMethods, Connection, Expression, ExpressionMethods, QueryDsl,
+    RunQueryDsl, SelectableHelper,
 };
 use std::sync::Arc;
 
@@ -77,16 +95,18 @@ impl MemberRepository for Implementation {
             Member,
             MemberDetail,
             MemberAddressDetail,
-        ) = members::table
-            .inner_join(member_details::table)
-            .inner_join(member_address_details::table)
-            .filter(members::id.eq(id))
-            .select((
+        ) = QueryDsl::select(
+            members::table
+                .inner_join(member_details::table)
+                .inner_join(member_address_details::table)
+                .filter(members::id.eq(id)),
+            (
                 Member::as_select(),
                 MemberDetail::as_select(),
                 MemberAddressDetail::as_select(),
-            ))
-            .first(conn)?;
+            ),
+        )
+        .first(conn)?;
         Ok(ExtendedMember::from((
             &member,
             &member_detail,
@@ -107,20 +127,22 @@ impl MemberRepository for Implementation {
             Member,
             MemberDetail,
             MemberAddressDetail,
-        ) = members::table
-            .inner_join(member_details::table)
-            .inner_join(member_address_details::table)
-            .select((
+        ) = QueryDsl::select(
+            members::table
+                .inner_join(member_details::table)
+                .inner_join(member_address_details::table),
+            (
                 Member::as_select(),
                 MemberDetail::as_select(),
                 MemberAddressDetail::as_select(),
-            ))
-            .filter(
-                activated_filter
-                    .and(activation_time_filter)
-                    .and(activation_string_filter),
-            )
-            .first(conn)?;
+            ),
+        )
+        .filter(
+            activated_filter
+                .and(activation_time_filter)
+                .and(activation_string_filter),
+        )
+        .first(conn)?;
         Ok(ExtendedMember::from((
             &member,
             &member_detail,
@@ -141,16 +163,18 @@ impl MemberRepository for Implementation {
             Member,
             MemberDetail,
             MemberAddressDetail,
-        ) = members::table
-            .inner_join(member_details::table)
-            .inner_join(member_address_details::table)
-            .select((
+        ) = QueryDsl::select(
+            members::table
+                .inner_join(member_details::table)
+                .inner_join(member_address_details::table),
+            (
                 Member::as_select(),
                 MemberDetail::as_select(),
                 MemberAddressDetail::as_select(),
-            ))
-            .filter(filter)
-            .first(conn)?;
+            ),
+        )
+        .filter(filter)
+        .first(conn)?;
         Ok(ExtendedMember::from((
             &member,
             &member_detail,
@@ -163,11 +187,13 @@ impl MemberRepository for Implementation {
         conn: &mut DatabaseConnection,
         id: i32,
     ) -> BackendResult<Vec<Workgroup>> {
-        let result: Vec<Workgroup> = workgroup_member_relationships::table
-            .inner_join(workgroups::table)
-            .filter(workgroup_member_relationships::member_id.eq(id))
-            .select(Workgroup::as_select())
-            .load(conn)?;
+        let result: Vec<Workgroup> = QueryDsl::select(
+            workgroup_member_relationships::table
+                .inner_join(workgroups::table)
+                .filter(workgroup_member_relationships::member_id.eq(id)),
+            Workgroup::as_select(),
+        )
+        .load(conn)?;
         Ok(result)
     }
 
@@ -237,19 +263,18 @@ impl MemberRepository for Implementation {
         term: &str,
     ) -> BackendResult<(usize, usize, Vec<ExtendedMember>)> {
         let like_search_string = search_helpers::create_like_string(term);
-        conn.transaction::<(usize, usize, Vec<ExtendedMember>), BackendError, _>(|conn| {
-            // ILIKE is only supported on PostgreSQL
-            let (total_count, extended_members) = match conn {
-                DatabaseConnection::PostgreSQL(ref mut conn) => {
-                    self.postgresql_search(conn, page_offset, &like_search_string)
+        let (total_count, extended_members) = conn
+            .transaction::<(usize, Vec<ExtendedMember>), BackendError, _>(|conn| match conn {
+                DatabaseConnection::PostgreSQL(conn) => {
+                    let filter = MemberSearchExpressionGenerator::postgresql(&like_search_string);
+                    self.search(conn, page_offset, &filter)
                 }
-
-                DatabaseConnection::SQLite(ref mut conn) => {
-                    self.sqlite_search(conn, page_offset, &like_search_string)
+                DatabaseConnection::SQLite(conn) => {
+                    let filter = MemberSearchExpressionGenerator::sqlite(&like_search_string);
+                    self.search(conn, page_offset, &filter)
                 }
-            }?;
-            Ok((total_count, self.page_size, extended_members))
-        })
+            })?;
+        Ok((total_count, self.page_size, extended_members))
     }
 
     fn unregister(&self, conn: &mut DatabaseConnection, member_id: i32) -> BackendResult<()> {
@@ -285,87 +310,85 @@ impl MemberRepository for Implementation {
 }
 
 impl Implementation {
-    fn postgresql_search(
+    fn search<DB, TSearchExpression, TConnection>(
         &self,
-        conn: &mut PgConnection,
+        conn: &mut TConnection,
         page_offset: usize,
-        like_search_string: &str,
-    ) -> Result<(usize, Vec<ExtendedMember>), BackendError> {
-        use diesel::PgTextExpressionMethods;
-        let filter = member_details::first_name
-            .ilike(&like_search_string)
-            .or(member_details::last_name.ilike(&like_search_string))
-            .or(member_details::email_address.ilike(&like_search_string));
+        search_expression: TSearchExpression,
+    ) -> Result<(usize, Vec<ExtendedMember>), BackendError>
+    where
+        DB: Backend<SelectStatementSyntax = AnsiSqlSelectStatement>
+            + SqlDialect
+            + DieselReserveSpecialization
+            + HasSqlType<Bool>
+            + 'static,
+        TConnection: LoadConnection + Connection<Backend = DB> + Send,
+        TSearchExpression: QueryFragment<DB>
+            + Expression<SqlType = Bool>
+            + ValidGrouping<(), IsAggregate = No>
+            + AppearsOnTable<
+                InnerJoinQuerySource<
+                    InnerJoinQuerySource<members::table, member_details::table>,
+                    member_address_details::table,
+                >,
+            > + QueryId,
+        Limit<members::table>: LimitDsl,
+        Limit<member_details::table>: LimitDsl,
+        Limit<member_address_details::table>: LimitDsl,
+        members::table: SelectDsl<AsSelect<Member, DB>>,
+        member_details::table: SelectDsl<AsSelect<MemberDetail, DB>>,
+        member_address_details::table: SelectDsl<AsSelect<MemberAddressDetail, DB>>,
+        LimitOffsetClause<LimitClause<Bound<BigInt, i64>>, OffsetClause<Bound<BigInt, i64>>>:
+            QueryFragment<DB>,
+        LimitOffsetClause<NoLimitClause, NoOffsetClause>: QueryFragment<DB>,
+        (Member, MemberDetail, MemberAddressDetail): FromStaticSqlRow<
+            (
+                AsSelect<Member, DB>,
+                AsSelect<MemberDetail, DB>,
+                AsSelect<MemberAddressDetail, DB>,
+            ),
+            DB,
+        >,
+        bool: ToSql<Bool, DB>,
+        i64: FromSql<BigInt, DB>,
+    {
+        let where_expression = members::activated
+            .eq(true)
+            .and(members::allow_privacy_info_sharing.eq(true))
+            .and(search_expression);
 
-        let total_count: usize = member_details::dsl::member_details
-            .filter(filter)
+        let total_count: usize = members::table
+            .inner_join(member_details::table)
+            .inner_join(member_address_details::table)
+            .filter(&where_expression)
             .count()
             .get_result::<i64>(conn)? as usize;
 
-        let result: Vec<(Member, MemberDetail, MemberAddressDetail)> = members::table
-            .inner_join(member_details::table)
-            .inner_join(member_address_details::table)
-            .filter(filter)
-            .order_by(member_details::last_name)
-            .order_by(member_details::first_name)
-            .limit(self.page_size as i64)
-            .offset((page_offset * self.page_size) as i64)
-            .select((
+        let result: Vec<(Member, MemberDetail, MemberAddressDetail)> = QueryDsl::select(
+            QueryDsl::limit(
+                members::table
+                    .inner_join(member_details::table)
+                    .inner_join(member_address_details::table)
+                    .filter(&where_expression)
+                    .order_by(member_details::last_name)
+                    .order_by(member_details::first_name),
+                self.page_size as i64,
+            )
+            .offset((page_offset * self.page_size) as i64),
+            (
                 Member::as_select(),
                 MemberDetail::as_select(),
                 MemberAddressDetail::as_select(),
-            ))
-            .load(conn)?;
+            ),
+        )
+        .load(conn)?;
 
         Ok((
             total_count,
             result
                 .iter()
-                .map(|(member, member_detail, member_address_details)| {
-                    ExtendedMember::from((member, member_detail, member_address_details))
-                })
-                .collect(),
-        ))
-    }
-
-    fn sqlite_search(
-        &self,
-        conn: &mut SqliteConnection,
-        page_offset: usize,
-        like_search_string: &str,
-    ) -> Result<(usize, Vec<ExtendedMember>), BackendError> {
-        use diesel::TextExpressionMethods;
-        let filter = member_details::first_name
-            .like(&like_search_string)
-            .or(member_details::last_name.like(&like_search_string))
-            .or(member_details::email_address.like(&like_search_string));
-
-        let total_count: usize = member_details::dsl::member_details
-            .filter(filter)
-            .count()
-            .get_result::<i64>(conn)? as usize;
-
-        let result: Vec<(Member, MemberDetail, MemberAddressDetail)> = members::table
-            .inner_join(member_details::table)
-            .inner_join(member_address_details::table)
-            .filter(filter)
-            .order_by(member_details::last_name)
-            .order_by(member_details::first_name)
-            .limit(self.page_size as i64)
-            .offset((page_offset * self.page_size) as i64)
-            .select((
-                Member::as_select(),
-                MemberDetail::as_select(),
-                MemberAddressDetail::as_select(),
-            ))
-            .load(conn)?;
-
-        Ok((
-            total_count,
-            result
-                .iter()
-                .map(|(member, member_detail, member_address_details)| {
-                    ExtendedMember::from((member, member_detail, member_address_details))
+                .map(|(member, member_detail, member_address_detail)| {
+                    ExtendedMember::from((member, member_detail, member_address_detail))
                 })
                 .collect(),
         ))

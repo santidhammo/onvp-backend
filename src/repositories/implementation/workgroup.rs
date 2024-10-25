@@ -23,6 +23,9 @@ use crate::generic::{search_helpers, Injectable};
 use crate::model::storage::entities::{Member, MemberAddressDetail, MemberDetail, Workgroup};
 use crate::model::storage::extended_entities::ExtendedMember;
 use crate::repositories::definitions::WorkgroupRepository;
+use crate::repositories::implementation::search_expressions::{
+    MemberSearchExpressionGenerator, WorkgroupSearchExpressionGenerator,
+};
 use crate::schema::member_address_details;
 use crate::schema::member_details;
 use crate::schema::members;
@@ -30,10 +33,27 @@ use crate::schema::workgroup_member_relationships;
 use crate::schema::workgroup_role_associations;
 use crate::schema::workgroups;
 use actix_web::web::Data;
-use diesel::dsl::{exists, not};
+use diesel::backend::{Backend, SqlDialect};
+use diesel::connection::LoadConnection;
+use diesel::deserialize::{FromSql, FromStaticSqlRow};
+use diesel::dsl::{exists, not, AsSelect, InnerJoinQuerySource, Limit};
+use diesel::expression::is_aggregate::No;
+use diesel::expression::ValidGrouping;
+use diesel::internal::derives::as_expression::Bound;
+use diesel::internal::derives::multiconnection::sql_dialect::exists_syntax::AnsiSqlExistsSyntax;
+use diesel::internal::derives::multiconnection::sql_dialect::select_statement_syntax::AnsiSqlSelectStatement;
+use diesel::internal::derives::multiconnection::{
+    DieselReserveSpecialization, LimitClause, LimitOffsetClause, NoLimitClause, NoOffsetClause,
+    OffsetClause,
+};
+use diesel::query_builder::{QueryFragment, QueryId};
+use diesel::query_dsl::limit_dsl::LimitDsl;
+use diesel::query_dsl::select_dsl::SelectDsl;
+use diesel::serialize::ToSql;
+use diesel::sql_types::{BigInt, Bool, HasSqlType, Integer};
 use diesel::{
-    BoolExpressionMethods, Connection, ExpressionMethods, PgConnection, QueryDsl, RunQueryDsl,
-    SelectableHelper, SqliteConnection,
+    AppearsOnTable, BoolExpressionMethods, Connection, Expression, ExpressionMethods, QueryDsl,
+    RunQueryDsl, SelectableHelper,
 };
 use std::sync::Arc;
 
@@ -51,10 +71,11 @@ impl WorkgroupRepository for Implementation {
     }
 
     fn find_by_id(&self, conn: &mut DatabaseConnection, id: i32) -> BackendResult<Workgroup> {
-        let workgroup: Workgroup = workgroups::table
-            .filter(workgroups::id.eq(id))
-            .select(Workgroup::as_select())
-            .first(conn)?;
+        let workgroup: Workgroup = QueryDsl::select(
+            workgroups::table.filter(workgroups::id.eq(id)),
+            Workgroup::as_select(),
+        )
+        .first(conn)?;
         Ok(workgroup)
     }
 
@@ -73,53 +94,20 @@ impl WorkgroupRepository for Implementation {
         term: &str,
     ) -> BackendResult<(usize, usize, Vec<Workgroup>)> {
         let like_search_string = search_helpers::create_like_string(term);
-        let result = conn.transaction::<(usize, usize, Vec<Workgroup>), BackendError, _>(|conn| {
-            // ILIKE is only supported on PostgreSQL
-            match conn {
+        let (total_count, workgroups) = conn
+            .transaction::<(usize, Vec<Workgroup>), BackendError, _>(|conn| match conn {
                 DatabaseConnection::PostgreSQL(ref mut conn) => {
-                    use diesel::PgTextExpressionMethods;
-                    let filter = workgroups::name.ilike(&like_search_string);
-
-                    let total_count: usize = workgroups::table
-                        .filter(filter)
-                        .count()
-                        .get_result::<i64>(conn)?
-                        as usize;
-
-                    let workgroups: Vec<Workgroup> = workgroups::table
-                        .filter(filter)
-                        .order_by(workgroups::name)
-                        .limit(self.page_size as i64)
-                        .offset((page_offset * self.page_size) as i64)
-                        .select(Workgroup::as_select())
-                        .load(conn)?;
-
-                    Ok((total_count, self.page_size, workgroups))
+                    let filter =
+                        WorkgroupSearchExpressionGenerator::postgresql(&like_search_string);
+                    self.search_workgroups(conn, page_offset, &filter)
                 }
 
                 DatabaseConnection::SQLite(ref mut conn) => {
-                    use diesel::TextExpressionMethods;
-                    let filter = workgroups::name.like(&like_search_string);
-
-                    let total_count: usize = workgroups::table
-                        .filter(filter)
-                        .count()
-                        .get_result::<i64>(conn)?
-                        as usize;
-
-                    let workgroups: Vec<Workgroup> = workgroups::table
-                        .filter(filter)
-                        .order_by(workgroups::name)
-                        .limit(self.page_size as i64)
-                        .offset((page_offset * self.page_size) as i64)
-                        .select(Workgroup::as_select())
-                        .load(conn)?;
-
-                    Ok((total_count, self.page_size, workgroups))
+                    let filter = WorkgroupSearchExpressionGenerator::sqlite(&like_search_string);
+                    self.search_workgroups(conn, page_offset, &filter)
                 }
-            }
-        });
-        result
+            })?;
+        Ok((total_count, self.page_size, workgroups))
     }
 
     fn unregister(&self, conn: &mut DatabaseConnection, workgroup_id: i32) -> BackendResult<()> {
@@ -145,20 +133,21 @@ impl WorkgroupRepository for Implementation {
         conn: &mut DatabaseConnection,
         workgroup_id: i32,
     ) -> BackendResult<Vec<ExtendedMember>> {
-        let result: Vec<(Member, MemberDetail, MemberAddressDetail)> =
+        let result: Vec<(Member, MemberDetail, MemberAddressDetail)> = QueryDsl::select(
             workgroup_member_relationships::table
                 .inner_join(
                     members::table
                         .inner_join(member_details::table)
                         .inner_join(member_address_details::table),
                 )
-                .filter(workgroup_member_relationships::workgroup_id.eq(workgroup_id))
-                .select((
-                    Member::as_select(),
-                    MemberDetail::as_select(),
-                    MemberAddressDetail::as_select(),
-                ))
-                .load(conn)?;
+                .filter(workgroup_member_relationships::workgroup_id.eq(workgroup_id)),
+            (
+                Member::as_select(),
+                MemberDetail::as_select(),
+                MemberAddressDetail::as_select(),
+            ),
+        )
+        .load(conn)?;
         Ok(result
             .iter()
             .map(|(member, member_detail, member_address_detail)| {
@@ -206,113 +195,145 @@ impl WorkgroupRepository for Implementation {
         term: &str,
     ) -> BackendResult<(usize, usize, Vec<ExtendedMember>)> {
         let like_search_string = search_helpers::create_like_string(term);
-        conn.transaction::<(usize, usize, Vec<ExtendedMember>), BackendError, _>(|conn| {
-            // ILIKE is only supported on PostgreSQL
-            let (total_count, extended_members) = match conn {
-                DatabaseConnection::PostgreSQL(ref mut conn) => {
-                    self.postgresql_search(conn, workgroup_id, page_offset, &like_search_string)
+        let (total_count, extended_members) = conn
+            .transaction::<(usize, Vec<ExtendedMember>), BackendError, _>(|conn| match conn {
+                DatabaseConnection::PostgreSQL(conn) => {
+                    let filter = MemberSearchExpressionGenerator::postgresql(&like_search_string);
+                    self.search_available_members(conn, page_offset, &filter, workgroup_id)
                 }
-
-                DatabaseConnection::SQLite(ref mut conn) => {
-                    self.sqlite_search(conn, workgroup_id, page_offset, &like_search_string)
+                DatabaseConnection::SQLite(conn) => {
+                    let filter = MemberSearchExpressionGenerator::sqlite(&like_search_string);
+                    self.search_available_members(conn, page_offset, &filter, workgroup_id)
                 }
-            }?;
-            Ok((total_count, self.page_size, extended_members))
-        })
+            })?;
+        Ok((total_count, self.page_size, extended_members))
     }
 }
 
 impl Implementation {
-    fn postgresql_search(
+    fn search_workgroups<DB, TSearchExpression, TConnection>(
         &self,
-        conn: &mut PgConnection,
-        workgroup_id: i32,
+        conn: &mut TConnection,
         page_offset: usize,
-        like_search_string: &str,
-    ) -> Result<(usize, Vec<ExtendedMember>), BackendError> {
-        use diesel::PgTextExpressionMethods;
-
-        let sub_table = workgroup_member_relationships::table
-            .select(workgroup_member_relationships::member_id)
-            .filter(
-                workgroup_member_relationships::workgroup_id
-                    .eq(workgroup_id)
-                    .and(workgroup_member_relationships::member_id.eq(members::id)),
-            );
-
-        let filter = member_details::first_name
-            .ilike(&like_search_string)
-            .or(member_details::last_name.ilike(&like_search_string))
-            .or(member_details::email_address.ilike(&like_search_string))
-            .and(not(exists(sub_table)));
-
-        let total_count: usize = members::table
-            .inner_join(member_details::table)
-            .filter(filter)
-            .distinct()
+        search_expression: TSearchExpression,
+    ) -> Result<(usize, Vec<Workgroup>), BackendError>
+    where
+        DB: Backend<SelectStatementSyntax = AnsiSqlSelectStatement>
+            + SqlDialect
+            + DieselReserveSpecialization
+            + HasSqlType<Bool>
+            + 'static,
+        TConnection: LoadConnection + Connection<Backend = DB> + Send,
+        TSearchExpression: QueryFragment<DB>
+            + Expression<SqlType = Bool>
+            + ValidGrouping<(), IsAggregate = No>
+            + AppearsOnTable<workgroups::table>
+            + QueryId,
+        Limit<workgroups::table>: LimitDsl,
+        workgroups::table: SelectDsl<AsSelect<Workgroup, DB>>,
+        LimitOffsetClause<LimitClause<Bound<BigInt, i64>>, OffsetClause<Bound<BigInt, i64>>>:
+            QueryFragment<DB>,
+        LimitOffsetClause<NoLimitClause, NoOffsetClause>: QueryFragment<DB>,
+        (Workgroup,): FromStaticSqlRow<(AsSelect<Workgroup, DB>,), DB>,
+        bool: ToSql<Bool, DB>,
+        i64: FromSql<BigInt, DB>,
+    {
+        let total_count: usize = workgroups::table
+            .filter(&search_expression)
             .count()
             .get_result::<i64>(conn)? as usize;
 
-        let result: Vec<(Member, MemberDetail)> = members::table
-            .inner_join(member_details::table)
-            .filter(filter)
-            .distinct()
-            .order_by(member_details::last_name)
-            .order_by(member_details::first_name)
-            .limit(self.page_size as i64)
-            .offset((page_offset * self.page_size) as i64)
-            .select((Member::as_select(), MemberDetail::as_select()))
-            .load(conn)?;
+        let workgroups: Vec<(Workgroup,)> = QueryDsl::select(
+            QueryDsl::limit(
+                workgroups::table
+                    .filter(&search_expression)
+                    .order_by(workgroups::name),
+                self.page_size as i64,
+            )
+            .offset((page_offset * self.page_size) as i64),
+            (Workgroup::as_select(),),
+        )
+        .load(conn)?;
 
         Ok((
             total_count,
-            result
+            workgroups
                 .iter()
-                .map(|(member, member_detail)| ExtendedMember::from((member, member_detail)))
+                .map(|(workgroup,)| workgroup.clone())
                 .collect(),
         ))
     }
 
-    fn sqlite_search(
+    fn search_available_members<DB, TSearchExpression, TConnection>(
         &self,
-        conn: &mut SqliteConnection,
-        workgroup_id: i32,
+        conn: &mut TConnection,
         page_offset: usize,
-        like_search_string: &str,
-    ) -> Result<(usize, Vec<ExtendedMember>), BackendError> {
-        use diesel::TextExpressionMethods;
+        search_expression: TSearchExpression,
+        workgroup_id: i32,
+    ) -> Result<(usize, Vec<ExtendedMember>), BackendError>
+    where
+        DB: Backend<
+                SelectStatementSyntax = AnsiSqlSelectStatement,
+                ExistsSyntax = AnsiSqlExistsSyntax,
+            > + SqlDialect
+            + DieselReserveSpecialization
+            + HasSqlType<Bool>
+            + 'static,
+        TConnection: LoadConnection + Connection<Backend = DB> + Send,
+        TSearchExpression: QueryFragment<DB>
+            + Expression<SqlType = Bool>
+            + ValidGrouping<(), IsAggregate = No>
+            + AppearsOnTable<InnerJoinQuerySource<members::table, member_details::table>>
+            + QueryId,
 
-        let sub_table = workgroup_member_relationships::table
-            .select(workgroup_member_relationships::member_id)
-            .filter(
-                workgroup_member_relationships::workgroup_id
-                    .eq(workgroup_id)
-                    .and(workgroup_member_relationships::member_id.eq(members::id)),
-            );
+        Limit<members::table>: LimitDsl,
+        Limit<member_details::table>: LimitDsl,
+        Limit<workgroup_member_relationships::table>: LimitDsl,
+        members::table: SelectDsl<AsSelect<Member, DB>>,
+        member_details::table: SelectDsl<AsSelect<MemberDetail, DB>>,
+        LimitOffsetClause<LimitClause<Bound<BigInt, i64>>, OffsetClause<Bound<BigInt, i64>>>:
+            QueryFragment<DB>,
+        LimitOffsetClause<NoLimitClause, NoOffsetClause>: QueryFragment<DB>,
+        (Member, MemberDetail):
+            FromStaticSqlRow<(AsSelect<Member, DB>, AsSelect<MemberDetail, DB>), DB>,
+        bool: ToSql<Bool, DB>,
+        i32: ToSql<Integer, DB>,
+        i64: FromSql<BigInt, DB>,
+    {
+        let sub_table = QueryDsl::select(
+            workgroup_member_relationships::table,
+            workgroup_member_relationships::member_id,
+        )
+        .filter(
+            workgroup_member_relationships::workgroup_id
+                .eq(workgroup_id)
+                .and(workgroup_member_relationships::member_id.eq(members::id)),
+        );
 
-        let filter = member_details::first_name
-            .like(&like_search_string)
-            .or(member_details::last_name.like(&like_search_string))
-            .or(member_details::email_address.like(&like_search_string))
+        let where_expression = members::activated
+            .eq(true)
+            .and(search_expression)
             .and(not(exists(sub_table)));
 
         let total_count: usize = members::table
             .inner_join(member_details::table)
-            .filter(filter)
-            .distinct()
+            .filter(&where_expression)
             .count()
             .get_result::<i64>(conn)? as usize;
 
-        let result: Vec<(Member, MemberDetail)> = members::table
-            .inner_join(member_details::table)
-            .filter(filter)
-            .distinct()
-            .order_by(member_details::last_name)
-            .order_by(member_details::first_name)
-            .limit(self.page_size as i64)
-            .offset((page_offset * self.page_size) as i64)
-            .select((Member::as_select(), MemberDetail::as_select()))
-            .load(conn)?;
+        let result: Vec<(Member, MemberDetail)> = QueryDsl::select(
+            QueryDsl::limit(
+                members::table
+                    .inner_join(member_details::table)
+                    .filter(&where_expression)
+                    .order_by(member_details::last_name)
+                    .order_by(member_details::first_name),
+                self.page_size as i64,
+            )
+            .offset((page_offset * self.page_size) as i64),
+            (Member::as_select(), MemberDetail::as_select()),
+        )
+        .load(conn)?;
 
         Ok((
             total_count,

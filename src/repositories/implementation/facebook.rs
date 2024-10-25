@@ -26,10 +26,11 @@ use crate::schema::{member_details, members};
 use actix_web::web::Data;
 
 use crate::model::storage::entities::{Member, MemberDetail};
+use crate::repositories::implementation::search_expressions::FacebookSearchExpressionGenerator;
 use diesel::backend::{Backend, SqlDialect};
 use diesel::connection::LoadConnection;
 use diesel::deserialize::{FromSql, FromStaticSqlRow};
-use diesel::dsl::{AsSelect, ILike, InnerJoinQuerySource, Like, Limit, Or};
+use diesel::dsl::{AsSelect, InnerJoinQuerySource, Limit};
 use diesel::expression::is_aggregate::No;
 use diesel::expression::ValidGrouping;
 use diesel::internal::derives::as_expression::Bound;
@@ -42,7 +43,7 @@ use diesel::query_builder::{QueryFragment, QueryId};
 use diesel::query_dsl::limit_dsl::LimitDsl;
 use diesel::query_dsl::select_dsl::SelectDsl;
 use diesel::serialize::ToSql;
-use diesel::sql_types::{BigInt, Bool, HasSqlType, Text};
+use diesel::sql_types::{BigInt, Bool, HasSqlType};
 use diesel::{
     AppearsOnTable, BoolExpressionMethods, Connection, Expression, ExpressionMethods, QueryDsl,
     RunQueryDsl, SelectableHelper,
@@ -139,35 +140,6 @@ impl Implementation {
                 .map(|(member, member_detail)| FacebookMember::from((member, member_detail)))
                 .collect(),
         ))
-    }
-}
-
-pub struct FacebookSearchExpressionGenerator;
-
-impl FacebookSearchExpressionGenerator {
-    pub fn postgresql(
-        term: &str,
-    ) -> Or<
-        ILike<member_details::first_name, Bound<Text, &str>>,
-        ILike<member_details::last_name, Bound<Text, &str>>,
-    >
-where {
-        use diesel::PgTextExpressionMethods;
-        member_details::first_name
-            .ilike(term)
-            .or(member_details::last_name.ilike(term))
-    }
-
-    pub fn sqlite(
-        term: &str,
-    ) -> Or<
-        Like<member_details::first_name, Bound<Text, &str>>,
-        Like<member_details::last_name, Bound<Text, &str>>,
-    > {
-        use diesel::TextExpressionMethods;
-        member_details::first_name
-            .like(term)
-            .or(member_details::last_name.like(term))
     }
 }
 
