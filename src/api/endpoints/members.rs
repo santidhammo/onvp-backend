@@ -36,19 +36,16 @@ use crate::services::definitions::command::{
 };
 use crate::services::definitions::request::{MemberPictureRequestService, MemberRequestService};
 use actix_web::web::{Bytes, Data, Json, Path, Query};
-use actix_web::{delete, get, post, web, HttpResponse};
+use actix_web::{delete, get, post, HttpResponse};
 use std::ops::Deref;
 use totp_rs::TOTP;
-
-/// This is the context of members part of the API
-pub const CONTEXT: &str = "/api/members";
 
 /// Register a member
 ///
 /// Registers a new member with the necessary details. Sends an E-Mail to the
 /// newly registered member to activate the account.
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "members",
     responses(
         (status = 200, description = "Successful registration", body=i32),
         (status = 400, description = "Bad Request", body=Option<String>),
@@ -68,7 +65,7 @@ pub async fn register(
 ///
 /// Searches on first name, last name and/or email address matching the given query.
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "members",
     responses(
         (status = 200, description = "A list of matching members", body=SearchResult<MemberResponse>),
         (status = 400, description = "Bad Request"),
@@ -93,7 +90,7 @@ pub async fn search(
 /// Searches for a member and the primary detail by using the member identifier. If found,
 /// a single record with the member and primary detail is returned.
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "members",
     responses(
         (status = 200, description = "Member and primary detail", body=MemberResponse),
         (status = 400, description = "Bad Request", body=Option<String>),
@@ -114,7 +111,7 @@ pub async fn find(
 /// Searches for a member address by using the member identifier. If found,
 /// a single record with the member address is returned.
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "members",
     responses(
         (status = 200, description = "Member address", body=MemberAddressResponse),
         (status = 400, description = "Bad Request", body=Option<String>),
@@ -135,7 +132,7 @@ pub async fn find_address(
 /// Searches for a member privacy information sharing details by using the member identifier.
 /// If found, a single record with the member privacy information sharing details is returned.
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "members",
     responses(
         (status = 200, description = "Member privacy information sharing details", body=MemberPrivacyInfoSharingResponse),
         (status = 400, description = "Bad Request", body=Option<String>),
@@ -157,7 +154,7 @@ pub async fn find_privacy_info_sharing(
 ///
 /// Updates an existing member and primary detail record given the data.
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "members",
     responses(
         (status = 200, description = "Member is updated"),
         (status = 400, description = "Bad Request"),
@@ -179,7 +176,7 @@ pub async fn update(
 ///
 /// Given the address details of a member, saves te address details
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "members",
     responses(
         (status = 200, description = "Member is updated"),
         (status = 400, description = "Bad Request", body=Option<String>),
@@ -201,7 +198,7 @@ pub async fn update_address(
 ///
 /// Given the new privacy information sharing details of a member, save the details
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "members",
     responses(
         (status = 200, description = "Member is updated"),
         (status = 400, description = "Bad Request", body=Option<String>),
@@ -223,7 +220,7 @@ pub async fn update_privacy_info_sharing(
 ///
 /// Given the member identification, get the associated work groups
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "members",
     responses(
         (status = 200, description = "List of work groups is returned", body=[WorkgroupResponse]),
         (status = 400, description = "Bad Request", body=Option<String>),
@@ -245,7 +242,8 @@ pub async fn find_workgroups(
 /// scaling it automatically. A multitude of file types are supported, but the resulting file type
 /// will always be of the PNG type.
 #[utoipa::path(
-    context_path = CONTEXT,
+    request_body(content(("image/png"), ("image/jpg"))),
+    tag = "members",
     responses(
         (status = 200, description = "Successful upload of the picture", body=String),
         (status = 400, description = "Bad Request", body=Option<String>),
@@ -257,7 +255,7 @@ pub async fn find_workgroups(
 pub async fn upload_picture_asset(
     service: Data<dyn MemberPictureCommandService>,
     id: Path<i32>,
-    data: web::Bytes,
+    data: Bytes,
 ) -> BackendResult<Json<String>> {
     let command = ImageUploadCommand::try_from(&data)?;
     Ok(Json(service.upload(id.into_inner(), &command)?))
@@ -265,7 +263,7 @@ pub async fn upload_picture_asset(
 
 /// Retrieves the picture of a member, if available
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "members",
     responses(
         (status = 200, description = "Successful picture retrieval", content_type="image/png"),
         (status = 410, description = "Picture not available"),
@@ -294,7 +292,7 @@ pub async fn picture_asset(
 /// If a member has a picture asset identifier, retrieves it. If the result is empty, no picture
 /// is available.
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "members",
     responses(
         (status = 200, description = "Successful picture retrieval", body=[Option<String>]),
         (status = 400, description = "Bad Request"),
@@ -317,7 +315,7 @@ pub async fn picture(
 ///
 /// Generates an activation code for a user to be activated
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "members",
     responses(
         (status = 200, description = "The activation code (in QR form)", body=[String]),
         (status = 400, description = "Bad Request"),
@@ -343,7 +341,7 @@ pub async fn activation_code(
 /// returns a Bad Request. if a member is already activated by the activation string it also returns
 /// a Bad Request.
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "members",
     responses(
         (status = 200, description = "Member is activated"),
         (status = 400, description = "Bad Request"),
@@ -363,7 +361,7 @@ pub async fn activate(
 ///
 /// Unregisters an existing member
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "members",
     responses(
         (status = 200, description = "Member is unregistered"),
         (status = 400, description = "Bad Request", body=Option<String>),

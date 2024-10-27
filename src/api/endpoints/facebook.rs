@@ -25,14 +25,12 @@ use actix_web::web::{Bytes, Data, Json, Path, Query};
 use actix_web::{get, HttpResponse};
 use std::ops::Deref;
 
-pub const CONTEXT: &str = "/api/facebook";
-
 /// Search for members
 ///
 /// Searches on first name and last name given the query, does not search through
 /// inactive members nor through members who disallow public recognition (GDPR).
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "facebook",
     responses(
         (status = 200, description = "A list of matching members and work groups", body=SearchResult<FacebookResponse>),
         (status = 400, description = "Bad Request", body=Option<String>),
@@ -54,7 +52,7 @@ pub async fn search(
 
 /// Retrieves the picture of a member, if available
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "facebook",
     responses(
         (status = 200, description = "Successful picture retrieval", content_type="image/png"),
         (status = 410, description = "Picture not available"),

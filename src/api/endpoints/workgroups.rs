@@ -40,7 +40,7 @@ pub const CONTEXT: &str = "/api/workgroups";
 /// perform within the orchestra. Further, the members of a work group can have additional
 /// functionality enabled through the role they have within the work group.
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "workgroups",
     responses(
         (status = 200, description = "Successful registration"),
         (status = 400, description = "Bad Request"),
@@ -60,9 +60,9 @@ pub async fn register(
 ///
 /// Searches the name of the work group
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "workgroups",
     responses(
-        (status = 200, description = "A list of matching work groups", body=[SearchResult<MemberWithDetail>]),
+        (status = 200, description = "A list of matching work groups", body=[SearchResult<WorkgroupResponse>]),
         (status = 400, description = "Bad Request"),
         (status = 401, description = "Unauthorized"),
         (status = 500, description = "Internal Server Error", body=[String])
@@ -85,7 +85,7 @@ pub async fn search(
 /// Searches for a work group by using the work group identifier. If found,
 /// a single record with the work group is returned.
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "workgroups",
     responses(
         (status = 200, description = "Work group", body=WorkgroupResponse),
         (status = 400, description = "Bad Request", body=Option<String>),
@@ -105,7 +105,7 @@ pub async fn find(
 ///
 /// Updates an existing work group record given the data.
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "workgroups",
     responses(
         (status = 200, description = "Work group is updated"),
         (status = 400, description = "Bad Request"),
@@ -127,7 +127,7 @@ pub async fn update(
 ///
 /// Unregisters an existing work group
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "workgroups",
     responses(
         (status = 200, description = "Work group is unregistered"),
         (status = 400, description = "Bad Request", body=Option<String>),
@@ -146,7 +146,7 @@ pub async fn unregister(
 
 /// List all the members of the work group
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "workgroups",
     responses(
         (status = 200, description = "List of members in the work group", body=Vec<MemberResponse>),
         (status = 400, description = "Bad Request", body=Option<String>),
@@ -166,7 +166,7 @@ pub async fn find_members(
 ///
 /// Searches for all members which are not part of the given work group
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "workgroups",
     responses(
         (status = 200, description = "List of available members to the work group", body=SearchResult<MemberResponse>),
         (status = 400, description = "Bad Request", body=Option<String>),
@@ -188,7 +188,7 @@ pub async fn available_members_search(
 
 /// Associate a member to a work group
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "workgroups",
     responses(
         (status = 200, description = "Successful association of a member to a work group"),
         (status = 400, description = "Bad Request", body=Option<String>),
@@ -207,7 +207,7 @@ pub async fn associate(
 
 /// Dissociate a member to a work group
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "workgroups",
     responses(
         (status = 200, description = "Successful dissociation of a member from a work group"),
         (status = 400, description = "Bad Request", body=Option<String>),

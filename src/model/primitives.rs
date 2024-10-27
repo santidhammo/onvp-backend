@@ -16,7 +16,6 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
 use crate::generic::result::BackendError;
 use diesel::backend::Backend;
 use diesel::deserialize::FromSql;
@@ -25,6 +24,7 @@ use diesel::serialize::{Output, ToSql};
 use diesel::sql_types::Integer;
 use diesel::FromSqlRow;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use utoipa::ToSchema;
 
 #[derive(
@@ -102,4 +102,23 @@ impl TryFrom<u8> for Role {
 pub enum RoleClass {
     Member,
     Workgroup,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RoleComposition {
+    pub(crate) roles: Vec<Role>,
+}
+
+impl From<Role> for RoleComposition {
+    fn from(role: Role) -> Self {
+        Self { roles: vec![role] }
+    }
+}
+
+impl From<HashSet<Role>> for RoleComposition {
+    fn from(roles: HashSet<Role>) -> Self {
+        Self {
+            roles: roles.into_iter().map(Role::from).collect(),
+        }
+    }
 }

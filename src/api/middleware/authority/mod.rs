@@ -16,24 +16,18 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+use crate::model::primitives::RoleComposition;
+use std::fmt::Debug;
 
-use crate::generic::result::{BackendError, BackendResult};
-use crate::model::interface::client::UserClaims;
-use crate::model::primitives::Role;
-use crate::services::definitions::request::traits::RoleContainer;
-use rand::distributions::{Alphanumeric, DistString};
-use rand::thread_rng;
-pub use totp_rs::TOTP;
+pub mod config;
+pub mod service;
+mod transform;
 
-pub fn operator_state_guard(claims: &UserClaims) -> BackendResult<()> {
-    if claims.has_role(Role::Operator) {
-        Ok(())
-    } else {
-        Err(BackendError::bad())
-    }
-}
+pub use transform::*;
 
-pub fn generate_activation_string() -> String {
-    let validation_string = Alphanumeric.sample_string(&mut thread_rng(), 32);
-    validation_string
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Allowance {
+    Any,
+    LoggedInMember,
+    RoleAuthority(RoleComposition),
 }

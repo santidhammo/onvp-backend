@@ -16,7 +16,6 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
 use crate::generic::result::BackendResult;
 use crate::model::interface::commands::{AssociateRoleCommand, DissociateRoleCommand};
 use crate::model::primitives::{Role, RoleClass};
@@ -25,15 +24,12 @@ use crate::services::definitions::request::RoleRequestService;
 use actix_web::web::{Data, Json, Path};
 use actix_web::{get, post, HttpResponse};
 
-/// This is the context of the roles part of the API
-pub const CONTEXT: &str = "/api/roles";
-
 /// Associate a role to a member or work group
 ///
 /// Member association is used to allow members to act on specific roles
 /// Work group association is used to allow groups of members to act on specific roles
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "roles",
     responses(
         (status = 200, description = "Successful association of a role"),
         (status = 400, description = "Bad Request", body=Option<String>),
@@ -55,7 +51,7 @@ pub async fn associate(
 /// Member association is used to allow members to act on specific roles
 /// Work group association is used to allow groups of members to act on specific roles
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "roles",
     responses(
         (status = 200, description = "Successful dissociation of a role"),
         (status = 400, description = "Bad Request", body=Option<String>),
@@ -74,7 +70,7 @@ pub async fn dissociate(
 
 /// Lists roles for a member or work group
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "roles",
     responses(
         (status = 200, description = "List of roles", body=Vec<Role>),
         (status = 400, description = "Bad Request", body=Option<String>),

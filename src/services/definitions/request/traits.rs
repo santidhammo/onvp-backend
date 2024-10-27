@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::model::interface::client::UserClaims;
-use crate::model::primitives::Role;
+use crate::model::primitives::{Role, RoleComposition};
 
 pub trait RoleContainer {
     fn has_role(&self, role: Role) -> bool;
@@ -30,6 +30,12 @@ impl RoleContainer for Role {
 }
 
 impl RoleContainer for UserClaims {
+    fn has_role(&self, role: Role) -> bool {
+        self.roles.contains(&role)
+    }
+}
+
+impl RoleContainer for RoleComposition {
     fn has_role(&self, role: Role) -> bool {
         self.roles.contains(&role)
     }

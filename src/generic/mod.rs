@@ -18,6 +18,7 @@
  */
 use actix_web::web::Data;
 
+pub mod http;
 pub mod lazy;
 pub mod result;
 pub mod search_helpers;

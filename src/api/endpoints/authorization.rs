@@ -25,15 +25,12 @@ use actix_web::web::{Data, Json};
 use actix_web::{get, post, HttpRequest, HttpResponse};
 use log::info;
 
-/// This is the context of the authorization part of the API
-pub const CONTEXT: &str = "/api/authorization";
-
 /// Login a member
 ///
 /// Logs in the member using the OTP code, then creates a JWT token out of that, which can be
 /// further verified against the software issuing the token.
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "authorization",
     responses(
         (status = 200, description = "Logged in successfully"),
         (status = 400, description = "Bad Request", body=[String]),
@@ -58,7 +55,7 @@ pub async fn login(
 ///
 /// Checks if the member has already logged in
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "authorization",
     responses(
         (status = 200, description = "Logged in successfully"),
         (status = 500, description = "Internal Server Error", body=[String])
@@ -87,7 +84,7 @@ pub async fn refresh(
 ///
 /// Logs out a member, if already logged in
 #[utoipa::path(
-    context_path = CONTEXT,
+    tag = "authorization",
     responses(
         (status = 200, description = "Logged in successfully"),
         (status = 500, description = "Internal Server Error", body=[String])
@@ -108,7 +105,7 @@ mod cookies {
     use actix_web::cookie::Cookie;
     use actix_web::HttpRequest;
 
-    pub(super) fn get_origin_refresh_cookie(
+    pub(in crate::api) fn get_origin_refresh_cookie(
         http_request: &HttpRequest,
     ) -> Result<Cookie<'static>, BackendError> {
         let name = "refresh_token";
@@ -116,7 +113,7 @@ mod cookies {
         Ok(origin_refresh_cookie)
     }
 
-    pub(super) fn get_origin_access_cookie(
+    pub(in crate::api) fn get_origin_access_cookie(
         http_request: &HttpRequest,
     ) -> Result<Cookie<'static>, BackendError> {
         let name = "access_token";

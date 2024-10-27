@@ -26,15 +26,3 @@ pub struct UserClaims {
     pub email_address: String,
     pub roles: Vec<Role>,
 }
-
-impl UserClaims {
-    /// Checks if the user claims contain the given role
-    pub fn has_role(&self, role: Role) -> bool {
-        for intern in &self.roles {
-            if intern == &role {
-                return true;
-            }
-        }
-        false
-    }
-}
