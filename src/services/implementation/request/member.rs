@@ -88,11 +88,15 @@ impl SearchController<MemberResponse> for Implementation {
         let (total_count, page_size, results) =
             self.member_repository
                 .search(&mut conn, params.page_offset, &term)?;
+        let rows: Vec<MemberResponse> = results.iter().map(MemberResponse::from).collect();
+        let row_len = rows.len();
         Ok(SearchResult {
             total_count,
             page_offset: params.page_offset,
             page_count: search_helpers::calculate_page_count(page_size, total_count),
-            rows: results.iter().map(MemberResponse::from).collect(),
+            rows,
+            start: params.page_offset * page_size,
+            end: (params.page_offset * page_size) + row_len,
         })
     }
 }

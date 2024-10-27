@@ -77,12 +77,14 @@ impl SearchController<FacebookResponse> for Implementation {
                     FacebookResponse::from((m, &workgroup_names, &roles))
                 })
                 .collect();
-
+            let row_len = rows.len();
             Ok(SearchResult {
                 total_count,
                 page_offset: params.page_offset,
                 page_count: search_helpers::calculate_page_count(page_size, total_count),
                 rows,
+                start: params.page_offset * page_size,
+                end: (params.page_offset * page_size) + row_len,
             })
         })
     }

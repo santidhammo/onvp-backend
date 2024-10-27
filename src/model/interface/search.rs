@@ -46,5 +46,7 @@ pub struct SearchResult<T: Serialize> {
     pub total_count: usize,
     pub page_offset: usize,
     pub page_count: usize,
+    pub start: usize,
+    pub end: usize,
     pub rows: Vec<T>,
 }
