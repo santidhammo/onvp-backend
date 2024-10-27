@@ -25,7 +25,7 @@ r2d2 = { version = "0.8.10" }
 jwt-compact = { version = "0.8.0", features = ["ed25519-compact"] }
 ed25519-compact = { version = "2.1.1" }
 actix-state-guards = "0.1.0"
-image = "0.25.2"
+image = "0.25.4"
 lettre = { version = "0.11.9", features = ["rustls-tls"] }
 futures-util = "0.3.30"
 clap = { version = "4.5.20", features = ["derive"] }
