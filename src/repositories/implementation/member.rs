@@ -352,15 +352,10 @@ impl Implementation {
         bool: ToSql<Bool, DB>,
         i64: FromSql<BigInt, DB>,
     {
-        let where_expression = members::activated
-            .eq(true)
-            .and(members::allow_privacy_info_sharing.eq(true))
-            .and(search_expression);
-
         let total_count: usize = members::table
             .inner_join(member_details::table)
             .inner_join(member_address_details::table)
-            .filter(&where_expression)
+            .filter(&search_expression)
             .count()
             .get_result::<i64>(conn)? as usize;
 
@@ -369,7 +364,7 @@ impl Implementation {
                 members::table
                     .inner_join(member_details::table)
                     .inner_join(member_address_details::table)
-                    .filter(&where_expression)
+                    .filter(&search_expression)
                     .order_by(member_details::last_name)
                     .order_by(member_details::first_name),
                 self.page_size as i64,
