@@ -27,7 +27,7 @@ ed25519-compact = { version = "2.1.1" }
 actix-state-guards = "0.1.0"
 image = "0.25.4"
 lettre = { version = "0.11.9", features = ["rustls-tls"] }
-futures-util = "0.3.30"
+futures-util = "0.3.31"
 clap = { version = "4.5.20", features = ["derive"] }
 moka = { version = "0.12.8", features = ["sync"] }
 globset = "0.4.15"
