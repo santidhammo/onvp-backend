@@ -26,7 +26,6 @@ use utoipa::ToSchema;
 
 /// Shows the source code details of the frontend and backend
 #[utoipa::path(
-        context_path = "",
         responses(
             (status = 200, description = "Source code details")
         )

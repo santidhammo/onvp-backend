@@ -32,8 +32,6 @@ use actix_web::web::{Data, Json, Path, Query};
 use actix_web::{delete, get, post, web, HttpResponse};
 use std::ops::Deref;
 
-pub const CONTEXT: &str = "/api/workgroups";
-
 /// Register a new work group
 ///
 /// Work groups are used to create groups of members which have a particular extended task to
