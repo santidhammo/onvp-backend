@@ -16,11 +16,12 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+use crate::generic::storage::database::DatabaseConnectionPool;
 use crate::generic::Injectable;
 use crate::model::interface::client::UserClaims;
 use crate::repositories::definitions::{
     AuthorizationRepository, FacebookRepository, MemberPictureRepository, MemberRepository,
-    MemberRoleRepository, WorkgroupRepository, WorkgroupRoleRepository,
+    MemberRoleRepository, PageRepository, WorkgroupRepository, WorkgroupRoleRepository,
 };
 use crate::{repositories, services};
 use actix_jwt_auth_middleware::TokenSigner;
@@ -39,6 +40,19 @@ where
 {
     let repositories = DependantRepositories::dependencies();
 
+    let app = inject_command_services(app, pool, token_signer, &repositories);
+    inject_request_services(app, pool, token_signer, &repositories)
+}
+
+fn inject_command_services<T>(
+    app: App<T>,
+    pool: &DatabaseConnectionPool,
+    _token_signer: &Data<TokenSigner<UserClaims, Ed25519>>,
+    repositories: &DependantRepositories,
+) -> App<T>
+where
+    T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
+{
     app.app_data(
         services::implementation::command::setup::Implementation::injectable((
             pool,
@@ -80,6 +94,23 @@ where
         )),
     )
     .app_data(
+        services::implementation::command::page::Implementation::injectable((
+            pool,
+            &repositories.page_repository,
+        )),
+    )
+}
+
+fn inject_request_services<T>(
+    app: App<T>,
+    pool: &DatabaseConnectionPool,
+    token_signer: &Data<TokenSigner<UserClaims, Ed25519>>,
+    repositories: &DependantRepositories,
+) -> App<T>
+where
+    T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
+{
+    app.app_data(
         services::implementation::request::setup::Implementation::injectable((
             pool,
             &repositories.member_repository,
@@ -90,7 +121,7 @@ where
             pool,
             &repositories.member_repository,
             &repositories.authorization_repository,
-            &token_signer,
+            token_signer,
         )),
     )
     .app_data(
@@ -126,6 +157,12 @@ where
             &repositories.authorization_repository,
         )),
     )
+    .app_data(
+        services::implementation::request::page::Implementation::injectable((
+            pool,
+            &repositories.page_repository,
+        )),
+    )
 }
 
 struct DependantRepositories {
@@ -136,6 +173,7 @@ struct DependantRepositories {
     workgroup_role_repository: Data<dyn WorkgroupRoleRepository>,
     authorization_repository: Data<dyn AuthorizationRepository>,
     facebook_repository: Data<dyn FacebookRepository>,
+    page_repository: Data<dyn PageRepository>,
 }
 
 impl DependantRepositories {
@@ -155,6 +193,7 @@ impl DependantRepositories {
             facebook_repository: repositories::implementation::facebook::Implementation::injectable(
                 (),
             ),
+            page_repository: repositories::implementation::page::Implementation::injectable(()),
         };
         repositories
     }

@@ -19,6 +19,7 @@
 pub mod member;
 pub mod member_activation;
 pub mod member_picture;
+pub mod page;
 pub mod role;
 pub mod setup;
 pub mod workgroup;

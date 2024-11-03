@@ -18,7 +18,7 @@
  */
 use crate::generic::result::{BackendError, BackendResult};
 use crate::model::interface::sub_commands::{AddressRegisterSubCommand, DetailRegisterSubCommand};
-use crate::model::primitives::{Role, RoleClass};
+use crate::model::primitives::{EventDate, Role, RoleClass};
 use actix_web::web::Bytes;
 use image::{DynamicImage, ImageReader};
 use serde::Deserialize;
@@ -182,4 +182,28 @@ impl TryFrom<&Bytes> for ImageUploadCommand {
                 .decode()?,
         })
     }
+}
+
+#[derive(Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct CreatePageCommand {
+    #[schema(example = "Foo")]
+    pub title: String,
+
+    pub event_date: Option<EventDate>,
+}
+
+#[derive(Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdatePageCommand {
+    #[schema(example = "Foo")]
+    pub title: String,
+
+    pub event_date: Option<EventDate>,
+}
+
+#[derive(Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct PublishPageCommand {
+    pub roles: Vec<Role>,
 }

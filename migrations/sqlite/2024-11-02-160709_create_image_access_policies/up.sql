@@ -16,11 +16,11 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-pub mod authorization;
-pub mod facebook;
-pub mod member;
-pub mod member_picture;
-pub mod page;
-pub mod role;
-pub mod setup;
-pub mod workgroup;
+
+CREATE TABLE image_access_policies
+(
+    image_id    INT NOT NULL,
+    system_role INT NOT NULL,
+    PRIMARY KEY (image_id, system_role),
+    CONSTRAINT fk_image_access_policy_image FOREIGN KEY (image_id) REFERENCES images (id) ON DELETE CASCADE
+);

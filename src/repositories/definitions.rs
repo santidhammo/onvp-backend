@@ -17,9 +17,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::generic::result::BackendResult;
+use crate::generic::security::ClaimRoles;
 use crate::generic::storage::database::DatabaseConnection;
 use crate::model::primitives::Role;
-use crate::model::storage::entities::Workgroup;
+use crate::model::storage::entities::{Page, Workgroup};
 use crate::model::storage::extended_entities::{ExtendedMember, FacebookMember};
 
 pub trait MemberRepository {
@@ -187,4 +188,54 @@ pub trait FacebookRepository {
         page_offset: usize,
         term: &str,
     ) -> BackendResult<(usize, usize, Vec<FacebookMember>)>;
+}
+
+/// Manages the page repository
+pub trait PageRepository {
+    /// Creates a new page and stores it into the database
+    fn create(&self, conn: &mut DatabaseConnection, page: Page) -> BackendResult<()>;
+
+    /// Updates an existing page and stores it into the database
+    fn update(&self, conn: &mut DatabaseConnection, page: Page) -> BackendResult<()>;
+
+    /// Finds the page by the identifier
+    fn find_by_id(&self, conn: &mut DatabaseConnection, page_id: i32) -> BackendResult<Page>;
+
+    /// Lists the pages by the parent identifier
+    fn list_by_parent_id(
+        &self,
+        conn: &mut DatabaseConnection,
+        parent_id: i32,
+        roles: &ClaimRoles,
+    ) -> BackendResult<Vec<Page>>;
+
+    /// Finds the roles associated to a page
+    fn find_associated_roles_by_id(
+        &self,
+        conn: &mut DatabaseConnection,
+        page_id: i32,
+    ) -> BackendResult<Vec<Role>>;
+
+    /// Removes a page by the identifier
+    fn delete(&self, conn: &mut DatabaseConnection, page_id: i32) -> BackendResult<()>;
+
+    /// Drops the roles associated to a page
+    fn reset_roles(&self, conn: &mut DatabaseConnection, page_id: i32) -> BackendResult<()>;
+
+    /// Assigns (and therefor publishes) the roles associated to a page (excluding the operator)
+    fn assign_roles(
+        &self,
+        conn: &mut DatabaseConnection,
+        page_id: i32,
+        roles: &Vec<Role>,
+    ) -> BackendResult<()>;
+
+    /// Searches for all pages meeting any of the allowed roles
+    fn search(
+        &self,
+        conn: &mut DatabaseConnection,
+        page_offset: usize,
+        term: &str,
+        roles: &ClaimRoles,
+    ) -> BackendResult<(usize, usize, Vec<Page>)>;
 }

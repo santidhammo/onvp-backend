@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::schema::{member_details, workgroups};
+use crate::schema::{member_details, pages, workgroups};
 use diesel::dsl::{ILike, Like, Or};
 use diesel::internal::derives::as_expression::Bound;
 use diesel::sql_types::Text;
@@ -96,5 +96,19 @@ impl FacebookSearchExpressionGenerator {
         member_details::first_name
             .like(term)
             .or(member_details::last_name.like(term))
+    }
+}
+
+pub struct PageSearchExpressionGenerator;
+
+impl PageSearchExpressionGenerator {
+    pub fn postgresql(term: &str) -> ILike<pages::title, Bound<Text, &str>> {
+        use diesel::PgTextExpressionMethods;
+        pages::title.ilike(term)
+    }
+
+    pub fn sqlite(term: &str) -> Like<pages::title, Bound<Text, &str>> {
+        use diesel::TextExpressionMethods;
+        pages::title.like(term)
     }
 }

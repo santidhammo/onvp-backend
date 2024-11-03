@@ -113,6 +113,18 @@ pub async fn launch() -> std::io::Result<()> {
                     .service(workgroups::available_members_search)
                     .service(workgroups::unregister),
             )
+            .service(
+                scope("/api/pages")
+                    .service(pages::search)
+                    .service(pages::create)
+                    .service(pages::find_by_id)
+                    .service(pages::main_menu)
+                    .service(pages::set_content)
+                    .service(pages::update)
+                    .service(pages::publish)
+                    .service(pages::unpublish)
+                    .service(pages::delete),
+            )
             .service(scope("/api/source_code_details").service(source_code::details))
             .split_for_parts();
 

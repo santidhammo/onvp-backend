@@ -18,11 +18,11 @@
  */
 use crate::generic::result::BackendResult;
 use crate::model::interface::commands::{
-    AssociateMemberToWorkgroupCommand, AssociateRoleCommand, DissociateMemberFromWorkgroupCommand,
-    DissociateRoleCommand, FirstOperatorRegisterCommand, ImageUploadCommand,
-    MemberActivationCommand, MemberRegisterCommand, MemberUpdateAddressCommand,
-    MemberUpdateCommand, MemberUpdatePrivacyInfoSharingCommand, WorkgroupRegisterCommand,
-    WorkgroupUpdateCommand,
+    AssociateMemberToWorkgroupCommand, AssociateRoleCommand, CreatePageCommand,
+    DissociateMemberFromWorkgroupCommand, DissociateRoleCommand, FirstOperatorRegisterCommand,
+    ImageUploadCommand, MemberActivationCommand, MemberRegisterCommand, MemberUpdateAddressCommand,
+    MemberUpdateCommand, MemberUpdatePrivacyInfoSharingCommand, PublishPageCommand,
+    UpdatePageCommand, WorkgroupRegisterCommand, WorkgroupUpdateCommand,
 };
 
 /// Controls actions which can be performed on member data
@@ -102,4 +102,23 @@ pub trait RoleCommandService {
 
     /// Dissociates a role
     fn dissociate_role(&self, command: &DissociateRoleCommand) -> BackendResult<()>;
+}
+
+/// Controls actions which can be performed to manage pages
+pub trait PageCommandService {
+    /// Creates a new page
+    fn create(&self, command: &CreatePageCommand) -> BackendResult<()>;
+
+    /// Sets the content of a given page
+    fn set_content(&self, page_id: i32, content: &str) -> BackendResult<()>;
+
+    /// Updates a page
+    fn update(&self, page_id: i32, command: &UpdatePageCommand) -> BackendResult<()>;
+
+    /// Publishes the page
+    fn publish(&self, page_id: i32, command: &PublishPageCommand) -> BackendResult<()>;
+    fn unpublish(&self, page_id: i32) -> BackendResult<()>;
+
+    /// Deletes an existing page
+    fn delete(&self, page_id: i32) -> BackendResult<()>;
 }

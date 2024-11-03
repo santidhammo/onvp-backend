@@ -16,7 +16,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::generic::result::BackendError;
+use crate::generic::result::{BackendError, BackendResult};
+use chrono::{Datelike, NaiveDate};
 use diesel::backend::Backend;
 use diesel::deserialize::FromSql;
 use diesel::expression::AsExpression;
@@ -119,6 +120,42 @@ impl From<HashSet<Role>> for RoleComposition {
     fn from(roles: HashSet<Role>) -> Self {
         Self {
             roles: roles.into_iter().map(Role::from).collect(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct EventDate {
+    #[schema(example = 1)]
+    pub day: u32,
+    #[schema(example = 1)]
+    pub month: u32,
+    #[schema(example = 2123)]
+    pub year: i32,
+}
+
+impl EventDate {
+    pub fn as_validated(&self) -> BackendResult<NaiveDate> {
+        let maybe_naive = NaiveDate::from_ymd_opt(self.year, self.month, self.day);
+        match maybe_naive {
+            Some(naive) => Ok(naive),
+            None => Err(BackendError::bad()),
+        }
+    }
+
+    pub fn validate(&self) -> BackendResult<()> {
+        let _ = self.as_validated()?;
+        Ok(())
+    }
+}
+
+impl From<&NaiveDate> for EventDate {
+    fn from(value: &NaiveDate) -> Self {
+        Self {
+            day: value.day(),
+            month: value.month(),
+            year: value.year(),
         }
     }
 }

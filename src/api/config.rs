@@ -22,6 +22,7 @@ use crate::generic::http::Method::{Get, Post};
 
 pub fn configure_authority() -> AuthorityConfig {
     AuthorityConfig::new()
+        .allow(Get, "/docs", Any)
         .allow(Get, "/api/facebook/**", Any)
         .allow(Get, "/api/setup/**", Any)
         .allow(Post, "/api/setup/**", Any)
@@ -35,4 +36,7 @@ pub fn configure_authority() -> AuthorityConfig {
         .allow(Get, "/api/workgroups/search", LoggedInMember)
         .allow(Get, "/api/workgroups/**", LoggedInMember)
         .allow(Get, "/api/source_code/**", Any)
+        .allow(Get, "/api/pages/main-menu", Any)
+        .allow(Get, "/api/pages/search", Any)
+        .allow(Get, "/api/pages/page/**", Any)
 }

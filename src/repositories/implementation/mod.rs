@@ -21,6 +21,7 @@ pub mod facebook;
 pub mod member;
 pub mod member_picture;
 pub mod member_role;
+pub mod page;
 mod search_expressions;
 pub mod workgroup;
 pub mod workgroup_role;

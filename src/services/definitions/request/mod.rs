@@ -19,11 +19,13 @@
 pub mod traits;
 
 use crate::generic::result::BackendResult;
+use crate::generic::security::ClaimRoles;
 use crate::model::interface::client::UserClaims;
 use crate::model::interface::requests::AuthorizationRequest;
 use crate::model::interface::responses::{
-    AuthorizationResponse, FacebookResponse, ImageAssetIdResponse, ImageResponse,
-    MemberAddressResponse, MemberPrivacyInfoSharingResponse, MemberResponse, WorkgroupResponse,
+    AuthorizationResponse, ExtendedPageResponse, FacebookResponse, ImageAssetIdResponse,
+    ImageResponse, MemberAddressResponse, MemberPrivacyInfoSharingResponse, MemberResponse,
+    PageResponse, WorkgroupResponse,
 };
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::model::primitives::{Role, RoleClass};
@@ -120,6 +122,29 @@ pub trait WorkgroupRequestService: SearchController<WorkgroupResponse> {
 
 /// Controls actions for data retrieval belonging to the facebook
 pub trait FacebookRequestService: SearchController<FacebookResponse> {}
+
+/// Controls actions for data retrieval belonging to pages
+pub trait PageRequestService {
+    /// Finds a page using the identifier
+    fn find_by_id(&self, page_id: i32, roles: &ClaimRoles) -> BackendResult<ExtendedPageResponse>;
+
+    /// Finds a page's content using the identifier
+    fn find_content_by_id(&self, page_id: i32, roles: &ClaimRoles) -> BackendResult<String>;
+
+    /// Lists all page's by parent identifier
+    fn list_by_parent_id(
+        &self,
+        parent_id: i32,
+        roles: &ClaimRoles,
+    ) -> BackendResult<Vec<PageResponse>>;
+
+    /// Searches pages by page title and allowed roles
+    fn search(
+        &self,
+        params: &SearchParams,
+        roles: &ClaimRoles,
+    ) -> BackendResult<SearchResult<PageResponse>>;
+}
 
 pub trait SearchController<T> {
     fn search(&self, params: &SearchParams) -> BackendResult<SearchResult<T>>

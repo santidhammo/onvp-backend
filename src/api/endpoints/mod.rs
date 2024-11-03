@@ -19,6 +19,7 @@
 pub mod authorization;
 pub mod facebook;
 pub mod members;
+pub mod pages;
 pub mod roles;
 pub mod setup;
 pub mod source_code;

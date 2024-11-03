@@ -18,9 +18,9 @@
  */
 use crate::generic::lazy::OTP_CIPHER;
 use crate::generic::result::{BackendError, BackendResult};
-use crate::model::primitives::Role;
+use crate::model::primitives::{EventDate, Role};
 use crate::model::storage;
-use crate::model::storage::entities::Workgroup;
+use crate::model::storage::entities::{Page, Workgroup};
 use crate::model::storage::extended_entities::{ExtendedMember, FacebookMember};
 use actix_web::cookie::Cookie;
 use actix_web::http::header::ContentType;
@@ -281,6 +281,53 @@ impl From<(&FacebookMember, &Vec<Workgroup>, &Vec<Role>)> for FacebookResponse {
             description: facebook_member.description.clone(),
             workgroup_names: workgroups.iter().map(|w| w.name.clone()).collect(),
             roles: roles.clone(),
+        }
+    }
+}
+
+#[derive(Serialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtendedPageResponse {
+    #[schema(example = 1)]
+    id: i32,
+
+    #[schema(example = "Foo")]
+    title: String,
+
+    event_date: Option<EventDate>,
+
+    roles: Vec<Role>,
+}
+
+impl From<(&Page, &Vec<Role>)> for ExtendedPageResponse {
+    fn from((page, roles): (&Page, &Vec<Role>)) -> Self {
+        Self {
+            id: page.id,
+            title: page.title.clone(),
+            event_date: page.event_date.map(|e| EventDate::from(&e)),
+            roles: roles.clone(),
+        }
+    }
+}
+
+#[derive(Serialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct PageResponse {
+    #[schema(example = 1)]
+    id: i32,
+
+    #[schema(example = "Foo")]
+    title: String,
+
+    event_date: Option<EventDate>,
+}
+
+impl From<&Page> for PageResponse {
+    fn from(value: &Page) -> Self {
+        Self {
+            id: value.id,
+            title: value.title.clone(),
+            event_date: value.event_date.map(|e| EventDate::from(&e)),
         }
     }
 }

@@ -16,7 +16,9 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::model::interface::commands::{WorkgroupRegisterCommand, WorkgroupUpdateCommand};
+use crate::model::interface::commands::{
+    CreatePageCommand, UpdatePageCommand, WorkgroupRegisterCommand, WorkgroupUpdateCommand,
+};
 use crate::model::interface::sub_commands;
 use crate::model::storage::extended_entities::ExtendedMember;
 use diesel::{AsChangeset, Insertable, Queryable, Selectable};
@@ -152,6 +154,51 @@ impl From<(&Workgroup, &WorkgroupUpdateCommand)> for Workgroup {
     fn from((origin, command): (&Workgroup, &WorkgroupUpdateCommand)) -> Self {
         let mut cloned = origin.clone();
         cloned.name = command.name.clone();
+        cloned
+    }
+}
+
+#[derive(Clone, Debug, Queryable, Selectable, Insertable, AsChangeset)]
+#[diesel(table_name = crate::schema::pages)]
+pub struct Page {
+    #[diesel(skip_insertion)]
+    pub id: i32,
+    pub content_asset: String,
+    pub parent_id: Option<i32>,
+    pub icon_asset: Option<String>,
+    pub event_date: Option<chrono::NaiveDate>,
+    pub etag: String,
+    pub title: String,
+}
+
+impl From<&CreatePageCommand> for Page {
+    fn from(value: &CreatePageCommand) -> Self {
+        Self {
+            id: 0, // Skipped during creation
+
+            content_asset: crate::generate_asset_id(),
+            parent_id: None,
+            icon_asset: None,
+            event_date: value
+                .event_date
+                .clone()
+                .map(|d| d.as_validated().ok())
+                .flatten(),
+            etag: crate::generate_asset_id(),
+            title: value.title.clone(),
+        }
+    }
+}
+
+impl From<(&Page, &UpdatePageCommand)> for Page {
+    fn from((origin, command): (&Page, &UpdatePageCommand)) -> Self {
+        let mut cloned = origin.clone();
+        cloned.event_date = command
+            .event_date
+            .clone()
+            .map(|d| d.as_validated().ok())
+            .flatten();
+        cloned.title = command.title.clone();
         cloned
     }
 }

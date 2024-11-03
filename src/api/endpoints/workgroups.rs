@@ -203,7 +203,7 @@ pub async fn associate(
     Ok(HttpResponse::Ok().finish())
 }
 
-/// Dissociate a member to a work group
+/// Dissociate a member from a work group
 #[utoipa::path(
     tag = "workgroups",
     responses(

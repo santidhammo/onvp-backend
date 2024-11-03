@@ -1,4 +1,37 @@
+/*
+ *  ONVP Backend - Backend API provider for the ONVP website
+ *
+ * Copyright (c) 2024.  Sjoerd van Leent
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 // @generated automatically by Diesel CLI.
+
+diesel::table! {
+    image_access_policies (image_id, system_role) {
+        image_id -> Int4,
+        system_role -> Int4,
+    }
+}
+
+diesel::table! {
+    images (id) {
+        id -> Int4,
+        asset -> Varchar,
+    }
+}
 
 diesel::table! {
     member_address_details (id) {
@@ -68,6 +101,7 @@ diesel::table! {
         icon_asset -> Nullable<Varchar>,
         event_date -> Nullable<Date>,
         etag -> Varchar,
+        title -> Text,
     }
 }
 
@@ -92,6 +126,7 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(image_access_policies -> images (image_id));
 diesel::joinable!(member_role_associations -> members (member_id));
 diesel::joinable!(members -> member_address_details (member_address_details_id));
 diesel::joinable!(members -> member_details (member_details_id));
@@ -102,6 +137,8 @@ diesel::joinable!(workgroup_member_relationships -> workgroups (workgroup_id));
 diesel::joinable!(workgroup_role_associations -> workgroups (workgroup_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
+    image_access_policies,
+    images,
     member_address_details,
     member_details,
     member_role_associations,

@@ -19,6 +19,7 @@
 use crate::api::middleware::authority::config::AuthorityConfig;
 use crate::api::middleware::authority::Allowance;
 use crate::generic::http::Method;
+use crate::generic::security::ClaimRoles;
 use crate::model::interface::client::UserClaims;
 use crate::services::definitions::request::traits::RoleContainer;
 use actix_jwt_auth_middleware::Authority;
@@ -97,6 +98,9 @@ where
                 let extensions = req.extensions();
                 extensions.get::<UserClaims>().cloned()
             };
+
+            let roles = ClaimRoles::from(&user_claims);
+            req.extensions_mut().insert(roles);
 
             let method = Method::from(req.method());
             let allowance = cache.lookup(
