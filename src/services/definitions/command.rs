@@ -20,9 +20,10 @@ use crate::generic::result::BackendResult;
 use crate::model::interface::commands::{
     AssociateMemberToWorkgroupCommand, AssociateRoleCommand, CreatePageCommand,
     DissociateMemberFromWorkgroupCommand, DissociateRoleCommand, FirstOperatorRegisterCommand,
-    ImageUploadCommand, MemberActivationCommand, MemberRegisterCommand, MemberUpdateAddressCommand,
-    MemberUpdateCommand, MemberUpdatePrivacyInfoSharingCommand, PublishPageCommand,
-    UpdatePageCommand, WorkgroupRegisterCommand, WorkgroupUpdateCommand,
+    ImageUploadCommand, MemberActivationCommand, MemberImageUploadCommand, MemberRegisterCommand,
+    MemberUpdateAddressCommand, MemberUpdateCommand, MemberUpdatePrivacyInfoSharingCommand,
+    PublishImageCommand, PublishPageCommand, UpdatePageCommand, WorkgroupRegisterCommand,
+    WorkgroupUpdateCommand,
 };
 
 /// Controls actions which can be performed on member data
@@ -52,7 +53,7 @@ pub trait MemberCommandService {
     fn unregister(&self, member_id: i32) -> BackendResult<()>;
 }
 pub trait MemberPictureCommandService {
-    fn upload(&self, member_id: i32, command: &ImageUploadCommand) -> BackendResult<String>;
+    fn upload(&self, member_id: i32, command: &MemberImageUploadCommand) -> BackendResult<String>;
 }
 
 /// Controls activation of members
@@ -117,8 +118,25 @@ pub trait PageCommandService {
 
     /// Publishes the page
     fn publish(&self, page_id: i32, command: &PublishPageCommand) -> BackendResult<()>;
+
+    /// Unpublishes the page
     fn unpublish(&self, page_id: i32) -> BackendResult<()>;
 
     /// Deletes an existing page
     fn delete(&self, page_id: i32) -> BackendResult<()>;
+}
+
+/// Controls actions which can be performed to manage images
+pub trait ImageCommandService {
+    /// Handles uploading a new image
+    fn upload(&self, command: &ImageUploadCommand) -> BackendResult<String>;
+
+    /// Publishes the image
+    fn publish(&self, image_id: i32, command: &PublishImageCommand) -> BackendResult<()>;
+
+    /// Unpublishes the image
+    fn unpublish(&self, image_id: i32) -> BackendResult<()>;
+
+    /// Deletes an existing image
+    fn delete(&self, image_id: i32) -> BackendResult<()>;
 }

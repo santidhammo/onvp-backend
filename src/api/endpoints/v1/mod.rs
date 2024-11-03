@@ -16,4 +16,12 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-pub mod v1;
+pub mod authorization;
+pub mod facebook;
+pub mod images;
+pub mod members;
+pub mod pages;
+pub mod roles;
+pub mod setup;
+pub mod source_code;
+pub mod workgroups;

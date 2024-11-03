@@ -168,13 +168,14 @@ pub struct MemberActivationCommand {
 }
 
 #[derive(Clone, Debug)]
-pub struct ImageUploadCommand {
+pub struct MemberImageUploadCommand {
     pub dynamic_image: DynamicImage,
 }
 
-impl TryFrom<&Bytes> for ImageUploadCommand {
+impl TryFrom<&Bytes> for MemberImageUploadCommand {
     type Error = BackendError;
 
+    /// Attempts to convert the data to an image
     fn try_from(value: &Bytes) -> BackendResult<Self> {
         Ok(Self {
             dynamic_image: ImageReader::new(Cursor::new(value))
@@ -205,5 +206,17 @@ pub struct UpdatePageCommand {
 #[derive(Deserialize, ToSchema, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct PublishPageCommand {
+    pub roles: Vec<Role>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ImageUploadCommand {
+    pub title: String,
+    pub data: Bytes,
+}
+
+#[derive(Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct PublishImageCommand {
     pub roles: Vec<Role>,
 }

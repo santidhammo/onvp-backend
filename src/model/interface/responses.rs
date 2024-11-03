@@ -19,8 +19,7 @@
 use crate::generic::lazy::OTP_CIPHER;
 use crate::generic::result::{BackendError, BackendResult};
 use crate::model::primitives::{EventDate, Role};
-use crate::model::storage;
-use crate::model::storage::entities::{Page, Workgroup};
+use crate::model::storage::entities::{Image, Page, Workgroup};
 use crate::model::storage::extended_entities::{ExtendedMember, FacebookMember};
 use actix_web::cookie::Cookie;
 use actix_web::http::header::ContentType;
@@ -216,8 +215,8 @@ pub struct WorkgroupResponse {
     pub name: String,
 }
 
-impl From<&storage::entities::Workgroup> for WorkgroupResponse {
-    fn from(value: &storage::entities::Workgroup) -> Self {
+impl From<&Workgroup> for WorkgroupResponse {
+    fn from(value: &Workgroup) -> Self {
         Self {
             id: value.id,
             name: value.name.to_string(),
@@ -228,7 +227,7 @@ impl From<&storage::entities::Workgroup> for WorkgroupResponse {
 #[derive(Serialize, ToSchema, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ImageAssetIdResponse {
-    #[schema(example = "ABCDEF")]
+    #[schema(example = "FOOBAR")]
     pub asset_id: Option<String>,
 }
 
@@ -328,6 +327,34 @@ impl From<&Page> for PageResponse {
             id: value.id,
             title: value.title.clone(),
             event_date: value.event_date.map(|e| EventDate::from(&e)),
+        }
+    }
+}
+
+/// Image response containing extended metadata of the image
+#[derive(Serialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageMetaDataResponse {
+    /// The bytes contained in the response
+    pub id: i32,
+
+    /// The asset title of the image
+    pub title: String,
+
+    /// The asset name of the image
+    pub asset: String,
+
+    /// The roles belonging to the image
+    pub roles: Vec<Role>,
+}
+
+impl From<(&Image, &Vec<Role>)> for ImageMetaDataResponse {
+    fn from((image, roles): (&Image, &Vec<Role>)) -> Self {
+        Self {
+            id: image.id,
+            title: image.title.clone(),
+            asset: image.asset.clone(),
+            roles: roles.clone(),
         }
     }
 }

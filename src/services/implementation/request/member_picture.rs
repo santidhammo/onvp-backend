@@ -118,7 +118,7 @@ impl Implementation {
     }
 
     fn read_asset(asset_id: &String) -> BackendResult<Vec<u8>> {
-        let pb = crate::path_for_asset_id(&asset_id)?;
+        let pb = crate::path_for_asset(&asset_id)?;
         let mut r = OpenOptions::new().read(true).open(&pb)?;
         let mut v = Vec::new();
         r.read_to_end(&mut v)?;

@@ -23,8 +23,8 @@
 use crate::generic::result::{BackendError, BackendResult};
 use crate::model::interface::client::UserClaims;
 use crate::model::interface::commands::{
-    ImageUploadCommand, MemberActivationCommand, MemberRegisterCommand, MemberUpdateAddressCommand,
-    MemberUpdateCommand, MemberUpdatePrivacyInfoSharingCommand,
+    MemberActivationCommand, MemberImageUploadCommand, MemberRegisterCommand,
+    MemberUpdateAddressCommand, MemberUpdateCommand, MemberUpdatePrivacyInfoSharingCommand,
 };
 use crate::model::interface::responses::{
     ImageAssetIdResponse, MemberAddressResponse, MemberPrivacyInfoSharingResponse, MemberResponse,
@@ -257,7 +257,7 @@ pub async fn upload_picture_asset(
     id: Path<i32>,
     data: Bytes,
 ) -> BackendResult<Json<String>> {
-    let command = ImageUploadCommand::try_from(&data)?;
+    let command = MemberImageUploadCommand::try_from(&data)?;
     Ok(Json(service.upload(id.into_inner(), &command)?))
 }
 

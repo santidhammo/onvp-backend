@@ -19,7 +19,7 @@
 use crate::generic::result::{BackendError, BackendResult};
 use crate::generic::storage::database::DatabaseConnectionPool;
 use crate::generic::Injectable;
-use crate::model::interface::commands::ImageUploadCommand;
+use crate::model::interface::commands::MemberImageUploadCommand;
 use crate::repositories::definitions::{MemberPictureRepository, MemberRepository};
 use crate::services::definitions::command::MemberPictureCommandService;
 use actix_web::web::Data;
@@ -38,7 +38,7 @@ pub struct Implementation {
 }
 
 impl MemberPictureCommandService for Implementation {
-    fn upload(&self, member_id: i32, command: &ImageUploadCommand) -> BackendResult<String> {
+    fn upload(&self, member_id: i32, command: &MemberImageUploadCommand) -> BackendResult<String> {
         let mut conn = self.pool.get()?;
         let result = conn.transaction::<String, BackendError, _>(|conn| {
             let extended_member = self
@@ -51,7 +51,7 @@ impl MemberPictureCommandService for Implementation {
 
             // Create a new asset identifier
             let asset_id = crate::generate_asset_id();
-            let pb = crate::path_for_asset_id(&asset_id)?;
+            let pb = crate::path_for_asset(&asset_id)?;
             let w = OpenOptions::new().write(true).create_new(true).open(&pb)?;
             dynamic_image.write_with_encoder(PngEncoder::new(w))?;
 
@@ -64,7 +64,7 @@ impl MemberPictureCommandService for Implementation {
             );
 
             if let Some(asset_id) = mark_for_deletion {
-                let pb = crate::path_for_asset_id(&asset_id)?;
+                let pb = crate::path_for_asset(&asset_id)?;
                 let _ = std::fs::remove_file(pb); // Ignore if this failed
             }
 

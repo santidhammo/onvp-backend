@@ -18,139 +18,113 @@
  */
 use crate::generic::result::BackendResult;
 use crate::generic::security::ClaimRoles;
-use crate::model::interface::commands::{CreatePageCommand, PublishPageCommand, UpdatePageCommand};
-use crate::model::interface::responses::{ExtendedPageResponse, PageResponse};
+use crate::model::interface::commands::{ImageUploadCommand, PublishImageCommand};
+use crate::model::interface::responses::ImageMetaDataResponse;
 use crate::model::interface::search::{SearchParams, SearchResult};
-use crate::services::definitions::command::PageCommandService;
-use crate::services::definitions::request::PageRequestService;
-use actix_web::web::{Data, Json, Path, Query};
-use actix_web::{delete, get, post, put, HttpResponse};
+use crate::services::definitions::command::ImageCommandService;
+use crate::services::definitions::request::ImageRequestService;
+use actix_web::web::{Bytes, Data, Json, Path, Query};
+use actix_web::{delete, get, post, HttpResponse};
+use serde::Deserialize;
 use std::ops::Deref;
+use utoipa::ToSchema;
 
-/// Search for pages
+/// Search for images
 ///
 /// Searches on titles matching the given query.
 #[utoipa::path(
-    tag = "members",
+    tag = "images",
     responses(
-        (status = 200, description = "A list of matching pages", body=SearchResult<PageResponse>),
+        (status = 200, description = "A list of matching images", body=SearchResult<ImageMetaDataResponse>),
         (status = 400, description = "Bad Request"),
         (status = 401, description = "Unauthorized"),
         (status = 500, description = "Internal Server Error", body=[String])
     ),
     params(
         ("q" = String, Query, description = "Part of the first name, last name and/or email address"),
-        ("p" = Option<String>, Query, description = "The page offset to use (counting from 0)")
+        ("p" = Option<String>, Query, description = "The image offset to use (counting from 0)")
     )
 )]
 #[get("/search")]
 pub async fn search(
-    service: Data<dyn PageRequestService>,
+    service: Data<dyn ImageRequestService>,
     search_params: Query<SearchParams>,
-    roles: ClaimRoles,
-) -> BackendResult<Json<SearchResult<PageResponse>>> {
-    Ok(Json(service.search(search_params.deref(), &roles)?))
+) -> BackendResult<Json<SearchResult<ImageMetaDataResponse>>> {
+    Ok(Json(service.search(search_params.deref())?))
 }
 
-/// Return all main menu pages
+/// Creates a new image
 #[utoipa::path(
-    tag = "pages",
+    request_body(content(("image/png"), ("image/jpg"))),
+    tag = "images",
     responses(
-        (status = 200, description = "The pages", body=Vec<PageResponse>),
+        (status = 200, description = "A new image is created"),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal Server Error", body=Option<String>)
+    ),
+    params(
+        ("title" = String, Query, description = "The title of the image to upload"),
+    )
+)]
+#[post("/image/")]
+pub async fn upload(
+    service: Data<dyn ImageCommandService>,
+    upload_params: Query<ImageUploadParams>,
+    data: Bytes,
+) -> BackendResult<Json<String>> {
+    let r = upload_params.deref();
+    let command = ImageUploadCommand {
+        title: r.title.clone(),
+        data,
+    };
+    Ok(Json(service.upload(&command)?))
+}
+
+/// Returns an existing image
+#[utoipa::path(
+    tag = "images",
+    responses(
+        (status = 200, description = "The image metadata", body=ImageMetaDataResponse),
         (status = 400, description = "Bad Request", body=Option<String>),
         (status = 401, description = "Unauthorized", body=Option<String>),
         (status = 500, description = "Internal Server Error", body=Option<String>)
     )
 )]
-#[get("/main-menu")]
-pub async fn main_menu(
-    service: Data<dyn PageRequestService>,
-    roles: ClaimRoles,
-) -> BackendResult<Json<Vec<PageResponse>>> {
-    Ok(Json(service.list_by_parent_id(0, &roles)?))
-}
-
-/// Creates a new page
-#[utoipa::path(
-    tag = "pages",
-    responses(
-        (status = 200, description = "A new page is created"),
-        (status = 400, description = "Bad Request", body=Option<String>),
-        (status = 401, description = "Unauthorized", body=Option<String>),
-        (status = 500, description = "Internal Server Error", body=Option<String>)
-    )
-)]
-#[post("/page/")]
-pub async fn create(
-    command: Json<CreatePageCommand>,
-    service: Data<dyn PageCommandService>,
-) -> BackendResult<HttpResponse> {
-    service.create(&command)?;
-    Ok(HttpResponse::Ok().finish())
-}
-
-/// Sets the content of a page
-#[utoipa::path(
-    tag = "pages",
-    responses(
-        (status = 200, description = "Content of the given page is set"),
-        (status = 400, description = "Bad Request", body=Option<String>),
-        (status = 401, description = "Unauthorized", body=Option<String>),
-        (status = 500, description = "Internal Server Error", body=Option<String>)
-    )
-)]
-#[put("/page/{id}/content")]
-pub async fn set_content(
-    id: Path<i32>,
-    data: String,
-    service: Data<dyn PageCommandService>,
-) -> BackendResult<HttpResponse> {
-    service.set_content(id.into_inner(), &data)?;
-    Ok(HttpResponse::Ok().finish())
-}
-
-/// Returns an existing page
-#[utoipa::path(
-    tag = "pages",
-    responses(
-        (status = 200, description = "The page", body=ExtendedPageResponse),
-        (status = 400, description = "Bad Request", body=Option<String>),
-        (status = 401, description = "Unauthorized", body=Option<String>),
-        (status = 500, description = "Internal Server Error", body=Option<String>)
-    )
-)]
-#[get("/page/{id}")]
+#[get("/image/{id}")]
 pub async fn find_by_id(
     id: Path<i32>,
-    service: Data<dyn PageRequestService>,
+    service: Data<dyn ImageRequestService>,
     roles: ClaimRoles,
-) -> BackendResult<Json<ExtendedPageResponse>> {
+) -> BackendResult<Json<ImageMetaDataResponse>> {
     Ok(Json(service.find_by_id(id.into_inner(), &roles)?))
 }
 
-/// Updates an existing page
+/// Returns an image asset
 #[utoipa::path(
-    tag = "pages",
+    tag = "images",
     responses(
-        (status = 200, description = "Page is updated"),
+        (status = 200, description = "The image metadata", content_type="image/png"),
         (status = 400, description = "Bad Request", body=Option<String>),
         (status = 401, description = "Unauthorized", body=Option<String>),
         (status = 500, description = "Internal Server Error", body=Option<String>)
     )
 )]
-#[put("/page/{id}")]
-pub async fn update(
+#[get("/image/{id}.png")]
+pub async fn asset(
     id: Path<i32>,
-    command: Json<UpdatePageCommand>,
-    service: Data<dyn PageCommandService>,
+    service: Data<dyn ImageRequestService>,
+    roles: ClaimRoles,
 ) -> BackendResult<HttpResponse> {
-    service.update(id.into_inner(), &command)?;
-    Ok(HttpResponse::Ok().finish())
+    let result = service.find_content_by_id(id.into_inner(), &roles)?;
+    Ok(HttpResponse::Ok()
+        .insert_header(result.content_type)
+        .body(Bytes::from(result.bytes)))
 }
 
-/// Publish an existing page
+/// Publish an existing image
 #[utoipa::path(
-    tag = "pages",
+    tag = "images",
     responses(
         (status = 200, description = "Page is published"),
         (status = 400, description = "Bad Request", body=Option<String>),
@@ -158,19 +132,19 @@ pub async fn update(
         (status = 500, description = "Internal Server Error", body=Option<String>)
     )
 )]
-#[post("/page/{id}/publication")]
+#[post("/image/{id}/publication")]
 pub async fn publish(
     id: Path<i32>,
-    command: Json<PublishPageCommand>,
-    service: Data<dyn PageCommandService>,
+    command: Json<PublishImageCommand>,
+    service: Data<dyn ImageCommandService>,
 ) -> BackendResult<HttpResponse> {
     service.publish(id.into_inner(), &command)?;
     Ok(HttpResponse::Ok().finish())
 }
 
-/// Unpublish an existing page
+/// Unpublish an existing image
 #[utoipa::path(
-    tag = "pages",
+    tag = "images",
     responses(
         (status = 200, description = "Page is unpublished"),
         (status = 400, description = "Bad Request", body=Option<String>),
@@ -178,18 +152,18 @@ pub async fn publish(
         (status = 500, description = "Internal Server Error", body=Option<String>)
     )
 )]
-#[delete("/page/{id}/publication")]
+#[delete("/image/{id}/publication")]
 pub async fn unpublish(
     id: Path<i32>,
-    service: Data<dyn PageCommandService>,
+    service: Data<dyn ImageCommandService>,
 ) -> BackendResult<HttpResponse> {
     service.unpublish(id.into_inner())?;
     Ok(HttpResponse::Ok().finish())
 }
 
-/// Deletes an existing page
+/// Deletes an existing image
 #[utoipa::path(
-    tag = "pages",
+    tag = "images",
     responses(
         (status = 200, description = "Page is deleted"),
         (status = 400, description = "Bad Request", body=Option<String>),
@@ -197,21 +171,16 @@ pub async fn unpublish(
         (status = 500, description = "Internal Server Error", body=Option<String>)
     )
 )]
-#[delete("/page/{id}")]
+#[delete("/image/{id}")]
 pub async fn delete(
     id: Path<i32>,
-    service: Data<dyn PageCommandService>,
+    service: Data<dyn ImageCommandService>,
 ) -> BackendResult<HttpResponse> {
     service.delete(id.into_inner())?;
     Ok(HttpResponse::Ok().finish())
 }
 
-// fn claims_to_roles(request: &HttpRequest) -> Vec<Role> {
-//     let ext = request.extensions();
-//     let user_claims = ext.get::<UserClaims>();
-//     let roles = match user_claims {
-//         None => vec![Role::Public],
-//         Some(claims) => claims.roles.clone(),
-//     };
-//     roles
-// }
+#[derive(Deserialize, ToSchema, Debug)]
+pub struct ImageUploadParams {
+    pub title: String,
+}

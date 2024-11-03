@@ -24,8 +24,8 @@ use crate::model::interface::client::UserClaims;
 use crate::model::interface::requests::AuthorizationRequest;
 use crate::model::interface::responses::{
     AuthorizationResponse, ExtendedPageResponse, FacebookResponse, ImageAssetIdResponse,
-    ImageResponse, MemberAddressResponse, MemberPrivacyInfoSharingResponse, MemberResponse,
-    PageResponse, WorkgroupResponse,
+    ImageMetaDataResponse, ImageResponse, MemberAddressResponse, MemberPrivacyInfoSharingResponse,
+    MemberResponse, PageResponse, WorkgroupResponse,
 };
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::model::primitives::{Role, RoleClass};
@@ -144,6 +144,19 @@ pub trait PageRequestService {
         params: &SearchParams,
         roles: &ClaimRoles,
     ) -> BackendResult<SearchResult<PageResponse>>;
+}
+
+/// Controls actions for data retrieval belonging to images
+pub trait ImageRequestService {
+    /// Finds an image using the identifier
+    fn find_by_id(&self, image_id: i32, roles: &ClaimRoles)
+        -> BackendResult<ImageMetaDataResponse>;
+
+    /// Finds an images content using the identifier
+    fn find_content_by_id(&self, page_id: i32, roles: &ClaimRoles) -> BackendResult<ImageResponse>;
+
+    /// Searches pages by page title and allowed roles
+    fn search(&self, params: &SearchParams) -> BackendResult<SearchResult<ImageMetaDataResponse>>;
 }
 
 pub trait SearchController<T> {

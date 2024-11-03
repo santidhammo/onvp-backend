@@ -29,6 +29,7 @@ diesel::table! {
 diesel::table! {
     images (id) {
         id -> Int4,
+        title -> Varchar,
         asset -> Varchar,
     }
 }

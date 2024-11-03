@@ -20,8 +20,9 @@ use crate::generic::storage::database::DatabaseConnectionPool;
 use crate::generic::Injectable;
 use crate::model::interface::client::UserClaims;
 use crate::repositories::definitions::{
-    AuthorizationRepository, FacebookRepository, MemberPictureRepository, MemberRepository,
-    MemberRoleRepository, PageRepository, WorkgroupRepository, WorkgroupRoleRepository,
+    AuthorizationRepository, FacebookRepository, ImageRepository, MemberPictureRepository,
+    MemberRepository, MemberRoleRepository, PageRepository, WorkgroupRepository,
+    WorkgroupRoleRepository,
 };
 use crate::{repositories, services};
 use actix_jwt_auth_middleware::TokenSigner;
@@ -31,7 +32,7 @@ use actix_web::{App, Error};
 use jwt_compact::alg::Ed25519;
 
 pub(crate) fn inject<T>(
-    pool: &crate::generic::storage::database::DatabaseConnectionPool,
+    pool: &DatabaseConnectionPool,
     token_signer: &Data<TokenSigner<UserClaims, Ed25519>>,
     app: App<T>,
 ) -> App<T>
@@ -99,6 +100,12 @@ where
             &repositories.page_repository,
         )),
     )
+    .app_data(
+        services::implementation::command::image::Implementation::injectable((
+            pool,
+            &repositories.image_repository,
+        )),
+    )
 }
 
 fn inject_request_services<T>(
@@ -163,6 +170,12 @@ where
             &repositories.page_repository,
         )),
     )
+    .app_data(
+        services::implementation::request::image::Implementation::injectable((
+            pool,
+            &repositories.image_repository,
+        )),
+    )
 }
 
 struct DependantRepositories {
@@ -174,6 +187,7 @@ struct DependantRepositories {
     authorization_repository: Data<dyn AuthorizationRepository>,
     facebook_repository: Data<dyn FacebookRepository>,
     page_repository: Data<dyn PageRepository>,
+    image_repository: Data<dyn ImageRepository>,
 }
 
 impl DependantRepositories {
@@ -194,6 +208,7 @@ impl DependantRepositories {
                 (),
             ),
             page_repository: repositories::implementation::page::Implementation::injectable(()),
+            image_repository: repositories::implementation::image::Implementation::injectable(()),
         };
         repositories
     }

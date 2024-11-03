@@ -121,7 +121,7 @@ impl PageRequestService for Implementation {
 
 impl Implementation {
     fn read_asset(asset_id: &String) -> BackendResult<String> {
-        let pb = crate::path_for_asset_id(&asset_id)?;
+        let pb = crate::path_for_asset(&asset_id)?;
         let mut r = OpenOptions::new().read(true).open(&pb)?;
         let mut buf = String::new();
         let _ = r.read_to_string(&mut buf)?;

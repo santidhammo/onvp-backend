@@ -18,6 +18,7 @@
  */
 pub mod authorization;
 pub mod facebook;
+pub mod image;
 pub mod member;
 pub mod member_picture;
 pub mod page;

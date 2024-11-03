@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::schema::{member_details, pages, workgroups};
+use crate::schema::{images, member_details, pages, workgroups};
 use diesel::dsl::{ILike, Like, Or};
 use diesel::internal::derives::as_expression::Bound;
 use diesel::sql_types::Text;
@@ -110,5 +110,19 @@ impl PageSearchExpressionGenerator {
     pub fn sqlite(term: &str) -> Like<pages::title, Bound<Text, &str>> {
         use diesel::TextExpressionMethods;
         pages::title.like(term)
+    }
+}
+
+pub struct ImageSearchExpressionGenerator;
+
+impl ImageSearchExpressionGenerator {
+    pub fn postgresql(term: &str) -> ILike<images::title, Bound<Text, &str>> {
+        use diesel::PgTextExpressionMethods;
+        images::title.ilike(term)
+    }
+
+    pub fn sqlite(term: &str) -> Like<images::title, Bound<Text, &str>> {
+        use diesel::TextExpressionMethods;
+        images::title.like(term)
     }
 }

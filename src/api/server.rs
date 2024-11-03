@@ -19,7 +19,9 @@
 
 use crate::api;
 use crate::api::config;
-use crate::api::endpoints::*;
+use crate::api::endpoints::v1::{
+    authorization, facebook, images, members, pages, roles, setup, source_code, workgroups,
+};
 use crate::api::middleware::authority::AuthorityMiddleware;
 use crate::generic::storage::database;
 use crate::model::interface::client::UserClaims;
@@ -62,13 +64,13 @@ pub async fn launch() -> std::io::Result<()> {
             .into_utoipa_app()
             .map(|app| app.wrap(Logger::default()).wrap(authority_middleware))
             .service(
-                scope("/api/authorization")
+                scope("/api/authorization/v1")
                     .service(authorization::login)
                     .service(authorization::logout)
                     .service(authorization::refresh),
             )
             .service(
-                scope("api/members")
+                scope("api/members/v1")
                     .service(members::activation_code)
                     .service(members::activate)
                     .service(members::picture_asset)
@@ -86,23 +88,23 @@ pub async fn launch() -> std::io::Result<()> {
                     .service(members::unregister),
             )
             .service(
-                scope("/api/facebook")
+                scope("/api/facebook/v1")
                     .service(facebook::search)
                     .service(facebook::picture_asset),
             )
             .service(
-                scope("/api/roles")
+                scope("/api/roles/v1")
                     .service(roles::associate)
                     .service(roles::dissociate)
                     .service(roles::list),
             )
             .service(
-                scope("/api/setup")
+                scope("/api/setup/v1")
                     .service(setup::should_setup)
                     .service(setup::setup_first_operator),
             )
             .service(
-                scope("/api/workgroups")
+                scope("/api/workgroups/v1")
                     .service(workgroups::search)
                     .service(workgroups::find)
                     .service(workgroups::register)
@@ -114,18 +116,29 @@ pub async fn launch() -> std::io::Result<()> {
                     .service(workgroups::unregister),
             )
             .service(
-                scope("/api/pages")
+                scope("/api/pages/v1")
                     .service(pages::search)
                     .service(pages::create)
                     .service(pages::find_by_id)
                     .service(pages::main_menu)
                     .service(pages::set_content)
+                    .service(pages::content)
                     .service(pages::update)
                     .service(pages::publish)
                     .service(pages::unpublish)
                     .service(pages::delete),
             )
-            .service(scope("/api/source_code_details").service(source_code::details))
+            .service(
+                scope("/api/images/v1")
+                    .service(images::search)
+                    .service(images::upload)
+                    .service(images::find_by_id)
+                    .service(images::asset)
+                    .service(images::publish)
+                    .service(images::unpublish)
+                    .service(images::delete),
+            )
+            .service(scope("/api/source_code_details/v1").service(source_code::details))
             .split_for_parts();
 
         app.service(Scalar::with_url("/docs", api))

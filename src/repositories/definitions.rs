@@ -20,7 +20,7 @@ use crate::generic::result::BackendResult;
 use crate::generic::security::ClaimRoles;
 use crate::generic::storage::database::DatabaseConnection;
 use crate::model::primitives::Role;
-use crate::model::storage::entities::{Page, Workgroup};
+use crate::model::storage::entities::{Image, Page, Workgroup};
 use crate::model::storage::extended_entities::{ExtendedMember, FacebookMember};
 
 pub trait MemberRepository {
@@ -238,4 +238,42 @@ pub trait PageRepository {
         term: &str,
         roles: &ClaimRoles,
     ) -> BackendResult<(usize, usize, Vec<Page>)>;
+}
+
+/// Manages the page repository
+pub trait ImageRepository {
+    /// Creates a new image and stores it into the database
+    fn create(&self, conn: &mut DatabaseConnection, image: Image) -> BackendResult<()>;
+
+    /// Finds the image by the identifier
+    fn find_by_id(&self, conn: &mut DatabaseConnection, image_id: i32) -> BackendResult<Image>;
+
+    /// Finds the roles associated to an image
+    fn find_associated_roles_by_id(
+        &self,
+        conn: &mut DatabaseConnection,
+        image_id: i32,
+    ) -> BackendResult<Vec<Role>>;
+
+    /// Removes an image by the identifier
+    fn delete(&self, conn: &mut DatabaseConnection, image_id: i32) -> BackendResult<()>;
+
+    /// Drops the roles associated to an image
+    fn reset_roles(&self, conn: &mut DatabaseConnection, image_id: i32) -> BackendResult<()>;
+
+    /// Assigns (and therefor publishes) the roles associated to a page (excluding the operator)
+    fn assign_roles(
+        &self,
+        conn: &mut DatabaseConnection,
+        image_id: i32,
+        roles: &Vec<Role>,
+    ) -> BackendResult<()>;
+
+    /// Searches for all pages meeting any of the allowed roles
+    fn search(
+        &self,
+        conn: &mut DatabaseConnection,
+        page_offset: usize,
+        term: &str,
+    ) -> BackendResult<(usize, usize, Vec<Image>)>;
 }

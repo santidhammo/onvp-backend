@@ -17,7 +17,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::model::interface::commands::{
-    CreatePageCommand, UpdatePageCommand, WorkgroupRegisterCommand, WorkgroupUpdateCommand,
+    CreatePageCommand, ImageUploadCommand, UpdatePageCommand, WorkgroupRegisterCommand,
+    WorkgroupUpdateCommand,
 };
 use crate::model::interface::sub_commands;
 use crate::model::storage::extended_entities::ExtendedMember;
@@ -200,5 +201,25 @@ impl From<(&Page, &UpdatePageCommand)> for Page {
             .flatten();
         cloned.title = command.title.clone();
         cloned
+    }
+}
+
+#[derive(Clone, Debug, Queryable, Selectable, Insertable, AsChangeset)]
+#[diesel(table_name = crate::schema::images)]
+pub struct Image {
+    #[diesel(skip_insertion)]
+    pub id: i32,
+    pub title: String,
+    pub asset: String,
+}
+
+impl From<&ImageUploadCommand> for Image {
+    fn from(value: &ImageUploadCommand) -> Self {
+        Self {
+            id: 0, // Skipped during creation
+
+            title: value.title.clone(),
+            asset: crate::generate_asset_id(),
+        }
     }
 }

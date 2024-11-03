@@ -20,5 +20,6 @@
 CREATE TABLE images
 (
     id    SERIAL PRIMARY KEY,
+    title VARCHAR NOT NULL UNIQUE,
     asset VARCHAR NOT NULL UNIQUE
 );
