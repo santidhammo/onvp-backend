@@ -3306,9 +3306,9 @@ dependencies = [
 
 [[package]]
 name = "utoipa-actix-web"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22550ca9e62330a32d8bf2ee690b335d98f0e234170659451cdb240752c5abdf"
+checksum = "c4cd7b4907db0c30a57abe266d321f46f1e4a0c3930f5bf4097eb82755db3333"
 dependencies = [
  "actix-service",
  "actix-web",
