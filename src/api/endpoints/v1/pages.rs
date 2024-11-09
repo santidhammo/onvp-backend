@@ -132,7 +132,7 @@ pub async fn find_by_id(
 #[utoipa::path(
     tag = "pages",
     responses(
-        (status = 200, description = "The page", content_type="text/html"),
+        (status = 200, description = "The page", content_type="text/plain"),
         (status = 400, description = "Bad Request", body=Option<String>),
         (status = 401, description = "Unauthorized", body=Option<String>),
         (status = 500, description = "Internal Server Error", body=Option<String>)
@@ -145,7 +145,9 @@ pub async fn content(
     roles: ClaimRoles,
 ) -> BackendResult<HttpResponse> {
     let result = service.find_content_by_id(id.into_inner(), &roles)?;
-    Ok(HttpResponse::Ok().body(result))
+    Ok(HttpResponse::Ok()
+        .insert_header(("content-type", "text/plain"))
+        .body(result))
 }
 
 /// Updates an existing page

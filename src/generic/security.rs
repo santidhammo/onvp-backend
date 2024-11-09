@@ -17,7 +17,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use crate::generic::result::{BackendError, BackendResult};
 use crate::model::interface::client::UserClaims;
 use crate::model::primitives::Role;
 use crate::services::definitions::request::traits::RoleContainer;
@@ -37,14 +36,6 @@ use rand::distributions::{Alphanumeric, DistString};
 use rand::thread_rng;
 use std::collections::HashSet;
 pub use totp_rs::TOTP;
-
-pub fn operator_state_guard(claims: &UserClaims) -> BackendResult<()> {
-    if claims.has_role(Role::Operator) {
-        Ok(())
-    } else {
-        Err(BackendError::bad())
-    }
-}
 
 pub fn generate_activation_string() -> String {
     let validation_string = Alphanumeric.sample_string(&mut thread_rng(), 32);
@@ -77,12 +68,14 @@ impl ClaimRoles {
         &'static Exp: Send,
         i32: AsExpression<Integer> + ToSql<Integer, DB>,
     {
-        let mut result: Box<dyn BoxableExpression<QS, DB, SqlType = Bool>> = Box::new(exp.eq(exp));
+        let mut my_set = self.set().clone();
+        my_set.remove(&Role::Public);
+        let mut result: Box<dyn BoxableExpression<QS, DB, SqlType = Bool>> =
+            Box::new(exp.eq(Role::Public as i32));
 
-        for role in self.set() {
-            let r = *role;
+        for role in my_set {
             let lhs: Box<dyn BoxableExpression<QS, DB, SqlType = Bool>> =
-                Box::new(ExpressionMethods::eq(exp, r));
+                Box::new(ExpressionMethods::eq(exp, role as i32));
 
             result = Box::new(lhs.or(result));
         }

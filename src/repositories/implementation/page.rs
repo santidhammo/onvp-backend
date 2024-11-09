@@ -70,32 +70,60 @@ impl PageRepository for Implementation {
         parent_id: i32,
         roles: &ClaimRoles,
     ) -> BackendResult<Vec<Page>> {
-        let page = match conn {
+        let pages = match conn {
             DatabaseConnection::PostgreSQL(conn) => {
                 let sub_table = page_access_policies::table
                     .select(page_access_policies::page_id)
+                    .distinct()
                     .filter(roles.generate_policy_expression(&page_access_policies::system_role));
 
-                pages::table
-                    .filter(pages::parent_id.eq(parent_id).and(exists(sub_table)))
-                    .select(Page::as_select())
-                    .order_by(pages::title)
-                    .load(conn)?
+                if parent_id == 0 {
+                    pages::table
+                        .filter(
+                            pages::parent_id
+                                .eq(parent_id)
+                                .or(pages::parent_id.is_null())
+                                .and(exists(sub_table)),
+                        )
+                        .select(Page::as_select())
+                        .order_by(pages::title)
+                        .load(conn)?
+                } else {
+                    pages::table
+                        .filter(pages::parent_id.eq(parent_id).and(exists(sub_table)))
+                        .select(Page::as_select())
+                        .order_by(pages::title)
+                        .load(conn)?
+                }
             }
             DatabaseConnection::SQLite(conn) => {
                 let sub_table = page_access_policies::table
                     .select(page_access_policies::page_id)
+                    .distinct()
                     .filter(roles.generate_policy_expression(&page_access_policies::system_role));
 
-                pages::table
-                    .filter(pages::parent_id.eq(parent_id).and(exists(sub_table)))
-                    .select(Page::as_select())
-                    .order_by(pages::title)
-                    .load(conn)?
+                if parent_id == 0 {
+                    pages::table
+                        .filter(
+                            pages::parent_id
+                                .eq(parent_id)
+                                .or(pages::parent_id.is_null())
+                                .and(exists(sub_table)),
+                        )
+                        .select(Page::as_select())
+                        .order_by(pages::title)
+                        .load(conn)?
+                } else {
+                    pages::table
+                        .filter(pages::parent_id.eq(parent_id).and(exists(sub_table)))
+                        .select(Page::as_select())
+                        .order_by(pages::title)
+                        .load(conn)?
+                }
             }
         };
 
-        Ok(page)
+        Ok(pages)
     }
 
     fn find_associated_roles_by_id(
@@ -245,6 +273,7 @@ mod search_impl {
     {
         let sub_table =
             QueryDsl::select(page_access_policies::table, page_access_policies::page_id)
+                .distinct()
                 .filter(roles.generate_policy_expression(&page_access_policies::system_role));
 
         let where_expression = search_expression.and(exists(sub_table));
