@@ -119,18 +119,20 @@ impl PageRepository for Implementation {
     }
 
     fn reset_roles(&self, conn: &mut DatabaseConnection, page_id: i32) -> BackendResult<()> {
-        diesel::delete(page_access_policies::table)
-            .filter(page_access_policies::page_id.eq(page_id))
-            .execute(conn)?;
+        conn.transaction::<_, BackendError, _>(|conn| {
+            diesel::delete(page_access_policies::table)
+                .filter(page_access_policies::page_id.eq(page_id))
+                .execute(conn)?;
 
-        diesel::insert_into(page_access_policies::table)
-            .values((
-                page_access_policies::page_id.eq(page_id),
-                page_access_policies::system_role.eq(Role::Operator),
-            ))
-            .execute(conn)?;
+            diesel::insert_into(page_access_policies::table)
+                .values((
+                    page_access_policies::page_id.eq(page_id),
+                    page_access_policies::system_role.eq(Role::Operator),
+                ))
+                .execute(conn)?;
 
-        Ok(())
+            Ok(())
+        })
     }
 
     fn assign_roles(

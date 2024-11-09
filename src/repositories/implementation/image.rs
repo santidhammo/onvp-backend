@@ -75,18 +75,20 @@ impl ImageRepository for Implementation {
     }
 
     fn reset_roles(&self, conn: &mut DatabaseConnection, image_id: i32) -> BackendResult<()> {
-        diesel::delete(image_access_policies::table)
-            .filter(image_access_policies::image_id.eq(image_id))
-            .execute(conn)?;
+        conn.transaction::<_, BackendError, _>(|conn| {
+            diesel::delete(image_access_policies::table)
+                .filter(image_access_policies::image_id.eq(image_id))
+                .execute(conn)?;
 
-        diesel::insert_into(image_access_policies::table)
-            .values((
-                image_access_policies::image_id.eq(image_id),
-                image_access_policies::system_role.eq(Role::Operator),
-            ))
-            .execute(conn)?;
+            diesel::insert_into(image_access_policies::table)
+                .values((
+                    image_access_policies::image_id.eq(image_id),
+                    image_access_policies::system_role.eq(Role::Operator),
+                ))
+                .execute(conn)?;
 
-        Ok(())
+            Ok(())
+        })
     }
 
     fn assign_roles(
