@@ -110,7 +110,7 @@ pub async fn find_by_id(
         (status = 500, description = "Internal Server Error", body=Option<String>)
     )
 )]
-#[get("/image/{id}.png")]
+#[get("/asset/{id}.png")]
 pub async fn asset(
     id: Path<i32>,
     service: Data<dyn ImageRequestService>,
