@@ -23,6 +23,16 @@ use crate::model::primitives::Role;
 use crate::model::storage::entities::{Image, Page, Workgroup};
 use crate::model::storage::extended_entities::{ExtendedMember, FacebookMember};
 
+pub trait PropertiesRepository {
+    fn maybe_int_property(&self, conn: &mut DatabaseConnection, key: &str) -> Option<i32>;
+    fn set_int_property(
+        &self,
+        conn: &mut DatabaseConnection,
+        key: &str,
+        value: Option<i32>,
+    ) -> BackendResult<()>;
+}
+
 pub trait MemberRepository {
     fn create_inactive(
         &self,

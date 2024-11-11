@@ -123,6 +123,8 @@ pub async fn launch() -> std::io::Result<()> {
                     .service(pages::main_menu)
                     .service(pages::set_content)
                     .service(pages::content)
+                    .service(pages::put_default)
+                    .service(pages::get_default)
                     .service(pages::update)
                     .service(pages::publish)
                     .service(pages::unpublish)

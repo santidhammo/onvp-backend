@@ -21,8 +21,8 @@ use crate::generic::Injectable;
 use crate::model::interface::client::UserClaims;
 use crate::repositories::definitions::{
     AuthorizationRepository, FacebookRepository, ImageRepository, MemberPictureRepository,
-    MemberRepository, MemberRoleRepository, PageRepository, WorkgroupRepository,
-    WorkgroupRoleRepository,
+    MemberRepository, MemberRoleRepository, PageRepository, PropertiesRepository,
+    WorkgroupRepository, WorkgroupRoleRepository,
 };
 use crate::{repositories, services};
 use actix_jwt_auth_middleware::TokenSigner;
@@ -98,6 +98,7 @@ where
         services::implementation::command::page::Implementation::injectable((
             pool,
             &repositories.page_repository,
+            &repositories.properties_repository,
         )),
     )
     .app_data(
@@ -168,6 +169,7 @@ where
         services::implementation::request::page::Implementation::injectable((
             pool,
             &repositories.page_repository,
+            &repositories.properties_repository,
         )),
     )
     .app_data(
@@ -179,6 +181,7 @@ where
 }
 
 struct DependantRepositories {
+    properties_repository: Data<dyn PropertiesRepository>,
     member_repository: Data<dyn MemberRepository>,
     workgroup_repository: Data<dyn WorkgroupRepository>,
     member_role_repository: Data<dyn MemberRoleRepository>,
@@ -193,6 +196,8 @@ struct DependantRepositories {
 impl DependantRepositories {
     fn dependencies() -> DependantRepositories {
         let repositories = DependantRepositories {
+            properties_repository:
+                repositories::implementation::properties::Implementation::injectable(()),
             member_repository: repositories::implementation::member::Implementation::injectable(()),
             workgroup_repository:
                 repositories::implementation::workgroup::Implementation::injectable(()),

@@ -23,7 +23,7 @@ use crate::generic::{search_helpers, Injectable};
 use crate::model::interface::responses::{ExtendedPageResponse, PageResponse};
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::model::primitives::Role;
-use crate::repositories::definitions::PageRepository;
+use crate::repositories::definitions::{PageRepository, PropertiesRepository};
 use crate::services::definitions::request::traits::RoleContainer;
 use crate::services::definitions::request::PageRequestService;
 use actix_web::web::Data;
@@ -36,6 +36,7 @@ use std::sync::Arc;
 pub struct Implementation {
     pool: DatabaseConnectionPool,
     page_repository: Data<dyn PageRepository>,
+    properties_repository: Data<dyn PropertiesRepository>,
 }
 
 impl PageRequestService for Implementation {
@@ -79,6 +80,20 @@ impl PageRequestService for Implementation {
             let page = self.page_repository.find_by_id(conn, page_id)?;
             let content = Self::read_asset(&page.content_asset)?;
             Ok(content)
+        })
+    }
+
+    fn default(&self, roles: &ClaimRoles) -> BackendResult<Option<ExtendedPageResponse>> {
+        let mut conn = self.pool.get()?;
+        conn.transaction::<Option<ExtendedPageResponse>, BackendError, _>(|conn| {
+            let maybe_page_id = self
+                .properties_repository
+                .maybe_int_property(conn, "default-page");
+            if let Some(page_id) = maybe_page_id {
+                Ok(Some(self.find_by_id(page_id, roles)?))
+            } else {
+                Ok(None)
+            }
         })
     }
 
@@ -133,15 +148,27 @@ impl Implementation {
     }
 }
 
-impl Injectable<(&DatabaseConnectionPool, &Data<dyn PageRepository>), dyn PageRequestService>
-    for Implementation
+impl
+    Injectable<
+        (
+            &DatabaseConnectionPool,
+            &Data<dyn PageRepository>,
+            &Data<dyn PropertiesRepository>,
+        ),
+        dyn PageRequestService,
+    > for Implementation
 {
     fn injectable(
-        (pool, page_repository): (&DatabaseConnectionPool, &Data<dyn PageRepository>),
+        (pool, page_repository, properties_repository): (
+            &DatabaseConnectionPool,
+            &Data<dyn PageRepository>,
+            &Data<dyn PropertiesRepository>,
+        ),
     ) -> Data<dyn PageRequestService> {
         let implementation = Self {
             pool: pool.clone(),
             page_repository: page_repository.clone(),
+            properties_repository: properties_repository.clone(),
         };
         let arc: Arc<dyn PageRequestService> = Arc::new(implementation);
         Data::from(arc)

@@ -128,6 +128,43 @@ pub async fn find_by_id(
     Ok(Json(service.find_by_id(id.into_inner(), &roles)?))
 }
 
+/// Returns the default page if set
+#[utoipa::path(
+    tag = "pages",
+    responses(
+        (status = 200, description = "The page", body=ExtendedPageResponse),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal Server Error", body=Option<String>)
+    )
+)]
+#[get("/default")]
+pub async fn get_default(
+    service: Data<dyn PageRequestService>,
+    roles: ClaimRoles,
+) -> BackendResult<Json<Option<ExtendedPageResponse>>> {
+    Ok(Json(service.default(&roles)?))
+}
+
+/// Sets the default page
+#[utoipa::path(
+    tag = "pages",
+    responses(
+        (status = 200, description = "The default page is set"),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal Server Error", body=Option<String>)
+    )
+)]
+#[put("/default/{id}")]
+pub async fn put_default(
+    id: Path<i32>,
+    service: Data<dyn PageCommandService>,
+) -> BackendResult<HttpResponse> {
+    service.set_default(id.into_inner())?;
+    Ok(HttpResponse::Ok().finish())
+}
+
 /// Returns page content
 #[utoipa::path(
     tag = "pages",

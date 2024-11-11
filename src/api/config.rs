@@ -37,6 +37,7 @@ pub fn configure_authority() -> AuthorityConfig {
         .allow(Get, "/api/workgroups/v1/**", LoggedInMember)
         .allow(Get, "/api/source_code_details/v1/**", Any)
         .allow(Get, "/api/pages/v1/main-menu", Any)
+        .allow(Get, "/api/pages/v1/default", Any)
         .allow(Get, "/api/pages/v1/search", Any)
         .allow(Get, "/api/pages/v1/page/**", Any)
         .allow(Get, "/api/images/v1/image/**", Any)

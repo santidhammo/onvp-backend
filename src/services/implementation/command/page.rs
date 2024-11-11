@@ -21,7 +21,7 @@ use crate::generic::storage::database::DatabaseConnectionPool;
 use crate::generic::Injectable;
 use crate::model::interface::commands::{CreatePageCommand, PublishPageCommand, UpdatePageCommand};
 use crate::model::storage::entities::Page;
-use crate::repositories::definitions::PageRepository;
+use crate::repositories::definitions::{PageRepository, PropertiesRepository};
 use crate::services::definitions::command::PageCommandService;
 use actix_web::web::Data;
 use diesel::Connection;
@@ -32,6 +32,7 @@ use std::sync::Arc;
 pub struct Implementation {
     pool: DatabaseConnectionPool,
     page_repository: Data<dyn PageRepository>,
+    properties_repository: Data<dyn PropertiesRepository>,
 }
 
 impl PageCommandService for Implementation {
@@ -83,17 +84,39 @@ impl PageCommandService for Implementation {
         let mut conn = self.pool.get()?;
         self.page_repository.delete(&mut conn, page_id)
     }
+
+    fn set_default(&self, page_id: i32) -> BackendResult<()> {
+        let mut conn = self.pool.get()?;
+        conn.transaction::<_, BackendError, _>(|conn| {
+            // Verify the identifier
+            let _ = self.page_repository.find_by_id(conn, page_id)?;
+            self.properties_repository
+                .set_int_property(conn, "default-page", Some(page_id))
+        })
+    }
 }
 
-impl Injectable<(&DatabaseConnectionPool, &Data<dyn PageRepository>), dyn PageCommandService>
-    for Implementation
+impl
+    Injectable<
+        (
+            &DatabaseConnectionPool,
+            &Data<dyn PageRepository>,
+            &Data<dyn PropertiesRepository>,
+        ),
+        dyn PageCommandService,
+    > for Implementation
 {
     fn injectable(
-        (pool, page_repository): (&DatabaseConnectionPool, &Data<dyn PageRepository>),
+        (pool, page_repository, properties_repository): (
+            &DatabaseConnectionPool,
+            &Data<dyn PageRepository>,
+            &Data<dyn PropertiesRepository>,
+        ),
     ) -> Data<dyn PageCommandService> {
         let implementation = Self {
             pool: pool.clone(),
             page_repository: page_repository.clone(),
+            properties_repository: properties_repository.clone(),
         };
         let arc: Arc<dyn PageCommandService> = Arc::new(implementation);
         Data::from(arc)

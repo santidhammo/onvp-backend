@@ -124,6 +124,9 @@ pub trait PageCommandService {
 
     /// Deletes an existing page
     fn delete(&self, page_id: i32) -> BackendResult<()>;
+
+    /// Sets the default page
+    fn set_default(&self, page_id: i32) -> BackendResult<()>;
 }
 
 /// Controls actions which can be performed to manage images

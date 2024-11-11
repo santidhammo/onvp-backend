@@ -131,6 +131,9 @@ pub trait PageRequestService {
     /// Finds a page's content using the identifier
     fn find_content_by_id(&self, page_id: i32, roles: &ClaimRoles) -> BackendResult<String>;
 
+    /// Returns the default page, if there is a default page
+    fn default(&self, roles: &ClaimRoles) -> BackendResult<Option<ExtendedPageResponse>>;
+
     /// Lists all page's by parent identifier
     fn list_by_parent_id(
         &self,
