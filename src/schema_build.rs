@@ -107,6 +107,13 @@ diesel::table! {
 }
 
 diesel::table! {
+    properties (key) {
+        key -> Varchar,
+        value -> Varchar,
+    }
+}
+
+diesel::table! {
     workgroup_member_relationships (workgroup_id, member_id) {
         workgroup_id -> Int4,
         member_id -> Int4,
@@ -147,6 +154,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     musical_instruments,
     page_access_policies,
     pages,
+    properties,
     workgroup_member_relationships,
     workgroup_role_associations,
     workgroups,

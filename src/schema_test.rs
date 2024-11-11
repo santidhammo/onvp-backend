@@ -107,6 +107,13 @@ diesel::table! {
 }
 
 diesel::table! {
+    properties (key) {
+        key -> Varchar,
+        value -> Varchar,
+    }
+}
+
+diesel::table! {
     workgroup_member_relationships (workgroup_id, member_id) {
         workgroup_id -> Integer,
         member_id -> Integer,
