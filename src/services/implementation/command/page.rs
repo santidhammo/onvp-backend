@@ -51,7 +51,11 @@ impl PageCommandService for Implementation {
             let page: Page = self.page_repository.find_by_id(conn, page_id)?;
             let content_asset = page.content_asset;
             let pb = crate::path_for_asset(&content_asset)?;
-            let mut w = OpenOptions::new().write(true).create(true).open(&pb)?;
+            let mut w = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(&pb)?;
             w.write(&content.as_bytes())?;
             Ok(())
         })
