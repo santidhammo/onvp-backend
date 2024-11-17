@@ -24,7 +24,6 @@ use crate::generic::{search_helpers, Injectable};
 use crate::model::primitives::Role;
 use crate::model::storage::entities::Page;
 use crate::repositories::definitions::PageRepository;
-use crate::repositories::implementation::search_expressions::PageSearchExpressionGenerator;
 use crate::schema::*;
 use actix_web::web::Data;
 use diesel::dsl::exists;
@@ -70,57 +69,28 @@ impl PageRepository for Implementation {
         parent_id: i32,
         roles: &ClaimRoles,
     ) -> BackendResult<Vec<Page>> {
-        let pages = match conn {
-            DatabaseConnection::PostgreSQL(conn) => {
-                let sub_table = page_access_policies::table
-                    .select(page_access_policies::page_id)
-                    .distinct()
-                    .filter(roles.generate_policy_expression(&page_access_policies::system_role));
+        let sub_table = page_access_policies::table
+            .select(page_access_policies::page_id)
+            .distinct()
+            .filter(roles.generate_policy_expression(&page_access_policies::system_role));
 
-                if parent_id == 0 {
-                    pages::table
-                        .filter(
-                            pages::parent_id
-                                .eq(parent_id)
-                                .or(pages::parent_id.is_null())
-                                .and(exists(sub_table)),
-                        )
-                        .select(Page::as_select())
-                        .order_by(pages::title)
-                        .load(conn)?
-                } else {
-                    pages::table
-                        .filter(pages::parent_id.eq(parent_id).and(exists(sub_table)))
-                        .select(Page::as_select())
-                        .order_by(pages::title)
-                        .load(conn)?
-                }
-            }
-            DatabaseConnection::SQLite(conn) => {
-                let sub_table = page_access_policies::table
-                    .select(page_access_policies::page_id)
-                    .distinct()
-                    .filter(roles.generate_policy_expression(&page_access_policies::system_role));
-
-                if parent_id == 0 {
-                    pages::table
-                        .filter(
-                            pages::parent_id
-                                .eq(parent_id)
-                                .or(pages::parent_id.is_null())
-                                .and(exists(sub_table)),
-                        )
-                        .select(Page::as_select())
-                        .order_by(pages::title)
-                        .load(conn)?
-                } else {
-                    pages::table
-                        .filter(pages::parent_id.eq(parent_id).and(exists(sub_table)))
-                        .select(Page::as_select())
-                        .order_by(pages::title)
-                        .load(conn)?
-                }
-            }
+        let pages = if parent_id == 0 {
+            pages::table
+                .filter(
+                    pages::parent_id
+                        .eq(parent_id)
+                        .or(pages::parent_id.is_null())
+                        .and(exists(sub_table)),
+                )
+                .select(Page::as_select())
+                .order_by(pages::title)
+                .load(conn)?
+        } else {
+            pages::table
+                .filter(pages::parent_id.eq(parent_id).and(exists(sub_table)))
+                .select(Page::as_select())
+                .order_by(pages::title)
+                .load(conn)?
         };
 
         Ok(pages)
@@ -193,109 +163,38 @@ impl PageRepository for Implementation {
     ) -> BackendResult<(usize, usize, Vec<Page>)> {
         let like_search_string = search_helpers::create_like_string(term);
         let (total_count, pages) =
-            conn.transaction::<(usize, Vec<Page>), BackendError, _>(|conn| match conn {
-                DatabaseConnection::PostgreSQL(conn) => {
-                    let filter = PageSearchExpressionGenerator::postgresql(&like_search_string);
-                    search_impl::search(conn, self.page_size, page_offset, roles, &filter)
-                }
-                DatabaseConnection::SQLite(conn) => {
-                    let filter = PageSearchExpressionGenerator::sqlite(&like_search_string);
-                    search_impl::search(conn, self.page_size, page_offset, roles, &filter)
-                }
+            conn.transaction::<(usize, Vec<Page>), BackendError, _>(|conn| {
+                let sub_table =
+                    QueryDsl::select(page_access_policies::table, page_access_policies::page_id)
+                        .distinct()
+                        .filter(
+                            roles.generate_policy_expression(&page_access_policies::system_role),
+                        );
+
+                let where_expression = pages::title
+                    .ilike(like_search_string)
+                    .and(exists(sub_table));
+
+                let total_count: usize = pages::table
+                    .filter(&where_expression)
+                    .count()
+                    .get_result::<i64>(conn)? as usize;
+
+                let result: Vec<(Page,)> = QueryDsl::select(
+                    QueryDsl::limit(
+                        pages::table
+                            .filter(&where_expression)
+                            .order_by(pages::title),
+                        self.page_size as i64,
+                    )
+                    .offset((page_offset * self.page_size) as i64),
+                    (Page::as_select(),),
+                )
+                .load(conn)?;
+
+                Ok((total_count, result.iter().map(|(p,)| p.clone()).collect()))
             })?;
         Ok((total_count, self.page_size, pages))
-    }
-}
-
-mod search_impl {
-    use diesel::backend::{Backend, SqlDialect};
-    use diesel::connection::LoadConnection;
-    use diesel::deserialize::{FromSql, FromStaticSqlRow};
-    use diesel::dsl::{exists, AsSelect, Limit};
-    use diesel::expression::is_aggregate::No;
-    use diesel::expression::ValidGrouping;
-
-    use crate::generic::result::BackendError;
-    use crate::generic::security::ClaimRoles;
-    use crate::model::primitives::Role;
-    use crate::model::storage::entities::Page;
-    use crate::schema::*;
-    use diesel::internal::derives::as_expression::Bound;
-    use diesel::internal::derives::multiconnection::sql_dialect::exists_syntax::AnsiSqlExistsSyntax;
-    use diesel::internal::derives::multiconnection::sql_dialect::select_statement_syntax::AnsiSqlSelectStatement;
-    use diesel::internal::derives::multiconnection::{
-        DieselReserveSpecialization, LimitClause, LimitOffsetClause, NoLimitClause, NoOffsetClause,
-        OffsetClause,
-    };
-    use diesel::query_builder::{QueryFragment, QueryId};
-    use diesel::query_dsl::limit_dsl::LimitDsl;
-    use diesel::query_dsl::select_dsl::SelectDsl;
-    use diesel::serialize::ToSql;
-    use diesel::sql_types::{BigInt, Bool, HasSqlType, Integer};
-    use diesel::{
-        AppearsOnTable, BoolExpressionMethods, Connection, Expression, QueryDsl, RunQueryDsl,
-        SelectableHelper,
-    };
-
-    pub(super) fn search<DB, TConnection, TSearchExpression>(
-        conn: &mut TConnection,
-        page_size: usize,
-        page_offset: usize,
-        roles: &ClaimRoles,
-        search_expression: TSearchExpression,
-    ) -> Result<(usize, Vec<Page>), BackendError>
-    where
-        DB: Backend<
-                SelectStatementSyntax = AnsiSqlSelectStatement,
-                ExistsSyntax = AnsiSqlExistsSyntax,
-            > + SqlDialect
-            + DieselReserveSpecialization
-            + HasSqlType<Bool>
-            + 'static,
-        TConnection: LoadConnection + Connection<Backend = DB> + Send,
-        TSearchExpression: QueryFragment<DB>
-            + Expression<SqlType = Bool>
-            + ValidGrouping<(), IsAggregate = No>
-            + AppearsOnTable<pages::table>
-            + QueryId,
-
-        Limit<pages::table>: LimitDsl,
-        Limit<page_access_policies::table>: LimitDsl,
-        pages::table: SelectDsl<AsSelect<Page, DB>>,
-        LimitOffsetClause<LimitClause<Bound<BigInt, i64>>, OffsetClause<Bound<BigInt, i64>>>:
-            QueryFragment<DB>,
-        LimitOffsetClause<NoLimitClause, NoOffsetClause>: QueryFragment<DB>,
-        (Page,): FromStaticSqlRow<(AsSelect<Page, DB>,), DB>,
-        bool: ToSql<Bool, DB>,
-        Role: ToSql<Integer, DB>,
-        i64: FromSql<BigInt, DB>,
-        i32: ToSql<Integer, DB>,
-    {
-        let sub_table =
-            QueryDsl::select(page_access_policies::table, page_access_policies::page_id)
-                .distinct()
-                .filter(roles.generate_policy_expression(&page_access_policies::system_role));
-
-        let where_expression = search_expression.and(exists(sub_table));
-
-        let total_count: usize = pages::table
-            .filter(&where_expression)
-            .count()
-            .get_result::<i64>(conn)? as usize;
-
-        let result: Vec<(Page,)> = QueryDsl::select(
-            QueryDsl::limit(
-                pages::table
-                    .filter(&where_expression)
-                    .order_by(pages::title),
-                page_size as i64,
-            )
-            .offset((page_offset * page_size) as i64),
-            (Page::as_select(),),
-        )
-        .load(conn)?;
-
-        Ok((total_count, result.iter().map(|(p,)| p.clone()).collect()))
     }
 }
 

@@ -24,6 +24,5 @@ pub mod member_picture;
 pub mod member_role;
 pub mod page;
 pub mod properties;
-mod search_expressions;
 pub mod workgroup;
 pub mod workgroup_role;

@@ -21,12 +21,7 @@ use diesel::r2d2::ConnectionManager;
 use diesel::*;
 
 pub type DatabaseConnectionPool = r2d2::Pool<ConnectionManager<DatabaseConnection>>;
-
-#[derive(MultiConnection)]
-pub enum DatabaseConnection {
-    PostgreSQL(PgConnection),
-    SQLite(SqliteConnection),
-}
+pub type DatabaseConnection = PgConnection;
 
 pub fn initialize_database_connection_pool() -> DatabaseConnectionPool {
     let conn_spec = std::env::var("DATABASE_URL").expect("DATABASE_URL should be set");

@@ -26,26 +26,8 @@ use crate::schema::{member_details, members};
 use actix_web::web::Data;
 
 use crate::model::storage::entities::{Member, MemberDetail};
-use crate::repositories::implementation::search_expressions::FacebookSearchExpressionGenerator;
-use diesel::backend::{Backend, SqlDialect};
-use diesel::connection::LoadConnection;
-use diesel::deserialize::{FromSql, FromStaticSqlRow};
-use diesel::dsl::{AsSelect, InnerJoinQuerySource, Limit};
-use diesel::expression::is_aggregate::No;
-use diesel::expression::ValidGrouping;
-use diesel::internal::derives::as_expression::Bound;
-use diesel::internal::derives::multiconnection::sql_dialect::select_statement_syntax::AnsiSqlSelectStatement;
-use diesel::internal::derives::multiconnection::{
-    DieselReserveSpecialization, LimitClause, LimitOffsetClause, NoLimitClause, NoOffsetClause,
-    OffsetClause,
-};
-use diesel::query_builder::{QueryFragment, QueryId};
-use diesel::query_dsl::limit_dsl::LimitDsl;
-use diesel::query_dsl::select_dsl::SelectDsl;
-use diesel::serialize::ToSql;
-use diesel::sql_types::{BigInt, Bool, HasSqlType};
 use diesel::{
-    AppearsOnTable, BoolExpressionMethods, Connection, Expression, ExpressionMethods, QueryDsl,
+    BoolExpressionMethods, Connection, ExpressionMethods, PgTextExpressionMethods, QueryDsl,
     RunQueryDsl, SelectableHelper,
 };
 use std::sync::Arc;
@@ -63,55 +45,28 @@ impl FacebookRepository for Implementation {
     ) -> BackendResult<(usize, usize, Vec<FacebookMember>)> {
         let like_search_string = search_helpers::create_like_string(term);
         let (total_count, facebook_members) = conn
-            .transaction::<(usize, Vec<FacebookMember>), BackendError, _>(|conn| match conn {
-                DatabaseConnection::PostgreSQL(conn) => {
-                    let filter = FacebookSearchExpressionGenerator::postgresql(&like_search_string);
-                    self.search(conn, page_offset, &filter)
-                }
-                DatabaseConnection::SQLite(conn) => {
-                    let filter = FacebookSearchExpressionGenerator::sqlite(&like_search_string);
-                    self.search(conn, page_offset, &filter)
-                }
+            .transaction::<(usize, Vec<FacebookMember>), BackendError, _>(|conn| {
+                self.search(conn, page_offset, &like_search_string)
             })?;
         Ok((total_count, self.page_size, facebook_members))
     }
 }
 
 impl Implementation {
-    fn search<DB, TSearchExpression, TConnection>(
+    fn search(
         &self,
-        conn: &mut TConnection,
+        conn: &mut DatabaseConnection,
         page_offset: usize,
-        search_expression: TSearchExpression,
-    ) -> Result<(usize, Vec<FacebookMember>), BackendError>
-    where
-        DB: Backend<SelectStatementSyntax = AnsiSqlSelectStatement>
-            + SqlDialect
-            + DieselReserveSpecialization
-            + HasSqlType<Bool>
-            + 'static,
-        TConnection: LoadConnection + Connection<Backend = DB> + Send,
-        TSearchExpression: QueryFragment<DB>
-            + Expression<SqlType = Bool>
-            + ValidGrouping<(), IsAggregate = No>
-            + AppearsOnTable<InnerJoinQuerySource<members::table, member_details::table>>
-            + QueryId,
-        Limit<members::table>: LimitDsl,
-        Limit<member_details::table>: LimitDsl,
-        members::table: SelectDsl<AsSelect<Member, DB>>,
-        member_details::table: SelectDsl<AsSelect<MemberDetail, DB>>,
-        LimitOffsetClause<LimitClause<Bound<BigInt, i64>>, OffsetClause<Bound<BigInt, i64>>>:
-            QueryFragment<DB>,
-        LimitOffsetClause<NoLimitClause, NoOffsetClause>: QueryFragment<DB>,
-        (Member, MemberDetail):
-            FromStaticSqlRow<(AsSelect<Member, DB>, AsSelect<MemberDetail, DB>), DB>,
-        bool: ToSql<Bool, DB>,
-        i64: FromSql<BigInt, DB>,
-    {
+        term: &str,
+    ) -> Result<(usize, Vec<FacebookMember>), BackendError> {
         let where_expression = members::activated
             .eq(true)
             .and(members::allow_privacy_info_sharing.eq(true))
-            .and(search_expression);
+            .and(
+                member_details::first_name
+                    .ilike(term)
+                    .or(member_details::last_name.ilike(term)),
+            );
 
         let total_count: usize = members::table
             .inner_join(member_details::table)

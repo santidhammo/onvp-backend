@@ -1,1 +1,0 @@
-DROP TABLE workgroup_member_relationships;
