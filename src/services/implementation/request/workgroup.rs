@@ -18,8 +18,9 @@
  */
 use crate::generic::result::BackendResult;
 use crate::generic::search_helpers::create_like_string;
-use crate::generic::storage::database::DatabaseConnectionPool;
+use crate::generic::storage::session::Session;
 use crate::generic::{search_helpers, Injectable};
+use crate::injection::ServiceDependencies;
 use crate::model::interface::responses::{MemberResponse, WorkgroupResponse};
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::repositories::definitions::WorkgroupRepository;
@@ -29,35 +30,36 @@ use serde::Serialize;
 use std::sync::Arc;
 
 pub struct Implementation {
-    pool: DatabaseConnectionPool,
     workgroup_repository: Data<dyn WorkgroupRepository>,
 }
 
 impl WorkgroupRequestService for Implementation {
-    fn find_by_id(&self, id: i32) -> BackendResult<WorkgroupResponse> {
-        let mut conn = self.pool.get()?;
+    fn find_by_id(&self, mut session: Session, id: i32) -> BackendResult<WorkgroupResponse> {
         self.workgroup_repository
-            .find_by_id(&mut conn, id)
+            .find_by_id(&mut session, id)
             .map(|w| WorkgroupResponse::from(&w))
     }
 
-    fn find_members_by_id(&self, id: i32) -> BackendResult<Vec<MemberResponse>> {
-        let mut conn = self.pool.get()?;
+    fn find_members_by_id(
+        &self,
+        mut session: Session,
+        id: i32,
+    ) -> BackendResult<Vec<MemberResponse>> {
         self.workgroup_repository
-            .find_members_by_id(&mut conn, id)
+            .find_members_by_id(&mut session, id)
             .map(|v| v.iter().map(|w| MemberResponse::from(w)).collect())
     }
 
     fn available_members_search(
         &self,
+        mut session: Session,
         workgroup_id: i32,
         params: &SearchParams,
     ) -> BackendResult<SearchResult<MemberResponse>> {
         let term = create_like_string(params.term.clone().unwrap_or_default());
-        let mut conn = self.pool.get()?;
         let (total_count, page_size, results) = self
             .workgroup_repository
-            .available_members_search(&mut conn, workgroup_id, params.page_offset, &term)?;
+            .available_members_search(&mut session, workgroup_id, params.page_offset, &term)?;
         let rows: Vec<MemberResponse> = results.iter().map(MemberResponse::from).collect();
         let row_len = rows.len();
         Ok(SearchResult {
@@ -72,15 +74,18 @@ impl WorkgroupRequestService for Implementation {
 }
 
 impl SearchController<WorkgroupResponse> for Implementation {
-    fn search(&self, params: &SearchParams) -> BackendResult<SearchResult<WorkgroupResponse>>
+    fn search(
+        &self,
+        mut session: Session,
+        params: &SearchParams,
+    ) -> BackendResult<SearchResult<WorkgroupResponse>>
     where
         WorkgroupResponse: Serialize,
     {
-        let mut conn = self.pool.get()?;
         let term = params.term.clone().unwrap_or("".to_owned());
         let (total_count, page_size, results) =
             self.workgroup_repository
-                .search(&mut conn, params.page_offset, &term)?;
+                .search(&mut session, params.page_offset, &term)?;
         let rows: Vec<WorkgroupResponse> = results.iter().map(WorkgroupResponse::from).collect();
         let row_len = rows.len();
         Ok(SearchResult {
@@ -94,18 +99,10 @@ impl SearchController<WorkgroupResponse> for Implementation {
     }
 }
 
-impl
-    Injectable<
-        (&DatabaseConnectionPool, &Data<dyn WorkgroupRepository>),
-        dyn WorkgroupRequestService,
-    > for Implementation
-{
-    fn injectable(
-        (pool, workgroup_repository): (&DatabaseConnectionPool, &Data<dyn WorkgroupRepository>),
-    ) -> Data<dyn WorkgroupRequestService> {
+impl Injectable<ServiceDependencies, dyn WorkgroupRequestService> for Implementation {
+    fn make(dependencies: &ServiceDependencies) -> Data<dyn WorkgroupRequestService> {
         let implementation = Self {
-            pool: pool.clone(),
-            workgroup_repository: workgroup_repository.clone(),
+            workgroup_repository: dependencies.workgroup_repository.clone(),
         };
         let arc: Arc<dyn WorkgroupRequestService> = Arc::new(implementation);
         Data::from(arc)

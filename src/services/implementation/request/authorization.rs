@@ -18,8 +18,9 @@
  */
 use crate::generic::lazy::TOKEN_EXPIRY_HIGH_WATER_MARK;
 use crate::generic::result::{BackendError, BackendResult};
-use crate::generic::storage::database::{DatabaseConnection, DatabaseConnectionPool};
+use crate::generic::storage::session::Session;
 use crate::generic::Injectable;
+use crate::injection::ServiceDependencies;
 use crate::model::interface::client::UserClaims;
 use crate::model::interface::requests::AuthorizationRequest;
 use crate::model::interface::responses::{AuthorizationResponse, MemberResponse};
@@ -30,113 +31,105 @@ use actix_web::cookie::time::OffsetDateTime;
 use actix_web::cookie::{Cookie, Expiration, SameSite};
 use actix_web::web::Data;
 use chrono::{TimeDelta, Utc};
-use diesel::r2d2::ConnectionManager;
-use diesel::Connection;
 use jwt_compact::alg::Ed25519;
 use jwt_compact::UntrustedToken;
 use log::info;
-use r2d2::PooledConnection;
 use std::ops::Add;
 use std::sync::Arc;
 use totp_rs::TOTP;
 
 pub struct Implementation {
-    pool: DatabaseConnectionPool,
     member_repository: Data<dyn MemberRepository>,
     authorization_repository: Data<dyn AuthorizationRepository>,
     token_signer: Data<TokenSigner<UserClaims, Ed25519>>,
 }
 
 impl AuthorizationRequestService for Implementation {
-    fn login(&self, login_data: &AuthorizationRequest) -> BackendResult<AuthorizationResponse> {
-        let mut conn = self.pool.get()?;
-        conn.transaction::<AuthorizationResponse, BackendError, _>(|conn| {
-            let extended_member = self
-                .member_repository
-                .find_extended_by_email_address(conn, &login_data.email_address)?;
+    fn login(
+        &self,
+        mut session: Session,
+        login_data: &AuthorizationRequest,
+    ) -> BackendResult<AuthorizationResponse> {
+        let extended_member = self
+            .member_repository
+            .find_extended_by_email_address(&mut session, &login_data.email_address)?;
 
-            let totp: TOTP = MemberResponse::from(&extended_member).try_into()?;
-            let is_current = totp
-                .check_current(&login_data.token)
-                .map_err(|_| BackendError::forbidden())?;
+        let totp: TOTP = MemberResponse::from(&extended_member).try_into()?;
+        let is_current = totp
+            .check_current(&login_data.token)
+            .map_err(|_| BackendError::forbidden())?;
 
-            if is_current {
-                let user_claims = UserClaims {
-                    email_address: login_data.email_address.clone(),
-                    roles: self
-                        .authorization_repository
-                        .find_composite_roles_by_member_id(conn, extended_member.id)?,
-                };
+        if is_current {
+            let user_claims = UserClaims {
+                email_address: login_data.email_address.clone(),
+                roles: self
+                    .authorization_repository
+                    .find_composite_roles_by_member_id(&mut session, extended_member.id)?,
+            };
 
-                let mut access_cookie = self.token_signer.create_access_cookie(&user_claims)?;
-                let mut refresh_cookie = self.token_signer.create_refresh_cookie(&user_claims)?;
-                Self::set_cookie_site_policy(&mut access_cookie);
-                Self::set_cookie_site_policy(&mut refresh_cookie);
-                let cookies = vec![access_cookie, refresh_cookie];
+            let mut access_cookie = self.token_signer.create_access_cookie(&user_claims)?;
+            let mut refresh_cookie = self.token_signer.create_refresh_cookie(&user_claims)?;
+            Self::set_cookie_site_policy(&mut access_cookie);
+            Self::set_cookie_site_policy(&mut refresh_cookie);
+            let cookies = vec![access_cookie, refresh_cookie];
 
-                Ok(AuthorizationResponse {
-                    member: MemberResponse::from(&extended_member),
-                    composite_roles: user_claims.roles,
-                    cookies,
-                })
-            } else {
-                Err(BackendError::forbidden())
-            }
-        })
+            Ok(AuthorizationResponse {
+                member: MemberResponse::from(&extended_member),
+                composite_roles: user_claims.roles,
+                cookies,
+            })
+        } else {
+            Err(BackendError::forbidden())
+        }
     }
 
     fn refresh(
         &self,
+        mut session: Session,
         client_user_claims: &UserClaims,
         access_cookie: &Cookie<'static>,
         refresh_cookie: &Cookie<'static>,
     ) -> BackendResult<AuthorizationResponse> {
-        let mut conn = self.pool.get()?;
-        conn.transaction::<AuthorizationResponse, BackendError, _>(|conn| {
-            // Convert cookies to the associated tokens. Verification is already done at this point in time,
-            // it is only necessary to refresh the situation appropriately.
-            let origin_access_token = UntrustedToken::new(access_cookie.value())?;
-            let origin_refresh_token = UntrustedToken::new(refresh_cookie.value())?;
-            // If the refresh token nearly expires, the login procedure is transparently performed, to
-            // ensure that user roles are still the same. If the access token nearly expires, then a new
-            // access token is simply created, otherwise nothing is done.
-            let (new_user_claims, new_cookies) =
-                if Self::token_nearly_expires(origin_refresh_token)? {
-                    info!(
-                        "Refreshing tokens for member: {}",
-                        &client_user_claims.email_address
-                    );
-                    let new_user_claims = self.reset_authority(&client_user_claims, conn)?;
-                    let mut access_cookie =
-                        self.token_signer.create_access_cookie(&new_user_claims)?;
-                    let mut refresh_cookie =
-                        self.token_signer.create_refresh_cookie(&new_user_claims)?;
-                    Self::set_cookie_site_policy(&mut access_cookie);
-                    Self::set_cookie_site_policy(&mut refresh_cookie);
-                    (new_user_claims, vec![access_cookie, refresh_cookie])
-                } else if Self::token_nearly_expires(origin_access_token)? {
-                    let mut access_cookie = self
-                        .token_signer
-                        .create_access_cookie(&client_user_claims)?;
-                    Self::set_cookie_site_policy(&mut access_cookie);
-                    (client_user_claims.clone(), vec![access_cookie])
-                } else {
-                    (client_user_claims.clone(), vec![])
-                };
+        // Convert cookies to the associated tokens. Verification is already done at this point in time,
+        // it is only necessary to refresh the situation appropriately.
+        let origin_access_token = UntrustedToken::new(access_cookie.value())?;
+        let origin_refresh_token = UntrustedToken::new(refresh_cookie.value())?;
+        // If the refresh token nearly expires, the login procedure is transparently performed, to
+        // ensure that user roles are still the same. If the access token nearly expires, then a new
+        // access token is simply created, otherwise nothing is done.
+        let (new_user_claims, new_cookies) = if Self::token_nearly_expires(origin_refresh_token)? {
+            info!(
+                "Refreshing tokens for member: {}",
+                &client_user_claims.email_address
+            );
+            let new_user_claims = self.reset_authority(client_user_claims, &mut session)?;
+            let mut access_cookie = self.token_signer.create_access_cookie(&new_user_claims)?;
+            let mut refresh_cookie = self.token_signer.create_refresh_cookie(&new_user_claims)?;
+            Self::set_cookie_site_policy(&mut access_cookie);
+            Self::set_cookie_site_policy(&mut refresh_cookie);
+            (new_user_claims, vec![access_cookie, refresh_cookie])
+        } else if Self::token_nearly_expires(origin_access_token)? {
+            let mut access_cookie = self
+                .token_signer
+                .create_access_cookie(&client_user_claims)?;
+            Self::set_cookie_site_policy(&mut access_cookie);
+            (client_user_claims.clone(), vec![access_cookie])
+        } else {
+            (client_user_claims.clone(), vec![])
+        };
 
-            let extended_member = self
-                .member_repository
-                .find_extended_by_email_address(conn, &client_user_claims.email_address)?;
+        let extended_member = self
+            .member_repository
+            .find_extended_by_email_address(&mut session, &client_user_claims.email_address)?;
 
-            Ok(AuthorizationResponse {
-                member: MemberResponse::from(&extended_member),
-                composite_roles: new_user_claims.roles,
-                cookies: new_cookies,
-            })
+        Ok(AuthorizationResponse {
+            member: MemberResponse::from(&extended_member),
+            composite_roles: new_user_claims.roles,
+            cookies: new_cookies,
         })
     }
 
-    fn logout(&self) -> BackendResult<Vec<Cookie<'static>>> {
+    fn logout(&self, _: Session) -> BackendResult<Vec<Cookie<'static>>> {
         let mut access_cookie = Cookie::build("access_token".to_string(), "")
             .secure(true)
             .expires(Expiration::DateTime(OffsetDateTime::UNIX_EPOCH))
@@ -154,36 +147,6 @@ impl AuthorizationRequestService for Implementation {
     }
 }
 
-impl
-    Injectable<
-        (
-            &DatabaseConnectionPool,
-            &Data<dyn MemberRepository>,
-            &Data<dyn AuthorizationRepository>,
-            &Data<TokenSigner<UserClaims, Ed25519>>,
-        ),
-        dyn AuthorizationRequestService,
-    > for Implementation
-{
-    fn injectable(
-        (pool, member_repository, authorization_repository, token_signer): (
-            &DatabaseConnectionPool,
-            &Data<dyn MemberRepository>,
-            &Data<dyn AuthorizationRepository>,
-            &Data<TokenSigner<UserClaims, Ed25519>>,
-        ),
-    ) -> Data<dyn AuthorizationRequestService> {
-        let implementation = Self {
-            pool: pool.clone(),
-            member_repository: member_repository.clone(),
-            authorization_repository: authorization_repository.clone(),
-            token_signer: token_signer.clone(),
-        };
-        let arc: Arc<dyn AuthorizationRequestService> = Arc::new(implementation);
-        Data::from(arc)
-    }
-}
-
 impl Implementation {
     fn token_nearly_expires(token: UntrustedToken) -> BackendResult<bool> {
         let expiration = token
@@ -197,26 +160,35 @@ impl Implementation {
 
     fn reset_authority(
         &self,
-        user_claims: &&UserClaims,
-        conn: &mut PooledConnection<ConnectionManager<DatabaseConnection>>,
+        user_claims: &UserClaims,
+        session: &mut Session,
     ) -> Result<UserClaims, BackendError> {
-        let user_claims = conn.transaction::<UserClaims, BackendError, _>(|conn| {
-            let extended_member = self
-                .member_repository
-                .find_extended_by_email_address(conn, &user_claims.email_address)?;
-            let user_claims = UserClaims {
-                email_address: user_claims.email_address.clone(),
-                roles: self
-                    .authorization_repository
-                    .find_composite_roles_by_member_id(conn, extended_member.id)?,
-            };
-            Ok(user_claims)
-        })?;
+        let extended_member = self
+            .member_repository
+            .find_extended_by_email_address(session, &user_claims.email_address)?;
+        let user_claims = UserClaims {
+            email_address: user_claims.email_address.clone(),
+            roles: self
+                .authorization_repository
+                .find_composite_roles_by_member_id(session, extended_member.id)?,
+        };
         Ok(user_claims)
     }
 
     fn set_cookie_site_policy(access_cookie: &mut Cookie) {
         access_cookie.set_same_site(SameSite::Strict);
         access_cookie.set_path("/");
+    }
+}
+
+impl Injectable<ServiceDependencies, dyn AuthorizationRequestService> for Implementation {
+    fn make(dependencies: &ServiceDependencies) -> Data<dyn AuthorizationRequestService> {
+        let implementation = Self {
+            member_repository: dependencies.member_repository.clone(),
+            authorization_repository: dependencies.authorization_repository.clone(),
+            token_signer: dependencies.token_signer.clone(),
+        };
+        let arc: Arc<dyn AuthorizationRequestService> = Arc::new(implementation);
+        Data::from(arc)
     }
 }

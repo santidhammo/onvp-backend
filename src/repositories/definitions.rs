@@ -18,16 +18,16 @@
  */
 use crate::generic::result::BackendResult;
 use crate::generic::security::ClaimRoles;
-use crate::generic::storage::database::DatabaseConnection;
+use crate::generic::storage::session::Session;
 use crate::model::primitives::Role;
 use crate::model::storage::entities::{Image, Page, Workgroup};
 use crate::model::storage::extended_entities::{ExtendedMember, FacebookMember};
 
 pub trait PropertiesRepository {
-    fn maybe_int_property(&self, conn: &mut DatabaseConnection, key: &str) -> Option<i32>;
+    fn maybe_int_property(&self, session: &mut Session, key: &str) -> Option<i32>;
     fn set_int_property(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         key: &str,
         value: Option<i32>,
     ) -> BackendResult<()>;
@@ -36,92 +36,80 @@ pub trait PropertiesRepository {
 pub trait MemberRepository {
     fn create_inactive(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         member_extended: &ExtendedMember,
     ) -> BackendResult<i32>;
 
-    fn find_extended_by_id(
-        &self,
-        conn: &mut DatabaseConnection,
-        id: i32,
-    ) -> BackendResult<ExtendedMember>;
+    fn find_extended_by_id(&self, session: &mut Session, id: i32) -> BackendResult<ExtendedMember>;
 
     fn find_extended_by_activation_string(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         activation_string: &str,
     ) -> BackendResult<ExtendedMember>;
 
     fn find_extended_by_email_address(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         email_address: &str,
     ) -> BackendResult<ExtendedMember>;
 
-    fn find_workgroups(
-        &self,
-        conn: &mut DatabaseConnection,
-        id: i32,
-    ) -> BackendResult<Vec<Workgroup>>;
+    fn find_workgroups(&self, session: &mut Session, id: i32) -> BackendResult<Vec<Workgroup>>;
 
-    fn save(&self, conn: &mut DatabaseConnection, member: ExtendedMember) -> BackendResult<()>;
+    fn save(&self, session: &mut Session, member: ExtendedMember) -> BackendResult<()>;
 
-    fn count_members_with_role(
-        &self,
-        conn: &mut DatabaseConnection,
-        role: Role,
-    ) -> BackendResult<usize>;
+    fn count_members_with_role(&self, session: &mut Session, role: Role) -> BackendResult<usize>;
 
-    fn activate_by_id(&self, conn: &mut DatabaseConnection, member_id: i32) -> BackendResult<()>;
+    fn activate_by_id(&self, session: &mut Session, member_id: i32) -> BackendResult<()>;
 
     fn search(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         page_offset: usize,
         term: &str,
     ) -> BackendResult<(usize, usize, Vec<ExtendedMember>)>;
 
-    fn unregister(&self, conn: &mut DatabaseConnection, member_id: i32) -> BackendResult<()>;
+    fn unregister(&self, session: &mut Session, member_id: i32) -> BackendResult<()>;
 }
 
 pub trait WorkgroupRepository {
-    fn register(&self, conn: &mut DatabaseConnection, workgroup: Workgroup) -> BackendResult<i32>;
+    fn register(&self, session: &mut Session, workgroup: Workgroup) -> BackendResult<i32>;
 
-    fn find_by_id(&self, conn: &mut DatabaseConnection, id: i32) -> BackendResult<Workgroup>;
+    fn find_by_id(&self, session: &mut Session, id: i32) -> BackendResult<Workgroup>;
 
-    fn save(&self, conn: &mut DatabaseConnection, workgroup: Workgroup) -> BackendResult<()>;
+    fn save(&self, session: &mut Session, workgroup: Workgroup) -> BackendResult<()>;
 
     fn search(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         page_offset: usize,
         term: &str,
     ) -> BackendResult<(usize, usize, Vec<Workgroup>)>;
 
-    fn unregister(&self, conn: &mut DatabaseConnection, workgroup_id: i32) -> BackendResult<()>;
+    fn unregister(&self, session: &mut Session, workgroup_id: i32) -> BackendResult<()>;
 
     fn find_members_by_id(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         workgroup_id: i32,
     ) -> BackendResult<Vec<ExtendedMember>>;
 
     fn associate_member_to_workgroup(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         member_id: i32,
         workgroup_id: i32,
     ) -> BackendResult<()>;
     fn dissociate_member_from_workgroup(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         member_id: i32,
         workgroup_id: i32,
     ) -> BackendResult<()>;
 
     fn available_members_search(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         workgroup_id: i32,
         page_offset: usize,
         term: &str,
@@ -131,7 +119,7 @@ pub trait WorkgroupRepository {
 pub trait MemberPictureRepository {
     fn save_by_member_id(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         member_id: i32,
         picture_asset_id: &str,
     ) -> BackendResult<()>;
@@ -139,45 +127,21 @@ pub trait MemberPictureRepository {
 
 pub trait MemberRoleRepository {
     /// Associates a member and a role
-    fn associate(
-        &self,
-        conn: &mut DatabaseConnection,
-        member_id: i32,
-        role: Role,
-    ) -> BackendResult<()>;
+    fn associate(&self, session: &mut Session, member_id: i32, role: Role) -> BackendResult<()>;
     /// Dissociates a member from a role
-    fn dissociate(
-        &self,
-        conn: &mut DatabaseConnection,
-        member_id: i32,
-        role: Role,
-    ) -> BackendResult<()>;
+    fn dissociate(&self, session: &mut Session, member_id: i32, role: Role) -> BackendResult<()>;
     /// Lists all roles of a specific member
-    fn list_by_id(&self, conn: &mut DatabaseConnection, member_id: i32)
-        -> BackendResult<Vec<Role>>;
+    fn list_by_id(&self, session: &mut Session, member_id: i32) -> BackendResult<Vec<Role>>;
 }
 
 pub trait WorkgroupRoleRepository {
     /// Associates a work group and a role
-    fn associate(
-        &self,
-        conn: &mut DatabaseConnection,
-        workgroup_id: i32,
-        role: Role,
-    ) -> BackendResult<()>;
+    fn associate(&self, session: &mut Session, workgroup_id: i32, role: Role) -> BackendResult<()>;
     /// Dissociates a work group from a role
-    fn dissociate(
-        &self,
-        conn: &mut DatabaseConnection,
-        workgroup_id: i32,
-        role: Role,
-    ) -> BackendResult<()>;
+    fn dissociate(&self, session: &mut Session, workgroup_id: i32, role: Role)
+        -> BackendResult<()>;
     /// Lists all roles of a specific workgroup
-    fn list_by_id(
-        &self,
-        conn: &mut DatabaseConnection,
-        workgroup_id: i32,
-    ) -> BackendResult<Vec<Role>>;
+    fn list_by_id(&self, session: &mut Session, workgroup_id: i32) -> BackendResult<Vec<Role>>;
 }
 
 /// Manages a virtual view over the different roles from both members and associated work groups
@@ -185,7 +149,7 @@ pub trait AuthorizationRepository {
     /// Finds all roles for a member from direct association and work group association
     fn find_composite_roles_by_member_id(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         member_id: i32,
     ) -> BackendResult<Vec<Role>>;
 }
@@ -194,7 +158,7 @@ pub trait AuthorizationRepository {
 pub trait FacebookRepository {
     fn search(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         page_offset: usize,
         term: &str,
     ) -> BackendResult<(usize, usize, Vec<FacebookMember>)>;
@@ -203,18 +167,18 @@ pub trait FacebookRepository {
 /// Manages the page repository
 pub trait PageRepository {
     /// Creates a new page and stores it into the database
-    fn create(&self, conn: &mut DatabaseConnection, page: Page) -> BackendResult<()>;
+    fn create(&self, session: &mut Session, page: Page) -> BackendResult<()>;
 
     /// Updates an existing page and stores it into the database
-    fn update(&self, conn: &mut DatabaseConnection, page: Page) -> BackendResult<()>;
+    fn update(&self, session: &mut Session, page: Page) -> BackendResult<()>;
 
     /// Finds the page by the identifier
-    fn find_by_id(&self, conn: &mut DatabaseConnection, page_id: i32) -> BackendResult<Page>;
+    fn find_by_id(&self, session: &mut Session, page_id: i32) -> BackendResult<Page>;
 
     /// Lists the pages by the parent identifier
     fn list_by_parent_id(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         parent_id: i32,
         roles: &ClaimRoles,
     ) -> BackendResult<Vec<Page>>;
@@ -222,20 +186,20 @@ pub trait PageRepository {
     /// Finds the roles associated to a page
     fn find_associated_roles_by_id(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         page_id: i32,
     ) -> BackendResult<Vec<Role>>;
 
     /// Removes a page by the identifier
-    fn delete(&self, conn: &mut DatabaseConnection, page_id: i32) -> BackendResult<()>;
+    fn delete(&self, session: &mut Session, page_id: i32) -> BackendResult<()>;
 
     /// Drops the roles associated to a page
-    fn reset_roles(&self, conn: &mut DatabaseConnection, page_id: i32) -> BackendResult<()>;
+    fn reset_roles(&self, session: &mut Session, page_id: i32) -> BackendResult<()>;
 
     /// Assigns (and therefor publishes) the roles associated to a page (excluding the operator)
     fn assign_roles(
         &self,
-        conn: &mut DatabaseConnection,
+        conn: &mut Session,
         page_id: i32,
         roles: &Vec<Role>,
     ) -> BackendResult<()>;
@@ -243,7 +207,7 @@ pub trait PageRepository {
     /// Searches for all pages meeting any of the allowed roles
     fn search(
         &self,
-        conn: &mut DatabaseConnection,
+        conn: &mut Session,
         page_offset: usize,
         term: &str,
         roles: &ClaimRoles,
@@ -253,28 +217,28 @@ pub trait PageRepository {
 /// Manages the page repository
 pub trait ImageRepository {
     /// Creates a new image and stores it into the database
-    fn create(&self, conn: &mut DatabaseConnection, image: Image) -> BackendResult<()>;
+    fn create(&self, session: &mut Session, image: Image) -> BackendResult<()>;
 
     /// Finds the image by the identifier
-    fn find_by_id(&self, conn: &mut DatabaseConnection, image_id: i32) -> BackendResult<Image>;
+    fn find_by_id(&self, session: &mut Session, image_id: i32) -> BackendResult<Image>;
 
     /// Finds the roles associated to an image
     fn find_associated_roles_by_id(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         image_id: i32,
     ) -> BackendResult<Vec<Role>>;
 
     /// Removes an image by the identifier
-    fn delete(&self, conn: &mut DatabaseConnection, image_id: i32) -> BackendResult<()>;
+    fn delete(&self, session: &mut Session, image_id: i32) -> BackendResult<()>;
 
     /// Drops the roles associated to an image
-    fn reset_roles(&self, conn: &mut DatabaseConnection, image_id: i32) -> BackendResult<()>;
+    fn reset_roles(&self, session: &mut Session, image_id: i32) -> BackendResult<()>;
 
     /// Assigns (and therefor publishes) the roles associated to a page (excluding the operator)
     fn assign_roles(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         image_id: i32,
         roles: &Vec<Role>,
     ) -> BackendResult<()>;
@@ -282,7 +246,7 @@ pub trait ImageRepository {
     /// Searches for all pages meeting any of the allowed roles
     fn search(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         page_offset: usize,
         term: &str,
     ) -> BackendResult<(usize, usize, Vec<Image>)>;

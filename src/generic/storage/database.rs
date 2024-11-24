@@ -17,11 +17,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+use diesel::pg::{Pg, TransactionBuilder};
 use diesel::r2d2::ConnectionManager;
 use diesel::*;
 
 pub type DatabaseConnectionPool = r2d2::Pool<ConnectionManager<DatabaseConnection>>;
 pub type DatabaseConnection = PgConnection;
+pub type DatabaseBackend = Pg;
+pub type DatabaseTransactionBuilder<'a> = TransactionBuilder<'a, DatabaseConnection>;
 
 pub fn initialize_database_connection_pool() -> DatabaseConnectionPool {
     let conn_spec = std::env::var("DATABASE_URL").expect("DATABASE_URL should be set");

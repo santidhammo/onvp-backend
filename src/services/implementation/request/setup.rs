@@ -17,8 +17,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::generic::result::BackendResult;
-use crate::generic::storage::database::DatabaseConnectionPool;
+use crate::generic::storage::session::Session;
 use crate::generic::Injectable;
+use crate::injection::ServiceDependencies;
 use crate::model::primitives::Role;
 use crate::repositories::definitions::MemberRepository;
 use crate::services::definitions::request::SetupRequestService;
@@ -26,29 +27,22 @@ use actix_web::web::Data;
 use std::sync::Arc;
 
 pub struct Implementation {
-    pool: DatabaseConnectionPool,
     member_repository: Data<dyn MemberRepository>,
 }
 
 impl SetupRequestService for Implementation {
-    fn should_setup(&self) -> BackendResult<bool> {
-        let mut conn = self.pool.get()?;
+    fn should_setup(&self, mut session: Session) -> BackendResult<bool> {
         Ok(self
             .member_repository
-            .count_members_with_role(&mut conn, Role::Operator)?
+            .count_members_with_role(&mut session, Role::Operator)?
             == 0)
     }
 }
 
-impl Injectable<(&DatabaseConnectionPool, &Data<dyn MemberRepository>), dyn SetupRequestService>
-    for Implementation
-{
-    fn injectable(
-        (pool, member_repository): (&DatabaseConnectionPool, &Data<dyn MemberRepository>),
-    ) -> Data<dyn SetupRequestService> {
+impl Injectable<ServiceDependencies, dyn SetupRequestService> for Implementation {
+    fn make(dependencies: &ServiceDependencies) -> Data<dyn SetupRequestService> {
         let implementation = Self {
-            pool: pool.clone(),
-            member_repository: member_repository.clone(),
+            member_repository: dependencies.member_repository.clone(),
         };
         let arc: Arc<dyn SetupRequestService> = Arc::new(implementation);
         Data::from(arc)

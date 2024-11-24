@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::generic::result::BackendResult;
-use crate::generic::storage::database::DatabaseConnection;
+use crate::generic::storage::session::Session;
 use crate::generic::Injectable;
 use crate::repositories::definitions::MemberPictureRepository;
 use crate::schema::members;
@@ -30,20 +30,22 @@ pub struct Implementation;
 impl MemberPictureRepository for Implementation {
     fn save_by_member_id(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         member_id: i32,
         picture_asset_id: &str,
     ) -> BackendResult<()> {
-        diesel::update(members::table)
-            .filter(members::id.eq(member_id))
-            .set(members::picture_asset_id.eq(picture_asset_id))
-            .execute(conn)?;
-        Ok(())
+        session.run(|conn| {
+            diesel::update(members::table)
+                .filter(members::id.eq(member_id))
+                .set(members::picture_asset_id.eq(picture_asset_id))
+                .execute(conn)?;
+            Ok(())
+        })
     }
 }
 
 impl Injectable<(), dyn MemberPictureRepository> for Implementation {
-    fn injectable(_: ()) -> Data<dyn MemberPictureRepository> {
+    fn make(_: &()) -> Data<dyn MemberPictureRepository> {
         let arc: Arc<dyn MemberPictureRepository> = Arc::new(Self);
         Data::from(arc)
     }

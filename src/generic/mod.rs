@@ -25,7 +25,7 @@ pub mod search_helpers;
 pub mod security;
 pub mod storage;
 
-/// This trait is implemented by all injectables with the need of a data object itself
+/// This trait is implemented by all injectables
 pub trait Injectable<U, T: ?Sized> {
-    fn injectable(dependencies: U) -> Data<T>;
+    fn make(dependencies: &U) -> Data<T>;
 }

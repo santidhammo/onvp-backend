@@ -17,9 +17,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::generic::lazy::{SendEmailConfig, SEND_ACTIVATION_EMAIL_CONFIG};
-use crate::generic::result::{BackendError, BackendResult};
-use crate::generic::storage::database::DatabaseConnectionPool;
+use crate::generic::result::BackendResult;
+use crate::generic::storage::session::Session;
 use crate::generic::Injectable;
+use crate::injection::ServiceDependencies;
 use crate::model::interface::commands::{
     MemberRegisterCommand, MemberUpdateAddressCommand, MemberUpdateCommand,
     MemberUpdatePrivacyInfoSharingCommand,
@@ -29,115 +30,83 @@ use crate::model::storage::extended_entities::ExtendedMember;
 use crate::repositories::definitions::{MemberRepository, MemberRoleRepository};
 use crate::services::definitions::command::MemberCommandService;
 use actix_web::web::Data;
-use diesel::Connection;
 use lettre::transport::smtp::client::Tls;
 use lettre::{Message, SmtpTransport, Transport};
 use std::sync::Arc;
 
 pub struct Implementation {
-    pool: DatabaseConnectionPool,
     member_repository: Data<dyn MemberRepository>,
     member_role_repository: Data<dyn MemberRoleRepository>,
     send_activation_email_config: SendEmailConfig,
 }
 
 impl MemberCommandService for Implementation {
-    fn register_inactive(&self, command: &MemberRegisterCommand) -> BackendResult<i32> {
-        let mut conn = self.pool.get()?;
-        conn.transaction::<i32, BackendError, _>(|conn| {
-            let extended_member = ExtendedMember::from(command);
+    fn register_inactive(
+        &self,
+        mut session: Session,
+        command: &MemberRegisterCommand,
+    ) -> BackendResult<i32> {
+        let extended_member = ExtendedMember::from(command);
 
-            let member_id = self
-                .member_repository
-                .create_inactive(conn, &extended_member)?;
+        let member_id = self
+            .member_repository
+            .create_inactive(&mut session, &extended_member)?;
 
-            self.member_role_repository
-                .associate(conn, member_id, Role::Member)?;
+        self.member_role_repository
+            .associate(&mut session, member_id, Role::Member)?;
 
-            self.send_activation_email(
-                &command.detail_register_sub_command.email_address,
-                &extended_member.activation_string,
-            )?;
+        self.send_activation_email(
+            &command.detail_register_sub_command.email_address,
+            &extended_member.activation_string,
+        )?;
 
-            Ok(member_id)
-        })
+        Ok(member_id)
     }
 
-    fn update(&self, member_id: i32, command: &MemberUpdateCommand) -> BackendResult<()> {
-        let mut conn = self.pool.get()?;
-        conn.transaction::<_, BackendError, _>(|conn| {
-            let origin = self
-                .member_repository
-                .find_extended_by_id(conn, member_id)?;
-            let new = ExtendedMember::from((&origin, command));
-            self.member_repository.save(conn, new)?;
-            Ok(())
-        })
+    fn update(
+        &self,
+        mut session: Session,
+        member_id: i32,
+        command: &MemberUpdateCommand,
+    ) -> BackendResult<()> {
+        let origin = self
+            .member_repository
+            .find_extended_by_id(&mut session, member_id)?;
+        let new = ExtendedMember::from((&origin, command));
+        self.member_repository.save(&mut session, new)?;
+        Ok(())
     }
 
     fn update_address(
         &self,
+        mut session: Session,
         member_id: i32,
         command: &MemberUpdateAddressCommand,
     ) -> BackendResult<()> {
-        let mut conn = self.pool.get()?;
-        conn.transaction::<_, BackendError, _>(|conn| {
-            let origin = self
-                .member_repository
-                .find_extended_by_id(conn, member_id)?;
-            let new = ExtendedMember::from((&origin, command));
-            self.member_repository.save(conn, new)?;
-            Ok(())
-        })
+        let origin = self
+            .member_repository
+            .find_extended_by_id(&mut session, member_id)?;
+        let new = ExtendedMember::from((&origin, command));
+        self.member_repository.save(&mut session, new)?;
+        Ok(())
     }
 
     fn update_privacy_info_sharing(
         &self,
+        mut session: Session,
         member_id: i32,
         command: &MemberUpdatePrivacyInfoSharingCommand,
     ) -> BackendResult<()> {
-        let mut conn = self.pool.get()?;
-        conn.transaction::<_, BackendError, _>(|conn| {
-            let origin = self
-                .member_repository
-                .find_extended_by_id(conn, member_id)?;
-            let new = ExtendedMember::from((&origin, command));
-            self.member_repository.save(conn, new)?;
-            Ok(())
-        })
+        let origin = self
+            .member_repository
+            .find_extended_by_id(&mut session, member_id)?;
+        let new = ExtendedMember::from((&origin, command));
+        self.member_repository.save(&mut session, new)?;
+        Ok(())
     }
 
-    fn unregister(&self, member_id: i32) -> BackendResult<()> {
-        let mut conn = self.pool.get()?;
-        self.member_repository.unregister(&mut conn, member_id)
-    }
-}
-
-impl
-    Injectable<
-        (
-            &DatabaseConnectionPool,
-            &Data<dyn MemberRepository>,
-            &Data<dyn MemberRoleRepository>,
-        ),
-        dyn MemberCommandService,
-    > for Implementation
-{
-    fn injectable(
-        (pool, member_repository, member_role_repository): (
-            &DatabaseConnectionPool,
-            &Data<dyn MemberRepository>,
-            &Data<dyn MemberRoleRepository>,
-        ),
-    ) -> Data<dyn MemberCommandService> {
-        let implementation = Self {
-            pool: pool.clone(),
-            member_repository: member_repository.clone(),
-            member_role_repository: member_role_repository.clone(),
-            send_activation_email_config: SEND_ACTIVATION_EMAIL_CONFIG.clone(),
-        };
-        let arc: Arc<dyn MemberCommandService> = Arc::new(implementation);
-        Data::from(arc)
+    fn unregister(&self, mut session: Session, member_id: i32) -> BackendResult<()> {
+        self.member_repository.unregister(&mut session, member_id)
     }
 }
 
@@ -175,5 +144,17 @@ impl Implementation {
         let relay = builder.build();
         relay.send(&email)?;
         Ok(())
+    }
+}
+
+impl Injectable<ServiceDependencies, dyn MemberCommandService> for Implementation {
+    fn make(dependencies: &ServiceDependencies) -> Data<dyn MemberCommandService> {
+        let implementation = Self {
+            member_repository: dependencies.member_repository.clone(),
+            member_role_repository: dependencies.member_role_repository.clone(),
+            send_activation_email_config: SEND_ACTIVATION_EMAIL_CONFIG.clone(),
+        };
+        let arc: Arc<dyn MemberCommandService> = Arc::new(implementation);
+        Data::from(arc)
     }
 }

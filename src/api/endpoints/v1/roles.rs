@@ -17,6 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::generic::result::BackendResult;
+use crate::generic::storage::session::Session;
 use crate::model::interface::commands::{AssociateRoleCommand, DissociateRoleCommand};
 use crate::model::primitives::{Role, RoleClass};
 use crate::services::definitions::command::RoleCommandService;
@@ -39,10 +40,11 @@ use actix_web::{get, post, HttpResponse};
 )]
 #[post("/associate")]
 pub async fn associate(
+    session: Session,
     service: Data<dyn RoleCommandService>,
     command: Json<AssociateRoleCommand>,
 ) -> BackendResult<HttpResponse> {
-    service.associate_role(&command)?;
+    service.associate_role(session, &command)?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -61,10 +63,11 @@ pub async fn associate(
 )]
 #[post("/dissociate")]
 pub async fn dissociate(
+    session: Session,
     service: Data<dyn RoleCommandService>,
     command: Json<DissociateRoleCommand>,
 ) -> BackendResult<HttpResponse> {
-    service.dissociate_role(&command)?;
+    service.dissociate_role(session, &command)?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -80,10 +83,11 @@ pub async fn dissociate(
 )]
 #[get("/{class}/list/{id}")]
 pub async fn list(
+    session: Session,
     service: Data<dyn RoleRequestService>,
     path: Path<(RoleClass, i32)>,
 ) -> BackendResult<Json<Vec<Role>>> {
     let (class, id) = path.into_inner();
-    let roles = service.list_by_id_and_class(id, class)?;
+    let roles = service.list_by_id_and_class(session, id, class)?;
     Ok(Json(roles))
 }

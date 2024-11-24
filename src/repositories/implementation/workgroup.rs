@@ -19,6 +19,7 @@
 use crate::generic::lazy::SEARCH_PAGE_SIZE;
 use crate::generic::result::{BackendError, BackendResult};
 use crate::generic::storage::database::DatabaseConnection;
+use crate::generic::storage::session::Session;
 use crate::generic::{search_helpers, Injectable};
 use crate::model::storage::entities::{Member, MemberAddressDetail, MemberDetail, Workgroup};
 use crate::model::storage::extended_entities::ExtendedMember;
@@ -42,47 +43,55 @@ pub struct Implementation {
 }
 
 impl WorkgroupRepository for Implementation {
-    fn register(&self, conn: &mut DatabaseConnection, workgroup: Workgroup) -> BackendResult<i32> {
-        let result: usize = diesel::insert_into(workgroups::table)
-            .values(workgroup)
-            .returning(workgroups::id)
-            .execute(conn)?;
-        Ok(result as i32)
+    fn register(&self, session: &mut Session, workgroup: Workgroup) -> BackendResult<i32> {
+        session.run(|conn| {
+            let result: usize = diesel::insert_into(workgroups::table)
+                .values(workgroup)
+                .returning(workgroups::id)
+                .execute(conn)?;
+            Ok(result as i32)
+        })
     }
 
-    fn find_by_id(&self, conn: &mut DatabaseConnection, id: i32) -> BackendResult<Workgroup> {
-        let workgroup: Workgroup = QueryDsl::select(
-            workgroups::table.filter(workgroups::id.eq(id)),
-            Workgroup::as_select(),
-        )
-        .first(conn)?;
-        Ok(workgroup)
+    fn find_by_id(&self, session: &mut Session, id: i32) -> BackendResult<Workgroup> {
+        session.run(|conn| {
+            let workgroup: Workgroup = QueryDsl::select(
+                workgroups::table.filter(workgroups::id.eq(id)),
+                Workgroup::as_select(),
+            )
+            .first(conn)?;
+            Ok(workgroup)
+        })
     }
 
-    fn save(&self, conn: &mut DatabaseConnection, workgroup: Workgroup) -> BackendResult<()> {
-        diesel::update(workgroups::table)
-            .filter(workgroups::id.eq(workgroup.id))
-            .set(workgroup)
-            .execute(conn)?;
-        Ok(())
+    fn save(&self, session: &mut Session, workgroup: Workgroup) -> BackendResult<()> {
+        session.run(|conn| {
+            diesel::update(workgroups::table)
+                .filter(workgroups::id.eq(workgroup.id))
+                .set(workgroup)
+                .execute(conn)?;
+            Ok(())
+        })
     }
 
     fn search(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         page_offset: usize,
         term: &str,
     ) -> BackendResult<(usize, usize, Vec<Workgroup>)> {
-        let like_search_string = search_helpers::create_like_string(term);
-        let (total_count, workgroups) = conn
-            .transaction::<(usize, Vec<Workgroup>), BackendError, _>(|conn| {
-                self.search_workgroups(conn, page_offset, &like_search_string)
-            })?;
-        Ok((total_count, self.page_size, workgroups))
+        session.run(|conn| {
+            let like_search_string = search_helpers::create_like_string(term);
+            let (total_count, workgroups) = conn
+                .transaction::<(usize, Vec<Workgroup>), BackendError, _>(|conn| {
+                    self.search_workgroups(conn, page_offset, &like_search_string)
+                })?;
+            Ok((total_count, self.page_size, workgroups))
+        })
     }
 
-    fn unregister(&self, conn: &mut DatabaseConnection, workgroup_id: i32) -> BackendResult<()> {
-        conn.transaction::<_, BackendError, _>(|conn| {
+    fn unregister(&self, session: &mut Session, workgroup_id: i32) -> BackendResult<()> {
+        session.run(|conn| {
             diesel::delete(workgroup_role_associations::table)
                 .filter(workgroup_role_associations::workgroup_id.eq(workgroup_id))
                 .execute(conn)?;
@@ -101,76 +110,89 @@ impl WorkgroupRepository for Implementation {
 
     fn find_members_by_id(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         workgroup_id: i32,
     ) -> BackendResult<Vec<ExtendedMember>> {
-        let result: Vec<(Member, MemberDetail, MemberAddressDetail)> = QueryDsl::select(
-            workgroup_member_relationships::table
-                .inner_join(
-                    members::table
-                        .inner_join(member_details::table)
-                        .inner_join(member_address_details::table),
-                )
-                .filter(workgroup_member_relationships::workgroup_id.eq(workgroup_id)),
-            (
-                Member::as_select(),
-                MemberDetail::as_select(),
-                MemberAddressDetail::as_select(),
-            ),
-        )
-        .load(conn)?;
-        Ok(result
-            .iter()
-            .map(|(member, member_detail, member_address_detail)| {
-                ExtendedMember::from((member, member_detail, member_address_detail))
-            })
-            .collect())
+        session.run(|conn| {
+            let result: Vec<(Member, MemberDetail, MemberAddressDetail)> = QueryDsl::select(
+                workgroup_member_relationships::table
+                    .inner_join(
+                        members::table
+                            .inner_join(member_details::table)
+                            .inner_join(member_address_details::table),
+                    )
+                    .filter(workgroup_member_relationships::workgroup_id.eq(workgroup_id)),
+                (
+                    Member::as_select(),
+                    MemberDetail::as_select(),
+                    MemberAddressDetail::as_select(),
+                ),
+            )
+            .load(conn)?;
+            Ok(result
+                .iter()
+                .map(|(member, member_detail, member_address_detail)| {
+                    ExtendedMember::from((member, member_detail, member_address_detail))
+                })
+                .collect())
+        })
     }
 
     fn associate_member_to_workgroup(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         member_id: i32,
         workgroup_id: i32,
     ) -> BackendResult<()> {
-        diesel::insert_into(workgroup_member_relationships::table)
-            .values((
-                workgroup_member_relationships::member_id.eq(member_id),
-                workgroup_member_relationships::workgroup_id.eq(workgroup_id),
-            ))
-            .execute(conn)?;
-        Ok(())
+        session.run(|conn| {
+            diesel::insert_into(workgroup_member_relationships::table)
+                .values((
+                    workgroup_member_relationships::member_id.eq(member_id),
+                    workgroup_member_relationships::workgroup_id.eq(workgroup_id),
+                ))
+                .execute(conn)?;
+            Ok(())
+        })
     }
 
     fn dissociate_member_from_workgroup(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         member_id: i32,
         workgroup_id: i32,
     ) -> BackendResult<()> {
-        diesel::delete(workgroup_member_relationships::table)
-            .filter(
-                workgroup_member_relationships::member_id
-                    .eq(member_id)
-                    .and(workgroup_member_relationships::workgroup_id.eq(workgroup_id)),
-            )
-            .execute(conn)?;
-        Ok(())
+        session.run(|conn| {
+            diesel::delete(workgroup_member_relationships::table)
+                .filter(
+                    workgroup_member_relationships::member_id
+                        .eq(member_id)
+                        .and(workgroup_member_relationships::workgroup_id.eq(workgroup_id)),
+                )
+                .execute(conn)?;
+            Ok(())
+        })
     }
 
     fn available_members_search(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         workgroup_id: i32,
         page_offset: usize,
         term: &str,
     ) -> BackendResult<(usize, usize, Vec<ExtendedMember>)> {
-        let like_search_string = search_helpers::create_like_string(term);
-        let (total_count, extended_members) = conn
-            .transaction::<(usize, Vec<ExtendedMember>), BackendError, _>(|conn| {
-                self.search_available_members(conn, page_offset, &like_search_string, workgroup_id)
-            })?;
-        Ok((total_count, self.page_size, extended_members))
+        session.run(|conn| {
+            let like_search_string = search_helpers::create_like_string(term);
+            let (total_count, extended_members) = conn
+                .transaction::<(usize, Vec<ExtendedMember>), BackendError, _>(|conn| {
+                    self.search_available_members(
+                        conn,
+                        page_offset,
+                        &like_search_string,
+                        workgroup_id,
+                    )
+                })?;
+            Ok((total_count, self.page_size, extended_members))
+        })
     }
 }
 
@@ -265,7 +287,7 @@ impl Implementation {
 }
 
 impl Injectable<(), dyn WorkgroupRepository> for Implementation {
-    fn injectable(_: ()) -> Data<dyn WorkgroupRepository> {
+    fn make(_: &()) -> Data<dyn WorkgroupRepository> {
         let arc: Arc<dyn WorkgroupRepository> = Arc::new(Self {
             page_size: *SEARCH_PAGE_SIZE,
         });

@@ -159,3 +159,5 @@ impl From<&NaiveDate> for EventDate {
         }
     }
 }
+
+pub type Identity = i32;

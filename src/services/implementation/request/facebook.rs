@@ -21,10 +21,11 @@
 //! an isolated service, using an isolated repository which is tailored at
 //! only showing that information which is relevant to members.
 
-use crate::generic::result::{BackendError, BackendResult};
+use crate::generic::result::BackendResult;
 use crate::generic::search_helpers::create_like_string;
-use crate::generic::storage::database::DatabaseConnectionPool;
+use crate::generic::storage::session::Session;
 use crate::generic::{search_helpers, Injectable};
+use crate::injection::ServiceDependencies;
 use crate::model::interface::responses::FacebookResponse;
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::model::primitives::Role;
@@ -33,89 +34,67 @@ use crate::repositories::definitions::{
 };
 use crate::services::definitions::request::{FacebookRequestService, SearchController};
 use actix_web::web::Data;
-use diesel::Connection;
 use serde::Serialize;
 use std::sync::Arc;
 
 pub struct Implementation {
-    pool: DatabaseConnectionPool,
     facebook_repository: Data<dyn FacebookRepository>,
     member_repository: Data<dyn MemberRepository>,
     authorization_repository: Data<dyn AuthorizationRepository>,
 }
 
 impl SearchController<FacebookResponse> for Implementation {
-    fn search(&self, params: &SearchParams) -> BackendResult<SearchResult<FacebookResponse>>
+    fn search(
+        &self,
+        mut session: Session,
+        params: &SearchParams,
+    ) -> BackendResult<SearchResult<FacebookResponse>>
     where
         FacebookResponse: Serialize,
     {
         let term = create_like_string(params.term.clone().unwrap_or_default());
-        let mut conn = self.pool.get()?;
+        let (total_count, page_size, results) =
+            self.facebook_repository
+                .search(&mut session, params.page_offset, &term)?;
 
-        conn.transaction::<SearchResult<FacebookResponse>, BackendError, _>(|conn| {
-            let (total_count, page_size, results) =
-                self.facebook_repository
-                    .search(conn, params.page_offset, &term)?;
-
-            let rows: Vec<FacebookResponse> = results
-                .iter()
-                .map(|m| {
-                    let workgroup_names = self
-                        .member_repository
-                        .find_workgroups(conn, m.id)
-                        .unwrap_or(vec![]);
-                    let roles = self
-                        .authorization_repository
-                        .find_composite_roles_by_member_id(conn, m.id)
-                        .unwrap_or(vec![])
-                        .iter()
-                        .map(|r| *r)
-                        .filter(|r| {
-                            r != &Role::Operator && r != &Role::Public && r != &Role::Member
-                        })
-                        .collect();
-                    FacebookResponse::from((m, &workgroup_names, &roles))
-                })
-                .collect();
-            let row_len = rows.len();
-            Ok(SearchResult {
-                total_count,
-                page_offset: params.page_offset,
-                page_count: search_helpers::calculate_page_count(page_size, total_count),
-                rows,
-                start: params.page_offset * page_size,
-                end: (params.page_offset * page_size) + row_len,
+        let rows: Vec<FacebookResponse> = results
+            .iter()
+            .map(|m| {
+                let workgroup_names = self
+                    .member_repository
+                    .find_workgroups(&mut session, m.id)
+                    .unwrap_or(vec![]);
+                let roles = self
+                    .authorization_repository
+                    .find_composite_roles_by_member_id(&mut session, m.id)
+                    .unwrap_or(vec![])
+                    .iter()
+                    .map(|r| *r)
+                    .filter(|r| r != &Role::Operator && r != &Role::Public && r != &Role::Member)
+                    .collect();
+                FacebookResponse::from((m, &workgroup_names, &roles))
             })
+            .collect();
+        let row_len = rows.len();
+        Ok(SearchResult {
+            total_count,
+            page_offset: params.page_offset,
+            page_count: search_helpers::calculate_page_count(page_size, total_count),
+            rows,
+            start: params.page_offset * page_size,
+            end: (params.page_offset * page_size) + row_len,
         })
     }
 }
 
 impl FacebookRequestService for Implementation {}
 
-impl
-    Injectable<
-        (
-            &DatabaseConnectionPool,
-            &Data<dyn FacebookRepository>,
-            &Data<dyn MemberRepository>,
-            &Data<dyn AuthorizationRepository>,
-        ),
-        dyn FacebookRequestService,
-    > for Implementation
-{
-    fn injectable(
-        (pool, facebook_repository, member_repository, authorization_repository): (
-            &DatabaseConnectionPool,
-            &Data<dyn FacebookRepository>,
-            &Data<dyn MemberRepository>,
-            &Data<dyn AuthorizationRepository>,
-        ),
-    ) -> Data<dyn FacebookRequestService> {
+impl Injectable<ServiceDependencies, dyn FacebookRequestService> for Implementation {
+    fn make(dependencies: &ServiceDependencies) -> Data<dyn FacebookRequestService> {
         let implementation = Self {
-            pool: pool.clone(),
-            facebook_repository: facebook_repository.clone(),
-            member_repository: member_repository.clone(),
-            authorization_repository: authorization_repository.clone(),
+            facebook_repository: dependencies.facebook_repository.clone(),
+            member_repository: dependencies.member_repository.clone(),
+            authorization_repository: dependencies.authorization_repository.clone(),
         };
 
         let arc: Arc<dyn FacebookRequestService> = Arc::new(implementation);

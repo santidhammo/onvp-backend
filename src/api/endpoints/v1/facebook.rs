@@ -17,6 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::generic::result::BackendResult;
+use crate::generic::storage::session::Session;
 use crate::model::interface::responses::FacebookResponse;
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::model::primitives::Role;
@@ -44,10 +45,11 @@ use std::ops::Deref;
 )]
 #[get("/search")]
 pub async fn search(
+    session: Session,
     service: Data<dyn FacebookRequestService>,
     search_params: Query<SearchParams>,
 ) -> BackendResult<Json<SearchResult<FacebookResponse>>> {
-    Ok(Json(service.search(search_params.deref())?))
+    Ok(Json(service.search(session, search_params.deref())?))
 }
 
 /// Retrieves the picture of a member, if available
@@ -63,10 +65,11 @@ pub async fn search(
 )]
 #[get("/{id}/picture.png")]
 pub async fn picture_asset(
+    session: Session,
     service: Data<dyn MemberPictureRequestService>,
     id: Path<i32>,
 ) -> BackendResult<HttpResponse> {
-    let result = service.find_asset_by_member_id(id.into_inner(), &Role::Public)?;
+    let result = service.find_asset_by_member_id(session, id.into_inner(), &Role::Public)?;
     match result {
         None => Ok(HttpResponse::Gone().finish()),
         Some(data) => Ok(HttpResponse::Ok()

@@ -17,8 +17,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::generic::result::{BackendError, BackendResult};
-use crate::generic::storage::database::DatabaseConnectionPool;
+use crate::generic::storage::session::Session;
 use crate::generic::Injectable;
+use crate::injection::ServiceDependencies;
 use crate::model::interface::responses::{ImageAssetIdResponse, ImageResponse};
 use crate::model::primitives::Role;
 use crate::model::storage::extended_entities::ExtendedMember;
@@ -32,20 +33,20 @@ use std::io::Read;
 use std::sync::Arc;
 
 pub struct Implementation {
-    pool: DatabaseConnectionPool,
     member_repository: Data<dyn MemberRepository>,
 }
 
 impl MemberPictureRequestService for Implementation {
     fn find_asset_by_member_id(
         &self,
+        mut session: Session,
         member_id: i32,
         role_container: &dyn RoleContainer,
     ) -> BackendResult<Option<ImageResponse>> {
         let result = if role_container.has_role(Role::Operator) {
-            self.handle_retrieve_member_picture_operator(member_id)?
+            self.handle_retrieve_member_picture_operator(&mut session, member_id)?
         } else if role_container.has_role(Role::Public) {
-            self.handle_retrieve_member_picture_dpia(member_id)?
+            self.handle_retrieve_member_picture_dpia(&mut session, member_id)?
         } else {
             return Err(BackendError::bad());
         };
@@ -57,13 +58,13 @@ impl MemberPictureRequestService for Implementation {
 
     fn find_asset_id_by_member_id(
         &self,
+        mut session: Session,
         member_id: i32,
         role_container: &dyn RoleContainer,
     ) -> BackendResult<ImageAssetIdResponse> {
-        let mut conn = self.pool.get()?;
         let extended_member = self
             .member_repository
-            .find_extended_by_id(&mut conn, member_id)?;
+            .find_extended_by_id(&mut session, member_id)?;
         let result = if role_container.has_role(Role::Operator) {
             extended_member.picture_asset_id
         } else if role_container.has_role(Role::Public) {
@@ -83,23 +84,23 @@ impl MemberPictureRequestService for Implementation {
 impl Implementation {
     fn handle_retrieve_member_picture_operator(
         &self,
+        session: &mut Session,
         member_id: i32,
     ) -> BackendResult<Option<Vec<u8>>> {
-        let mut conn = self.pool.get()?;
         let extended_member = self
             .member_repository
-            .find_extended_by_id(&mut conn, member_id)?;
+            .find_extended_by_id(session, member_id)?;
         Self::read_member_picture_asset(extended_member)
     }
 
     fn handle_retrieve_member_picture_dpia(
         &self,
+        session: &mut Session,
         member_id: i32,
     ) -> BackendResult<Option<Vec<u8>>> {
-        let mut conn = self.pool.get()?;
         let extended_member = self
             .member_repository
-            .find_extended_by_id(&mut conn, member_id)?;
+            .find_extended_by_id(session, member_id)?;
         if extended_member.allow_privacy_info_sharing {
             Self::read_member_picture_asset(extended_member)
         } else {
@@ -126,18 +127,10 @@ impl Implementation {
     }
 }
 
-impl
-    Injectable<
-        (&DatabaseConnectionPool, &Data<dyn MemberRepository>),
-        dyn MemberPictureRequestService,
-    > for Implementation
-{
-    fn injectable(
-        (pool, member_repository): (&DatabaseConnectionPool, &Data<dyn MemberRepository>),
-    ) -> Data<dyn MemberPictureRequestService> {
+impl Injectable<ServiceDependencies, dyn MemberPictureRequestService> for Implementation {
+    fn make(dependencies: &ServiceDependencies) -> Data<dyn MemberPictureRequestService> {
         let implementation = Self {
-            pool: pool.clone(),
-            member_repository: member_repository.clone(),
+            member_repository: dependencies.member_repository.clone(),
         };
 
         let arc: Arc<dyn MemberPictureRequestService> = Arc::new(implementation);

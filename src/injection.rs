@@ -17,6 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::generic::storage::database::DatabaseConnectionPool;
+use crate::generic::storage::session::DefaultSessionManagerImplementation;
 use crate::generic::Injectable;
 use crate::model::interface::client::UserClaims;
 use crate::repositories::definitions::{
@@ -39,181 +40,74 @@ pub(crate) fn inject<T>(
 where
     T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
 {
-    let repositories = DependantRepositories::dependencies();
+    let repositories = ServiceDependencies::dependencies(token_signer);
+    let session_manager = DefaultSessionManagerImplementation::make(pool);
 
-    let app = inject_command_services(app, pool, token_signer, &repositories);
-    inject_request_services(app, pool, token_signer, &repositories)
+    let app = app.app_data(session_manager);
+    let app = inject_command_services(app, &repositories);
+    inject_request_services(app, &repositories)
 }
 
-fn inject_command_services<T>(
-    app: App<T>,
-    pool: &DatabaseConnectionPool,
-    _token_signer: &Data<TokenSigner<UserClaims, Ed25519>>,
-    repositories: &DependantRepositories,
-) -> App<T>
+fn inject_command_services<T>(app: App<T>, service_deps: &ServiceDependencies) -> App<T>
 where
     T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
 {
-    app.app_data(
-        services::implementation::command::setup::Implementation::injectable((
-            pool,
-            &repositories.member_repository,
-            &repositories.member_role_repository,
-        )),
-    )
-    .app_data(
-        services::implementation::command::member::Implementation::injectable((
-            pool,
-            &repositories.member_repository,
-            &repositories.member_role_repository,
-        )),
-    )
-    .app_data(
-        services::implementation::command::workgroup::Implementation::injectable((
-            pool,
-            &repositories.workgroup_repository,
-        )),
-    )
-    .app_data(
-        services::implementation::command::member_picture::Implementation::injectable((
-            pool,
-            &repositories.member_repository,
-            &repositories.member_picture_repository,
-        )),
-    )
-    .app_data(
-        services::implementation::command::member_activation::Implementation::injectable((
-            pool,
-            &repositories.member_repository,
-        )),
-    )
-    .app_data(
-        services::implementation::command::role::Implementation::injectable((
-            pool,
-            &repositories.member_role_repository,
-            &repositories.workgroup_role_repository,
-        )),
-    )
-    .app_data(
-        services::implementation::command::page::Implementation::injectable((
-            pool,
-            &repositories.page_repository,
-            &repositories.properties_repository,
-        )),
-    )
-    .app_data(
-        services::implementation::command::image::Implementation::injectable((
-            pool,
-            &repositories.image_repository,
-        )),
-    )
+    use services::implementation::command::*;
+    app.app_data(setup::Implementation::make(service_deps))
+        .app_data(member::Implementation::make(service_deps))
+        .app_data(workgroup::Implementation::make(service_deps))
+        .app_data(member_picture::Implementation::make(service_deps))
+        .app_data(member_activation::Implementation::make(service_deps))
+        .app_data(role::Implementation::make(service_deps))
+        .app_data(page::Implementation::make(service_deps))
+        .app_data(image::Implementation::make(service_deps))
 }
 
-fn inject_request_services<T>(
-    app: App<T>,
-    pool: &DatabaseConnectionPool,
-    token_signer: &Data<TokenSigner<UserClaims, Ed25519>>,
-    repositories: &DependantRepositories,
-) -> App<T>
+fn inject_request_services<T>(app: App<T>, service_deps: &ServiceDependencies) -> App<T>
 where
     T: ServiceFactory<ServiceRequest, Config = (), Error = Error, InitError = ()>,
 {
-    app.app_data(
-        services::implementation::request::setup::Implementation::injectable((
-            pool,
-            &repositories.member_repository,
-        )),
-    )
-    .app_data(
-        services::implementation::request::authorization::Implementation::injectable((
-            pool,
-            &repositories.member_repository,
-            &repositories.authorization_repository,
-            token_signer,
-        )),
-    )
-    .app_data(
-        services::implementation::request::member::Implementation::injectable((
-            pool,
-            &repositories.member_repository,
-        )),
-    )
-    .app_data(
-        services::implementation::request::workgroup::Implementation::injectable((
-            pool,
-            &repositories.workgroup_repository,
-        )),
-    )
-    .app_data(
-        services::implementation::request::member_picture::Implementation::injectable((
-            pool,
-            &repositories.member_repository,
-        )),
-    )
-    .app_data(
-        services::implementation::request::role::Implementation::injectable((
-            pool,
-            &repositories.member_role_repository,
-            &repositories.workgroup_role_repository,
-        )),
-    )
-    .app_data(
-        services::implementation::request::facebook::Implementation::injectable((
-            pool,
-            &repositories.facebook_repository,
-            &repositories.member_repository,
-            &repositories.authorization_repository,
-        )),
-    )
-    .app_data(
-        services::implementation::request::page::Implementation::injectable((
-            pool,
-            &repositories.page_repository,
-            &repositories.properties_repository,
-        )),
-    )
-    .app_data(
-        services::implementation::request::image::Implementation::injectable((
-            pool,
-            &repositories.image_repository,
-        )),
-    )
+    use services::implementation::request::*;
+    app.app_data(setup::Implementation::make(service_deps))
+        .app_data(authorization::Implementation::make(service_deps))
+        .app_data(member::Implementation::make(service_deps))
+        .app_data(workgroup::Implementation::make(service_deps))
+        .app_data(member_picture::Implementation::make(service_deps))
+        .app_data(role::Implementation::make(service_deps))
+        .app_data(facebook::Implementation::make(service_deps))
+        .app_data(page::Implementation::make(service_deps))
+        .app_data(image::Implementation::make(service_deps))
 }
 
-struct DependantRepositories {
-    properties_repository: Data<dyn PropertiesRepository>,
-    member_repository: Data<dyn MemberRepository>,
-    workgroup_repository: Data<dyn WorkgroupRepository>,
-    member_role_repository: Data<dyn MemberRoleRepository>,
-    member_picture_repository: Data<dyn MemberPictureRepository>,
-    workgroup_role_repository: Data<dyn WorkgroupRoleRepository>,
-    authorization_repository: Data<dyn AuthorizationRepository>,
-    facebook_repository: Data<dyn FacebookRepository>,
-    page_repository: Data<dyn PageRepository>,
-    image_repository: Data<dyn ImageRepository>,
+pub struct ServiceDependencies {
+    pub properties_repository: Data<dyn PropertiesRepository>,
+    pub member_repository: Data<dyn MemberRepository>,
+    pub workgroup_repository: Data<dyn WorkgroupRepository>,
+    pub member_role_repository: Data<dyn MemberRoleRepository>,
+    pub member_picture_repository: Data<dyn MemberPictureRepository>,
+    pub workgroup_role_repository: Data<dyn WorkgroupRoleRepository>,
+    pub authorization_repository: Data<dyn AuthorizationRepository>,
+    pub facebook_repository: Data<dyn FacebookRepository>,
+    pub page_repository: Data<dyn PageRepository>,
+    pub image_repository: Data<dyn ImageRepository>,
+    pub token_signer: Data<TokenSigner<UserClaims, Ed25519>>,
 }
 
-impl DependantRepositories {
-    fn dependencies() -> DependantRepositories {
-        let repositories = DependantRepositories {
-            properties_repository:
-                repositories::implementation::properties::Implementation::injectable(()),
-            member_repository: repositories::implementation::member::Implementation::injectable(()),
-            workgroup_repository:
-                repositories::implementation::workgroup::Implementation::injectable(()),
-            member_role_repository:
-                repositories::implementation::member_role::Implementation::injectable(()),
-            member_picture_repository:
-                repositories::implementation::member_picture::Implementation::injectable(()),
-            workgroup_role_repository:
-                repositories::implementation::workgroup_role::Implementation::injectable(()),
-            authorization_repository:
-                repositories::implementation::authorization::Implementation::injectable(()),
-            facebook_repository: repositories::implementation::facebook::Implementation::injectable(
-                (),
-            ),
-            page_repository: repositories::implementation::page::Implementation::injectable(()),
-            image_repository: repositories::implementation::image::Implementation::injectable(()),
+impl ServiceDependencies {
+    fn dependencies(token_signer: &Data<TokenSigner<UserClaims, Ed25519>>) -> ServiceDependencies {
+        use repositories::implementation::*;
+        let repositories = ServiceDependencies {
+            properties_repository: properties::Implementation::make(&()),
+            member_repository: member::Implementation::make(&()),
+            workgroup_repository: workgroup::Implementation::make(&()),
+            member_role_repository: member_role::Implementation::make(&()),
+            member_picture_repository: member_picture::Implementation::make(&()),
+            workgroup_role_repository: workgroup_role::Implementation::make(&()),
+            authorization_repository: authorization::Implementation::make(&()),
+            facebook_repository: facebook::Implementation::make(&()),
+            page_repository: page::Implementation::make(&()),
+            image_repository: image::Implementation::make(&()),
+            token_signer: token_signer.clone(),
         };
         repositories
     }

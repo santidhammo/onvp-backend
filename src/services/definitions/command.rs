@@ -17,6 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::generic::result::BackendResult;
+use crate::generic::storage::session::Session;
 use crate::model::interface::commands::{
     AssociateMemberToWorkgroupCommand, AssociateRoleCommand, CreatePageCommand,
     DissociateMemberFromWorkgroupCommand, DissociateRoleCommand, FirstOperatorRegisterCommand,
@@ -30,14 +31,24 @@ use crate::model::interface::commands::{
 pub trait MemberCommandService {
     /// Registers a new member which is not activated yet, by supplying the command received from
     /// the interface.
-    fn register_inactive(&self, command: &MemberRegisterCommand) -> BackendResult<i32>;
+    fn register_inactive(
+        &self,
+        session: Session,
+        command: &MemberRegisterCommand,
+    ) -> BackendResult<i32>;
 
     /// Updates the regular details of an existing member
-    fn update(&self, member_id: i32, command: &MemberUpdateCommand) -> BackendResult<()>;
+    fn update(
+        &self,
+        session: Session,
+        member_id: i32,
+        command: &MemberUpdateCommand,
+    ) -> BackendResult<()>;
 
     /// Updates the address details of an existing member
     fn update_address(
         &self,
+        session: Session,
         member_id: i32,
         command: &MemberUpdateAddressCommand,
     ) -> BackendResult<()>;
@@ -45,21 +56,27 @@ pub trait MemberCommandService {
     /// Updates whether the member allows for (weak) privacy related information to be shared
     fn update_privacy_info_sharing(
         &self,
+        session: Session,
         member_id: i32,
         command: &MemberUpdatePrivacyInfoSharingCommand,
     ) -> BackendResult<()>;
 
     /// Unregisters an existing member
-    fn unregister(&self, member_id: i32) -> BackendResult<()>;
+    fn unregister(&self, session: Session, member_id: i32) -> BackendResult<()>;
 }
 pub trait MemberPictureCommandService {
-    fn upload(&self, member_id: i32, command: &MemberImageUploadCommand) -> BackendResult<String>;
+    fn upload(
+        &self,
+        session: Session,
+        member_id: i32,
+        command: &MemberImageUploadCommand,
+    ) -> BackendResult<String>;
 }
 
 /// Controls activation of members
 pub trait MemberActivationCommandService {
     /// Activates a member based on the token data
-    fn activate(&self, data: &MemberActivationCommand) -> BackendResult<()>;
+    fn activate(&self, session: Session, data: &MemberActivationCommand) -> BackendResult<()>;
 }
 
 /// Controls actions which can be performed on member data
@@ -68,6 +85,7 @@ pub trait SetupCommandService {
     /// the interface.
     fn register_first_operator(
         &self,
+        session: Session,
         command: &FirstOperatorRegisterCommand,
     ) -> BackendResult<String>;
 }
@@ -75,23 +93,30 @@ pub trait SetupCommandService {
 /// Controls actions which can be performed to manage work groups
 pub trait WorkgroupCommandService {
     /// Registers a new work group
-    fn register(&self, command: &WorkgroupRegisterCommand) -> BackendResult<i32>;
+    fn register(&self, session: Session, command: &WorkgroupRegisterCommand) -> BackendResult<i32>;
 
     /// Updates an existing work group
-    fn update(&self, workgroup_id: i32, command: &WorkgroupUpdateCommand) -> BackendResult<()>;
+    fn update(
+        &self,
+        session: Session,
+        workgroup_id: i32,
+        command: &WorkgroupUpdateCommand,
+    ) -> BackendResult<()>;
 
     /// Unregisters an existing work group
-    fn unregister(&self, workgroup_id: i32) -> BackendResult<()>;
+    fn unregister(&self, session: Session, workgroup_id: i32) -> BackendResult<()>;
 
     /// Associates a member to a work group
     fn associate_member_to_workgroup(
         &self,
+        session: Session,
         command: &AssociateMemberToWorkgroupCommand,
     ) -> BackendResult<()>;
 
     ///Dissociates a member to a work group
     fn dissociate_member_from_workgroup(
         &self,
+        session: Session,
         command: &DissociateMemberFromWorkgroupCommand,
     ) -> BackendResult<()>;
 }
@@ -99,47 +124,67 @@ pub trait WorkgroupCommandService {
 /// Controls actions which can be performed to manage roles
 pub trait RoleCommandService {
     /// Associates a role
-    fn associate_role(&self, command: &AssociateRoleCommand) -> BackendResult<()>;
+    fn associate_role(&self, session: Session, command: &AssociateRoleCommand)
+        -> BackendResult<()>;
 
     /// Dissociates a role
-    fn dissociate_role(&self, command: &DissociateRoleCommand) -> BackendResult<()>;
+    fn dissociate_role(
+        &self,
+        session: Session,
+        command: &DissociateRoleCommand,
+    ) -> BackendResult<()>;
 }
 
 /// Controls actions which can be performed to manage pages
 pub trait PageCommandService {
     /// Creates a new page
-    fn create(&self, command: &CreatePageCommand) -> BackendResult<()>;
+    fn create(&self, session: Session, command: &CreatePageCommand) -> BackendResult<()>;
 
     /// Sets the content of a given page
-    fn set_content(&self, page_id: i32, content: &str) -> BackendResult<()>;
+    fn set_content(&self, session: Session, page_id: i32, content: &str) -> BackendResult<()>;
 
     /// Updates a page
-    fn update(&self, page_id: i32, command: &UpdatePageCommand) -> BackendResult<()>;
+    fn update(
+        &self,
+        session: Session,
+        page_id: i32,
+        command: &UpdatePageCommand,
+    ) -> BackendResult<()>;
 
     /// Publishes the page
-    fn publish(&self, page_id: i32, command: &PublishPageCommand) -> BackendResult<()>;
+    fn publish(
+        &self,
+        session: Session,
+        page_id: i32,
+        command: &PublishPageCommand,
+    ) -> BackendResult<()>;
 
     /// Unpublishes the page
-    fn unpublish(&self, page_id: i32) -> BackendResult<()>;
+    fn unpublish(&self, session: Session, page_id: i32) -> BackendResult<()>;
 
     /// Deletes an existing page
-    fn delete(&self, page_id: i32) -> BackendResult<()>;
+    fn delete(&self, session: Session, page_id: i32) -> BackendResult<()>;
 
     /// Sets the default page
-    fn set_default(&self, page_id: i32) -> BackendResult<()>;
+    fn set_default(&self, session: Session, page_id: i32) -> BackendResult<()>;
 }
 
 /// Controls actions which can be performed to manage images
 pub trait ImageCommandService {
     /// Handles uploading a new image
-    fn upload(&self, command: &ImageUploadCommand) -> BackendResult<String>;
+    fn upload(&self, session: Session, command: &ImageUploadCommand) -> BackendResult<String>;
 
     /// Publishes the image
-    fn publish(&self, image_id: i32, command: &PublishImageCommand) -> BackendResult<()>;
+    fn publish(
+        &self,
+        session: Session,
+        image_id: i32,
+        command: &PublishImageCommand,
+    ) -> BackendResult<()>;
 
     /// Unpublishes the image
-    fn unpublish(&self, image_id: i32) -> BackendResult<()>;
+    fn unpublish(&self, session: Session, image_id: i32) -> BackendResult<()>;
 
     /// Deletes an existing image
-    fn delete(&self, image_id: i32) -> BackendResult<()>;
+    fn delete(&self, session: Session, image_id: i32) -> BackendResult<()>;
 }

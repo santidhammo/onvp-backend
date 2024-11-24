@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::generic::result::{BackendError, BackendResult};
-use crate::generic::storage::database::DatabaseConnection;
+use crate::generic::storage::session::Session;
 use crate::generic::Injectable;
 use crate::model::primitives::Role;
 use crate::model::storage::roles::MemberRoleAssociation;
@@ -30,68 +30,59 @@ use std::sync::Arc;
 pub struct Implementation;
 
 impl MemberRoleRepository for Implementation {
-    fn associate(
-        &self,
-        conn: &mut DatabaseConnection,
-        member_id: i32,
-        role: Role,
-    ) -> BackendResult<()> {
+    fn associate(&self, session: &mut Session, member_id: i32, role: Role) -> BackendResult<()> {
         // The public role is assumed for any user, also users which are not a member, therefore
         // it can not be associated.
         if role == Role::Public {
             return Err(BackendError::bad());
         }
-        diesel::insert_into(member_role_associations::table)
-            .values((
-                member_role_associations::member_id.eq(member_id),
-                member_role_associations::system_role.eq(role),
-            ))
-            .execute(conn)?;
-        Ok(())
+        session.run(|conn| {
+            diesel::insert_into(member_role_associations::table)
+                .values((
+                    member_role_associations::member_id.eq(member_id),
+                    member_role_associations::system_role.eq(role),
+                ))
+                .execute(conn)?;
+            Ok(())
+        })
     }
 
-    fn dissociate(
-        &self,
-        conn: &mut DatabaseConnection,
-        member_id: i32,
-        role: Role,
-    ) -> BackendResult<()> {
+    fn dissociate(&self, session: &mut Session, member_id: i32, role: Role) -> BackendResult<()> {
         // Every member always has the member role, this can not be removed
         if role == Role::Member {
             return Err(BackendError::bad());
         }
+        session.run(|conn| {
+            let deleted_rows = diesel::delete(member_role_associations::table)
+                .filter(
+                    member_role_associations::member_id
+                        .eq(member_id)
+                        .and(member_role_associations::system_role.eq(role)),
+                )
+                .execute(conn)?;
 
-        let deleted_rows = diesel::delete(member_role_associations::table)
-            .filter(
-                member_role_associations::member_id
-                    .eq(member_id)
-                    .and(member_role_associations::system_role.eq(role)),
-            )
-            .execute(conn)?;
-
-        if deleted_rows == 0 {
-            Err(BackendError::not_enough_records())
-        } else {
-            Ok(())
-        }
+            if deleted_rows == 0 {
+                Err(BackendError::not_enough_records())
+            } else {
+                Ok(())
+            }
+        })
     }
 
-    fn list_by_id(
-        &self,
-        conn: &mut DatabaseConnection,
-        member_id: i32,
-    ) -> BackendResult<Vec<Role>> {
+    fn list_by_id(&self, session: &mut Session, member_id: i32) -> BackendResult<Vec<Role>> {
         let filter = member_role_associations::member_id.eq(member_id);
-        let role_associations: Vec<MemberRoleAssociation> = member_role_associations::table
-            .filter(filter)
-            .select(MemberRoleAssociation::as_select())
-            .load(conn)?;
-        Ok(role_associations.iter().map(|ra| ra.system_role).collect())
+        session.run(|conn| {
+            let role_associations: Vec<MemberRoleAssociation> = member_role_associations::table
+                .filter(filter)
+                .select(MemberRoleAssociation::as_select())
+                .load(conn)?;
+            Ok(role_associations.iter().map(|ra| ra.system_role).collect())
+        })
     }
 }
 
 impl Injectable<(), dyn MemberRoleRepository> for Implementation {
-    fn injectable(_: ()) -> Data<dyn MemberRoleRepository> {
+    fn make(_: &()) -> Data<dyn MemberRoleRepository> {
         let arc: Arc<dyn MemberRoleRepository> = Arc::new(Self);
         Data::from(arc)
     }

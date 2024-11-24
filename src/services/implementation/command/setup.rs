@@ -17,81 +17,62 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::generic::result::{BackendError, BackendResult};
-use crate::generic::storage::database::{DatabaseConnection, DatabaseConnectionPool};
+use crate::generic::storage::session::Session;
 use crate::generic::Injectable;
+use crate::injection::ServiceDependencies;
 use crate::model::interface::commands::FirstOperatorRegisterCommand;
 use crate::model::primitives::Role;
 use crate::model::storage::extended_entities::ExtendedMember;
 use crate::repositories::definitions::{MemberRepository, MemberRoleRepository};
 use crate::services::definitions::command::SetupCommandService;
 use actix_web::web::Data;
-use diesel::Connection;
 use std::sync::Arc;
 
 pub struct Implementation {
-    pool: DatabaseConnectionPool,
     member_repository: Data<dyn MemberRepository>,
     member_role_repository: Data<dyn MemberRoleRepository>,
-}
-
-impl Implementation {
-    fn has_operators(&self, conn: &mut DatabaseConnection) -> BackendResult<bool> {
-        Ok(self
-            .member_repository
-            .count_members_with_role(conn, Role::Operator)?
-            > 0)
-    }
 }
 
 impl SetupCommandService for Implementation {
     fn register_first_operator(
         &self,
+        mut session: Session,
         command: &FirstOperatorRegisterCommand,
     ) -> BackendResult<String> {
-        let mut conn = self.pool.get()?;
-        conn.transaction::<String, BackendError, _>(|conn| {
-            if !self.has_operators(conn)? {
-                let extended_member = ExtendedMember::from(command);
+        if !self.has_operators(&mut session)? {
+            let extended_member = ExtendedMember::from(command);
 
-                let member_id = self
-                    .member_repository
-                    .create_inactive(conn, &extended_member)?;
+            let member_id = self
+                .member_repository
+                .create_inactive(&mut session, &extended_member)?;
 
-                self.member_role_repository
-                    .associate(conn, member_id, Role::Member)?;
+            self.member_role_repository
+                .associate(&mut session, member_id, Role::Member)?;
 
-                self.member_role_repository
-                    .associate(conn, member_id, Role::Operator)?;
+            self.member_role_repository
+                .associate(&mut session, member_id, Role::Operator)?;
 
-                Ok(extended_member.activation_string)
-            } else {
-                Err(BackendError::bad())
-            }
-        })
+            Ok(extended_member.activation_string)
+        } else {
+            Err(BackendError::bad())
+        }
     }
 }
 
-impl
-    Injectable<
-        (
-            &DatabaseConnectionPool,
-            &Data<dyn MemberRepository>,
-            &Data<dyn MemberRoleRepository>,
-        ),
-        dyn SetupCommandService,
-    > for Implementation
-{
-    fn injectable(
-        (pool, member_repository, member_role_repository): (
-            &DatabaseConnectionPool,
-            &Data<dyn MemberRepository>,
-            &Data<dyn MemberRoleRepository>,
-        ),
-    ) -> Data<dyn SetupCommandService> {
+impl Implementation {
+    fn has_operators(&self, session: &mut Session) -> BackendResult<bool> {
+        Ok(self
+            .member_repository
+            .count_members_with_role(session, Role::Operator)?
+            > 0)
+    }
+}
+
+impl Injectable<ServiceDependencies, dyn SetupCommandService> for Implementation {
+    fn make(dependencies: &ServiceDependencies) -> Data<dyn SetupCommandService> {
         let implementation = Self {
-            pool: pool.clone(),
-            member_repository: member_repository.clone(),
-            member_role_repository: member_role_repository.clone(),
+            member_repository: dependencies.member_repository.clone(),
+            member_role_repository: dependencies.member_role_repository.clone(),
         };
         let arc: Arc<dyn SetupCommandService> = Arc::new(implementation);
         Data::from(arc)

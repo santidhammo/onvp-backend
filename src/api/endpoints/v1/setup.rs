@@ -18,6 +18,7 @@
  */
 
 use crate::generic::result::BackendResult;
+use crate::generic::storage::session::Session;
 use crate::model::interface::commands::FirstOperatorRegisterCommand;
 use crate::services::definitions::command::SetupCommandService;
 use crate::services::definitions::request::SetupRequestService;
@@ -36,8 +37,11 @@ use actix_web::{get, post};
     )
 )]
 #[get("/should_setup")]
-pub async fn should_setup(service: Data<dyn SetupRequestService>) -> BackendResult<Json<bool>> {
-    Ok(Json(service.should_setup()?))
+pub async fn should_setup(
+    session: Session,
+    service: Data<dyn SetupRequestService>,
+) -> BackendResult<Json<bool>> {
+    Ok(Json(service.should_setup(session)?))
 }
 
 /// Set up the first operator
@@ -59,8 +63,9 @@ pub async fn should_setup(service: Data<dyn SetupRequestService>) -> BackendResu
 )]
 #[post("/setup_first_operator")]
 pub async fn setup_first_operator(
+    session: Session,
     command: Json<FirstOperatorRegisterCommand>,
     service: Data<dyn SetupCommandService>,
 ) -> BackendResult<Json<String>> {
-    Ok(Json(service.register_first_operator(&command)?))
+    Ok(Json(service.register_first_operator(session, &command)?))
 }

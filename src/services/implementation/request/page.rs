@@ -18,8 +18,9 @@
  */
 use crate::generic::result::{BackendError, BackendResult};
 use crate::generic::security::ClaimRoles;
-use crate::generic::storage::database::DatabaseConnectionPool;
+use crate::generic::storage::session::Session;
 use crate::generic::{search_helpers, Injectable};
+use crate::injection::ServiceDependencies;
 use crate::model::interface::responses::{ExtendedPageResponse, PageResponse};
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::model::primitives::Role;
@@ -27,100 +28,101 @@ use crate::repositories::definitions::{PageRepository, PropertiesRepository};
 use crate::services::definitions::request::traits::RoleContainer;
 use crate::services::definitions::request::PageRequestService;
 use actix_web::web::Data;
-use diesel::Connection;
 use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::io::Read;
 use std::sync::Arc;
 
 pub struct Implementation {
-    pool: DatabaseConnectionPool,
     page_repository: Data<dyn PageRepository>,
     properties_repository: Data<dyn PropertiesRepository>,
 }
 
 impl PageRequestService for Implementation {
-    fn find_by_id(&self, page_id: i32, roles: &ClaimRoles) -> BackendResult<ExtendedPageResponse> {
-        let mut conn = self.pool.get()?;
-        conn.transaction::<ExtendedPageResponse, BackendError, _>(|conn| {
-            let known_roles = self
-                .page_repository
-                .find_associated_roles_by_id(conn, page_id)?;
+    fn find_by_id(
+        &self,
+        mut session: Session,
+        page_id: i32,
+        roles: &ClaimRoles,
+    ) -> BackendResult<ExtendedPageResponse> {
+        let known_roles = self
+            .page_repository
+            .find_associated_roles_by_id(&mut session, page_id)?;
 
-            if !roles.has_role(Role::Operator) {
-                let known_role_set: HashSet<Role> = HashSet::from_iter(known_roles.iter().cloned());
-                if roles.set().is_disjoint(&known_role_set) {
-                    return Err(BackendError::forbidden());
-                }
+        if !roles.has_role(Role::Operator) {
+            let known_role_set: HashSet<Role> = HashSet::from_iter(known_roles.iter().cloned());
+            if roles.set().is_disjoint(&known_role_set) {
+                return Err(BackendError::forbidden());
             }
+        }
 
-            let page = self.page_repository.find_by_id(conn, page_id)?;
+        let page = self.page_repository.find_by_id(&mut session, page_id)?;
 
-            if roles.has_role(Role::Operator) {
-                Ok(ExtendedPageResponse::from((&page, &known_roles)))
-            } else {
-                Ok(ExtendedPageResponse::from((&page, &vec![])))
-            }
-        })
+        if roles.has_role(Role::Operator) {
+            Ok(ExtendedPageResponse::from((&page, &known_roles)))
+        } else {
+            Ok(ExtendedPageResponse::from((&page, &vec![])))
+        }
     }
 
-    fn find_content_by_id(&self, page_id: i32, roles: &ClaimRoles) -> BackendResult<String> {
-        let mut conn = self.pool.get()?;
-        conn.transaction::<String, BackendError, _>(|conn| {
-            let known_roles = self
-                .page_repository
-                .find_associated_roles_by_id(conn, page_id)?;
-            if !roles.has_role(Role::Operator) {
-                let known_role_set: HashSet<Role> = HashSet::from_iter(known_roles.iter().cloned());
-                if roles.set().is_disjoint(&known_role_set) {
-                    return Err(BackendError::forbidden());
-                }
+    fn find_content_by_id(
+        &self,
+        mut session: Session,
+        page_id: i32,
+        roles: &ClaimRoles,
+    ) -> BackendResult<String> {
+        let known_roles = self
+            .page_repository
+            .find_associated_roles_by_id(&mut session, page_id)?;
+        if !roles.has_role(Role::Operator) {
+            let known_role_set: HashSet<Role> = HashSet::from_iter(known_roles.iter().cloned());
+            if roles.set().is_disjoint(&known_role_set) {
+                return Err(BackendError::forbidden());
             }
+        }
 
-            let page = self.page_repository.find_by_id(conn, page_id)?;
-            let content = Self::read_asset(&page.content_asset)?;
-            Ok(content)
-        })
+        let page = self.page_repository.find_by_id(&mut session, page_id)?;
+        let content = Self::read_asset(&page.content_asset)?;
+        Ok(content)
     }
 
-    fn default(&self, roles: &ClaimRoles) -> BackendResult<Option<ExtendedPageResponse>> {
-        let mut conn = self.pool.get()?;
-        conn.transaction::<Option<ExtendedPageResponse>, BackendError, _>(|conn| {
-            let maybe_page_id = self
-                .properties_repository
-                .maybe_int_property(conn, "default-page");
-            if let Some(page_id) = maybe_page_id {
-                Ok(Some(self.find_by_id(page_id, roles)?))
-            } else {
-                Ok(None)
-            }
-        })
+    fn default(
+        &self,
+        mut session: Session,
+        roles: &ClaimRoles,
+    ) -> BackendResult<Option<ExtendedPageResponse>> {
+        let maybe_page_id = self
+            .properties_repository
+            .maybe_int_property(&mut session, "default-page");
+        if let Some(page_id) = maybe_page_id {
+            Ok(Some(self.find_by_id(session, page_id, roles)?))
+        } else {
+            Ok(None)
+        }
     }
 
     fn list_by_parent_id(
         &self,
+        mut session: Session,
         parent_id: i32,
         roles: &ClaimRoles,
     ) -> BackendResult<Vec<PageResponse>> {
-        let mut conn = self.pool.get()?;
-        conn.transaction::<Vec<PageResponse>, BackendError, _>(|conn| {
-            let pages = self
-                .page_repository
-                .list_by_parent_id(conn, parent_id, roles)?;
-            Ok(pages.iter().map(PageResponse::from).collect())
-        })
+        let pages = self
+            .page_repository
+            .list_by_parent_id(&mut session, parent_id, roles)?;
+        Ok(pages.iter().map(PageResponse::from).collect())
     }
 
     fn search(
         &self,
+        mut session: Session,
         params: &SearchParams,
         roles: &ClaimRoles,
     ) -> BackendResult<SearchResult<PageResponse>> {
-        let mut conn = self.pool.get()?;
         let term = params.term.clone().unwrap_or_default();
         let (total_count, page_size, results) =
             self.page_repository
-                .search(&mut conn, params.page_offset, &term, roles)?;
+                .search(&mut session, params.page_offset, &term, roles)?;
         let rows: Vec<PageResponse> = results.iter().map(PageResponse::from).collect();
         let row_len = rows.len();
         Ok(SearchResult {
@@ -148,27 +150,11 @@ impl Implementation {
     }
 }
 
-impl
-    Injectable<
-        (
-            &DatabaseConnectionPool,
-            &Data<dyn PageRepository>,
-            &Data<dyn PropertiesRepository>,
-        ),
-        dyn PageRequestService,
-    > for Implementation
-{
-    fn injectable(
-        (pool, page_repository, properties_repository): (
-            &DatabaseConnectionPool,
-            &Data<dyn PageRepository>,
-            &Data<dyn PropertiesRepository>,
-        ),
-    ) -> Data<dyn PageRequestService> {
+impl Injectable<ServiceDependencies, dyn PageRequestService> for Implementation {
+    fn make(dependencies: &ServiceDependencies) -> Data<dyn PageRequestService> {
         let implementation = Self {
-            pool: pool.clone(),
-            page_repository: page_repository.clone(),
-            properties_repository: properties_repository.clone(),
+            page_repository: dependencies.page_repository.clone(),
+            properties_repository: dependencies.properties_repository.clone(),
         };
         let arc: Arc<dyn PageRequestService> = Arc::new(implementation);
         Data::from(arc)

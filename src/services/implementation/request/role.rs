@@ -17,8 +17,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::generic::result::BackendResult;
-use crate::generic::storage::database::DatabaseConnectionPool;
+use crate::generic::storage::session::Session;
 use crate::generic::Injectable;
+use crate::injection::ServiceDependencies;
 use crate::model::primitives::{Role, RoleClass};
 use crate::repositories::definitions::{MemberRoleRepository, WorkgroupRoleRepository};
 use crate::services::definitions::request::RoleRequestService;
@@ -26,42 +27,29 @@ use actix_web::web::Data;
 use std::sync::Arc;
 
 pub struct Implementation {
-    pool: DatabaseConnectionPool,
     member_role_repository: Data<dyn MemberRoleRepository>,
     workgroup_role_repository: Data<dyn WorkgroupRoleRepository>,
 }
 
 impl RoleRequestService for Implementation {
-    fn list_by_id_and_class(&self, id: i32, class: RoleClass) -> BackendResult<Vec<Role>> {
-        let mut conn = self.pool.get()?;
+    fn list_by_id_and_class(
+        &self,
+        mut session: Session,
+        id: i32,
+        class: RoleClass,
+    ) -> BackendResult<Vec<Role>> {
         match class {
-            RoleClass::Member => self.member_role_repository.list_by_id(&mut conn, id),
-            RoleClass::Workgroup => self.workgroup_role_repository.list_by_id(&mut conn, id),
+            RoleClass::Member => self.member_role_repository.list_by_id(&mut session, id),
+            RoleClass::Workgroup => self.workgroup_role_repository.list_by_id(&mut session, id),
         }
     }
 }
 
-impl
-    Injectable<
-        (
-            &DatabaseConnectionPool,
-            &Data<dyn MemberRoleRepository>,
-            &Data<dyn WorkgroupRoleRepository>,
-        ),
-        dyn RoleRequestService,
-    > for Implementation
-{
-    fn injectable(
-        (pool, member_role_repository, workgroup_role_repository): (
-            &DatabaseConnectionPool,
-            &Data<dyn MemberRoleRepository>,
-            &Data<dyn WorkgroupRoleRepository>,
-        ),
-    ) -> Data<dyn RoleRequestService> {
+impl Injectable<ServiceDependencies, dyn RoleRequestService> for Implementation {
+    fn make(dependencies: &ServiceDependencies) -> Data<dyn RoleRequestService> {
         let implementation = Self {
-            pool: pool.clone(),
-            member_role_repository: member_role_repository.clone().clone(),
-            workgroup_role_repository: workgroup_role_repository.clone().clone(),
+            member_role_repository: dependencies.member_role_repository.clone(),
+            workgroup_role_repository: dependencies.workgroup_role_repository.clone(),
         };
         let arc: Arc<dyn RoleRequestService> = Arc::new(implementation);
         Data::from(arc)

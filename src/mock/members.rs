@@ -17,7 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::generic::result::BackendResult;
-use crate::generic::storage::database::DatabaseConnection;
+use crate::generic::storage::session::Session;
 use crate::generic::Injectable;
 use crate::model::interface::commands::MemberRegisterCommand;
 use crate::model::interface::sub_commands::{AddressRegisterSubCommand, DetailRegisterSubCommand};
@@ -29,15 +29,14 @@ use rand::{thread_rng, Rng};
 use std::ops::Add;
 
 pub fn create(
-    conn: &mut DatabaseConnection,
+    mut session: Session,
     count: i32,
     activation_delta: TimeDelta,
     role: Role,
 ) -> BackendResult<()> {
-    let member_repository =
-        crate::repositories::implementation::member::Implementation::injectable(());
+    let member_repository = crate::repositories::implementation::member::Implementation::make(&());
     let member_role_repository =
-        crate::repositories::implementation::member_role::Implementation::injectable(());
+        crate::repositories::implementation::member_role::Implementation::make(&());
 
     for _ in 0..count {
         let command = MemberRegisterCommand {
@@ -64,8 +63,8 @@ pub fn create(
         let mut extended_member = ExtendedMember::from(&command);
         extended_member.activation_time = extended_member.creation_time.add(activation_delta);
 
-        let member_id = member_repository.create_inactive(conn, &extended_member)?;
-        member_role_repository.associate(conn, member_id, role)?;
+        let member_id = member_repository.create_inactive(&mut session, &extended_member)?;
+        member_role_repository.associate(&mut session, member_id, role)?;
     }
 
     Ok(())

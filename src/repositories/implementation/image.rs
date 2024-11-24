@@ -17,8 +17,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::generic::lazy::SEARCH_PAGE_SIZE;
-use crate::generic::result::{BackendError, BackendResult};
-use crate::generic::storage::database::DatabaseConnection;
+use crate::generic::result::BackendResult;
+use crate::generic::storage::session::Session;
 use crate::generic::{search_helpers, Injectable};
 use crate::model::primitives::Role;
 use crate::model::storage::entities::Image;
@@ -33,48 +33,53 @@ pub struct Implementation {
 }
 
 impl ImageRepository for Implementation {
-    fn create(&self, conn: &mut DatabaseConnection, image: Image) -> BackendResult<()> {
-        conn.transaction::<_, BackendError, _>(|conn| {
-            let image_id: i32 = diesel::insert_into(images::table)
+    fn create(&self, session: &mut Session, image: Image) -> BackendResult<()> {
+        let image_id: i32 = session.run(|conn| {
+            Ok(diesel::insert_into(images::table)
                 .values(image)
                 .returning(images::id)
-                .get_result(conn)?;
+                .get_result(conn)?)
+        })?;
 
-            self.reset_roles(conn, image_id)?;
-            Ok(())
-        })
+        self.reset_roles(session, image_id)?;
+        Ok(())
     }
 
-    fn find_by_id(&self, conn: &mut DatabaseConnection, image_id: i32) -> BackendResult<Image> {
-        let image = images::table
-            .filter(images::id.eq(image_id))
-            .select(Image::as_select())
-            .first::<Image>(conn)?;
-        Ok(image)
+    fn find_by_id(&self, session: &mut Session, image_id: i32) -> BackendResult<Image> {
+        session.run(|conn| {
+            let image = images::table
+                .filter(images::id.eq(image_id))
+                .select(Image::as_select())
+                .first::<Image>(conn)?;
+            Ok(image)
+        })
     }
 
     fn find_associated_roles_by_id(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         image_id: i32,
     ) -> BackendResult<Vec<Role>> {
-        let associated_roles: Vec<Role> = image_access_policies::table
-            .filter(image_access_policies::image_id.eq(image_id))
-            .select(image_access_policies::system_role)
-            .load(conn)?;
-
-        Ok(associated_roles)
+        session.run(|conn| {
+            let associated_roles: Vec<Role> = image_access_policies::table
+                .filter(image_access_policies::image_id.eq(image_id))
+                .select(image_access_policies::system_role)
+                .load(conn)?;
+            Ok(associated_roles)
+        })
     }
 
-    fn delete(&self, conn: &mut DatabaseConnection, image_id: i32) -> BackendResult<()> {
-        diesel::delete(images::table)
-            .filter(images::id.eq(image_id))
-            .execute(conn)?;
-        Ok(())
+    fn delete(&self, session: &mut Session, image_id: i32) -> BackendResult<()> {
+        session.run(|conn| {
+            diesel::delete(images::table)
+                .filter(images::id.eq(image_id))
+                .execute(conn)?;
+            Ok(())
+        })
     }
 
-    fn reset_roles(&self, conn: &mut DatabaseConnection, image_id: i32) -> BackendResult<()> {
-        conn.transaction::<_, BackendError, _>(|conn| {
+    fn reset_roles(&self, session: &mut Session, image_id: i32) -> BackendResult<()> {
+        session.run(|conn| {
             diesel::delete(image_access_policies::table)
                 .filter(image_access_policies::image_id.eq(image_id))
                 .execute(conn)?;
@@ -92,11 +97,11 @@ impl ImageRepository for Implementation {
 
     fn assign_roles(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         image_id: i32,
         roles: &Vec<Role>,
     ) -> BackendResult<()> {
-        conn.transaction::<_, BackendError, _>(|conn| {
+        session.run(|conn| {
             for role in roles {
                 if role != &Role::Operator {
                     diesel::insert_into(image_access_policies::table)
@@ -113,34 +118,33 @@ impl ImageRepository for Implementation {
 
     fn search(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         page_offset: usize,
         term: &str,
     ) -> BackendResult<(usize, usize, Vec<Image>)> {
         let like_search_string = search_helpers::create_like_string(term);
-        let (total_count, pages) =
-            conn.transaction::<(usize, Vec<Image>), BackendError, _>(|conn| {
-                let total_count: usize = images::table
-                    .filter(&images::title.ilike(&like_search_string))
-                    .count()
-                    .get_result::<i64>(conn)? as usize;
+        let (total_count, pages) = session.run(|conn| {
+            let total_count: usize = images::table
+                .filter(&images::title.ilike(&like_search_string))
+                .count()
+                .get_result::<i64>(conn)? as usize;
 
-                let result: Vec<Image> = images::table
-                    .filter(&images::title.ilike(&like_search_string))
-                    .order_by(images::title)
-                    .limit(self.page_size as i64)
-                    .offset((page_offset * self.page_size) as i64)
-                    .select(Image::as_select())
-                    .load(conn)?;
+            let result: Vec<Image> = images::table
+                .filter(&images::title.ilike(&like_search_string))
+                .order_by(images::title)
+                .limit(self.page_size as i64)
+                .offset((page_offset * self.page_size) as i64)
+                .select(Image::as_select())
+                .load(conn)?;
 
-                Ok((total_count, result))
-            })?;
+            Ok((total_count, result))
+        })?;
         Ok((total_count, self.page_size, pages))
     }
 }
 
 impl Injectable<(), dyn ImageRepository> for Implementation {
-    fn injectable(_: ()) -> Data<dyn ImageRepository> {
+    fn make(_: &()) -> Data<dyn ImageRepository> {
         let arc: Arc<dyn ImageRepository> = Arc::new(Self {
             page_size: *SEARCH_PAGE_SIZE,
         });

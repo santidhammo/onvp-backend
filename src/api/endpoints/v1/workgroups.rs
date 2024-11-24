@@ -20,6 +20,7 @@
 //! Work groups are collections of members, allowing for additional roles.
 
 use crate::generic::result::BackendResult;
+use crate::generic::storage::session::Session;
 use crate::model::interface::commands::{
     AssociateMemberToWorkgroupCommand, DissociateMemberFromWorkgroupCommand,
     WorkgroupRegisterCommand, WorkgroupUpdateCommand,
@@ -29,7 +30,7 @@ use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::services::definitions::command::WorkgroupCommandService;
 use crate::services::definitions::request::WorkgroupRequestService;
 use actix_web::web::{Data, Json, Path, Query};
-use actix_web::{delete, get, post, web, HttpResponse};
+use actix_web::{delete, get, post, HttpResponse};
 use std::ops::Deref;
 
 /// Register a new work group
@@ -48,10 +49,11 @@ use std::ops::Deref;
 )]
 #[post("/")]
 pub async fn register(
+    session: Session,
     service: Data<dyn WorkgroupCommandService>,
     command: Json<WorkgroupRegisterCommand>,
 ) -> BackendResult<Json<i32>> {
-    Ok(Json(service.register(&command)?))
+    Ok(Json(service.register(session, &command)?))
 }
 
 /// Search for work groups
@@ -72,10 +74,11 @@ pub async fn register(
 )]
 #[get("/search")]
 pub async fn search(
+    session: Session,
     service: Data<dyn WorkgroupRequestService>,
-    search_params: web::Query<SearchParams>,
+    search_params: Query<SearchParams>,
 ) -> BackendResult<Json<SearchResult<WorkgroupResponse>>> {
-    Ok(Json(service.search(&search_params)?))
+    Ok(Json(service.search(session, &search_params)?))
 }
 
 /// Get a work group by id
@@ -93,10 +96,11 @@ pub async fn search(
 )]
 #[get("/{id}")]
 pub async fn find(
+    session: Session,
     service: Data<dyn WorkgroupRequestService>,
     id: Path<i32>,
 ) -> BackendResult<Json<WorkgroupResponse>> {
-    Ok(Json(service.find_by_id(id.into_inner())?))
+    Ok(Json(service.find_by_id(session, id.into_inner())?))
 }
 
 /// Save a work group by id
@@ -113,11 +117,12 @@ pub async fn find(
 )]
 #[post("/{id}")]
 pub async fn update(
+    session: Session,
     service: Data<dyn WorkgroupCommandService>,
     id: Path<i32>,
     command: Json<WorkgroupUpdateCommand>,
 ) -> BackendResult<HttpResponse> {
-    service.update(id.into_inner(), &command)?;
+    service.update(session, id.into_inner(), &command)?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -135,10 +140,11 @@ pub async fn update(
 )]
 #[delete("/{id}")]
 pub async fn unregister(
+    session: Session,
     service: Data<dyn WorkgroupCommandService>,
     id: Path<i32>,
 ) -> BackendResult<HttpResponse> {
-    service.unregister(id.into_inner())?;
+    service.unregister(session, id.into_inner())?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -154,10 +160,11 @@ pub async fn unregister(
 )]
 #[get("/{id}/members")]
 pub async fn find_members(
+    session: Session,
     service: Data<dyn WorkgroupRequestService>,
     id: Path<i32>,
 ) -> BackendResult<Json<Vec<MemberResponse>>> {
-    Ok(Json(service.find_members_by_id(id.into_inner())?))
+    Ok(Json(service.find_members_by_id(session, id.into_inner())?))
 }
 
 /// Searches for members which are available for the work group
@@ -174,11 +181,13 @@ pub async fn find_members(
 )]
 #[get("/{id}/members/available/search")]
 pub async fn available_members_search(
+    session: Session,
     service: Data<dyn WorkgroupRequestService>,
     id: Path<i32>,
     search_params: Query<SearchParams>,
 ) -> BackendResult<Json<SearchResult<MemberResponse>>> {
     Ok(Json(service.available_members_search(
+        session,
         id.into_inner(),
         search_params.deref(),
     )?))
@@ -196,10 +205,11 @@ pub async fn available_members_search(
 )]
 #[post("/associate")]
 pub async fn associate(
+    session: Session,
     service: Data<dyn WorkgroupCommandService>,
     command: Json<AssociateMemberToWorkgroupCommand>,
 ) -> BackendResult<HttpResponse> {
-    service.associate_member_to_workgroup(&command)?;
+    service.associate_member_to_workgroup(session, &command)?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -215,9 +225,10 @@ pub async fn associate(
 )]
 #[post("/dissociate")]
 pub async fn dissociate(
+    session: Session,
     service: Data<dyn WorkgroupCommandService>,
     command: Json<DissociateMemberFromWorkgroupCommand>,
 ) -> BackendResult<HttpResponse> {
-    service.dissociate_member_from_workgroup(&command)?;
+    service.dissociate_member_from_workgroup(session, &command)?;
     Ok(HttpResponse::Ok().finish())
 }

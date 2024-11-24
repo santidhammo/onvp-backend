@@ -23,6 +23,7 @@ use crate::api::endpoints::v1::{
     authorization, facebook, images, members, pages, roles, setup, source_code, workgroups,
 };
 use crate::api::middleware::authority::AuthorityMiddleware;
+use crate::api::middleware::database::DatabaseMiddleware;
 use crate::generic::storage::database;
 use crate::model::interface::client::UserClaims;
 use actix_jwt_auth_middleware::{Authority, TokenSigner};
@@ -59,10 +60,16 @@ pub async fn launch() -> std::io::Result<()> {
         let authority_middleware =
             AuthorityMiddleware::new(authority, config::configure_authority());
 
+        let database_middleware = DatabaseMiddleware::new();
+
         let app = crate::injection::inject(&pool, &Data::new(token_signer.clone()), App::new());
         let (app, api) = app
             .into_utoipa_app()
-            .map(|app| app.wrap(Logger::default()).wrap(authority_middleware))
+            .map(|app| {
+                app.wrap(Logger::default())
+                    .wrap(authority_middleware)
+                    .wrap(database_middleware)
+            })
             .service(
                 scope("/api/authorization/v1")
                     .service(authorization::login)

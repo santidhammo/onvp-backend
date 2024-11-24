@@ -18,6 +18,7 @@
  */
 
 use crate::generic::result::BackendResult;
+use crate::generic::storage::session::Session;
 use crate::model::interface::client::UserClaims;
 use crate::model::interface::requests::AuthorizationRequest;
 use crate::services::definitions::request::AuthorizationRequestService;
@@ -39,11 +40,12 @@ use log::info;
 )]
 #[post("/login")]
 pub async fn login(
+    session: Session,
     authorization_request_service: Data<dyn AuthorizationRequestService>,
     login_data: Json<AuthorizationRequest>,
 ) -> BackendResult<HttpResponse> {
     info!("Attempting member login: {}", &login_data.email_address);
-    let authorization_response = authorization_request_service.login(&login_data)?;
+    let authorization_response = authorization_request_service.login(session, &login_data)?;
     let mut response = HttpResponse::Ok();
     for cookie in &authorization_response.clone().cookies {
         response.cookie(cookie.clone());
@@ -63,12 +65,14 @@ pub async fn login(
 )]
 #[get("/refresh")]
 pub async fn refresh(
+    session: Session,
     authorization_request_service: Data<dyn AuthorizationRequestService>,
     user_claims: UserClaims,
     http_request: HttpRequest,
 ) -> BackendResult<HttpResponse> {
     info!("Attempting member refresh: {}", &user_claims.email_address);
     let authorization_response = authorization_request_service.refresh(
+        session,
         &user_claims,
         &cookies::get_origin_access_cookie(&http_request)?,
         &cookies::get_origin_refresh_cookie(&http_request)?,
@@ -91,8 +95,11 @@ pub async fn refresh(
     )
 )]
 #[get("/logout")]
-pub async fn logout(service: Data<dyn AuthorizationRequestService>) -> BackendResult<HttpResponse> {
-    let cookies = service.logout()?;
+pub async fn logout(
+    session: Session,
+    service: Data<dyn AuthorizationRequestService>,
+) -> BackendResult<HttpResponse> {
+    let cookies = service.logout(session)?;
     let mut response = HttpResponse::Ok();
     for cookie in cookies {
         response.cookie(cookie.clone());

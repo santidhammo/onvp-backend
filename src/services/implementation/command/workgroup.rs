@@ -16,9 +16,10 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::generic::result::{BackendError, BackendResult};
-use crate::generic::storage::database::DatabaseConnectionPool;
+use crate::generic::result::BackendResult;
+use crate::generic::storage::session::Session;
 use crate::generic::Injectable;
+use crate::injection::ServiceDependencies;
 use crate::model::interface::commands::{
     AssociateMemberToWorkgroupCommand, DissociateMemberFromWorkgroupCommand,
     WorkgroupRegisterCommand, WorkgroupUpdateCommand,
@@ -27,44 +28,47 @@ use crate::model::storage::entities::Workgroup;
 use crate::repositories::definitions::WorkgroupRepository;
 use crate::services::definitions::command::WorkgroupCommandService;
 use actix_web::web::Data;
-use diesel::Connection;
 use std::sync::Arc;
 
 pub struct Implementation {
-    pool: DatabaseConnectionPool,
     workgroup_repository: Data<dyn WorkgroupRepository>,
 }
 
 impl WorkgroupCommandService for Implementation {
-    fn register(&self, command: &WorkgroupRegisterCommand) -> BackendResult<i32> {
-        let mut conn = self.pool.get()?;
+    fn register(
+        &self,
+        mut session: Session,
+        command: &WorkgroupRegisterCommand,
+    ) -> BackendResult<i32> {
         self.workgroup_repository
-            .register(&mut conn, Workgroup::from(command))
+            .register(&mut session, Workgroup::from(command))
     }
 
-    fn update(&self, workgroup_id: i32, command: &WorkgroupUpdateCommand) -> BackendResult<()> {
-        let mut conn = self.pool.get()?;
-        conn.transaction::<_, BackendError, _>(|conn| {
-            let origin = self.workgroup_repository.find_by_id(conn, workgroup_id)?;
-            let new = Workgroup::from((&origin, command));
-            self.workgroup_repository.save(conn, new)?;
-            Ok(())
-        })
+    fn update(
+        &self,
+        mut session: Session,
+        workgroup_id: i32,
+        command: &WorkgroupUpdateCommand,
+    ) -> BackendResult<()> {
+        let origin = self
+            .workgroup_repository
+            .find_by_id(&mut session, workgroup_id)?;
+        let new = Workgroup::from((&origin, command));
+        self.workgroup_repository.save(&mut session, new)
     }
 
-    fn unregister(&self, workgroup_id: i32) -> BackendResult<()> {
-        let mut conn = self.pool.get()?;
+    fn unregister(&self, mut session: Session, workgroup_id: i32) -> BackendResult<()> {
         self.workgroup_repository
-            .unregister(&mut conn, workgroup_id)
+            .unregister(&mut session, workgroup_id)
     }
 
     fn associate_member_to_workgroup(
         &self,
+        mut session: Session,
         command: &AssociateMemberToWorkgroupCommand,
     ) -> BackendResult<()> {
-        let mut conn = self.pool.get()?;
         self.workgroup_repository.associate_member_to_workgroup(
-            &mut conn,
+            &mut session,
             command.member_id,
             command.workgroup_id,
         )
@@ -72,29 +76,21 @@ impl WorkgroupCommandService for Implementation {
 
     fn dissociate_member_from_workgroup(
         &self,
+        mut session: Session,
         command: &DissociateMemberFromWorkgroupCommand,
     ) -> BackendResult<()> {
-        let mut conn = self.pool.get()?;
         self.workgroup_repository.dissociate_member_from_workgroup(
-            &mut conn,
+            &mut session,
             command.member_id,
             command.workgroup_id,
         )
     }
 }
 
-impl
-    Injectable<
-        (&DatabaseConnectionPool, &Data<dyn WorkgroupRepository>),
-        dyn WorkgroupCommandService,
-    > for Implementation
-{
-    fn injectable(
-        (pool, workgroup_repository): (&DatabaseConnectionPool, &Data<dyn WorkgroupRepository>),
-    ) -> Data<dyn WorkgroupCommandService> {
+impl Injectable<ServiceDependencies, dyn WorkgroupCommandService> for Implementation {
+    fn make(dependencies: &ServiceDependencies) -> Data<dyn WorkgroupCommandService> {
         let implementation = Self {
-            pool: pool.clone(),
-            workgroup_repository: workgroup_repository.clone(),
+            workgroup_repository: dependencies.workgroup_repository.clone(),
         };
         let arc: Arc<dyn WorkgroupCommandService> = Arc::new(implementation);
         Data::from(arc)

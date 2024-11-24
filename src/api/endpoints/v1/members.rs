@@ -21,6 +21,7 @@
 //! member management as well as performing requests regarding members from normal website usage.
 
 use crate::generic::result::{BackendError, BackendResult};
+use crate::generic::storage::session::Session;
 use crate::model::interface::client::UserClaims;
 use crate::model::interface::commands::{
     MemberActivationCommand, MemberImageUploadCommand, MemberRegisterCommand,
@@ -55,10 +56,11 @@ use totp_rs::TOTP;
 )]
 #[post("/")]
 pub async fn register(
+    session: Session,
     controller: Data<dyn MemberCommandService>,
     command: Json<MemberRegisterCommand>,
 ) -> BackendResult<Json<i32>> {
-    Ok(Json(controller.register_inactive(&command)?))
+    Ok(Json(controller.register_inactive(session, &command)?))
 }
 
 /// Search for members
@@ -79,10 +81,11 @@ pub async fn register(
 )]
 #[get("/search")]
 pub async fn search(
+    session: Session,
     service: Data<dyn MemberRequestService>,
     search_params: Query<SearchParams>,
 ) -> BackendResult<Json<SearchResult<MemberResponse>>> {
-    Ok(Json(service.search(search_params.deref())?))
+    Ok(Json(service.search(session, search_params.deref())?))
 }
 
 /// Get a member and the primary detail by id
@@ -100,10 +103,11 @@ pub async fn search(
 )]
 #[get("/{id}")]
 pub async fn find(
+    session: Session,
     service: Data<dyn MemberRequestService>,
     id: Path<i32>,
 ) -> BackendResult<Json<MemberResponse>> {
-    Ok(Json(service.find_by_id(id.into_inner())?))
+    Ok(Json(service.find_by_id(session, id.into_inner())?))
 }
 
 /// Gets a member address by id
@@ -121,10 +125,13 @@ pub async fn find(
 )]
 #[get("/{id}/address")]
 pub async fn find_address(
+    session: Session,
     controller: Data<dyn MemberRequestService>,
     id: Path<i32>,
 ) -> BackendResult<Json<MemberAddressResponse>> {
-    Ok(Json(controller.find_address_by_id(id.into_inner())?))
+    Ok(Json(
+        controller.find_address_by_id(session, id.into_inner())?,
+    ))
 }
 
 /// Gets a member privacy information sharing details
@@ -142,12 +149,14 @@ pub async fn find_address(
 )]
 #[get("/{id}/privacy")]
 pub async fn find_privacy_info_sharing(
+    session: Session,
     controller: Data<dyn MemberRequestService>,
     id: Path<i32>,
 ) -> BackendResult<Json<MemberPrivacyInfoSharingResponse>> {
-    Ok(Json(
-        controller.find_privacy_info_sharing_by_id(id.into_inner())?,
-    ))
+    Ok(Json(controller.find_privacy_info_sharing_by_id(
+        session,
+        id.into_inner(),
+    )?))
 }
 
 /// Save a member and the primary detail by id
@@ -164,11 +173,12 @@ pub async fn find_privacy_info_sharing(
 )]
 #[post("/{id}")]
 pub async fn update(
+    session: Session,
     service: Data<dyn MemberCommandService>,
     id: Path<i32>,
     command: Json<MemberUpdateCommand>,
 ) -> BackendResult<HttpResponse> {
-    service.update(id.into_inner(), &command)?;
+    service.update(session, id.into_inner(), &command)?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -186,11 +196,12 @@ pub async fn update(
 )]
 #[post("/{id}/address")]
 pub async fn update_address(
+    session: Session,
     service: Data<dyn MemberCommandService>,
     id: Path<i32>,
     command: Json<MemberUpdateAddressCommand>,
 ) -> BackendResult<HttpResponse> {
-    service.update_address(id.into_inner(), &command)?;
+    service.update_address(session, id.into_inner(), &command)?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -208,11 +219,12 @@ pub async fn update_address(
 )]
 #[post("/{id}/privacy")]
 pub async fn update_privacy_info_sharing(
+    session: Session,
     service: Data<dyn MemberCommandService>,
     id: Path<i32>,
     command: Json<MemberUpdatePrivacyInfoSharingCommand>,
 ) -> BackendResult<HttpResponse> {
-    service.update_privacy_info_sharing(id.into_inner(), &command)?;
+    service.update_privacy_info_sharing(session, id.into_inner(), &command)?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -230,10 +242,11 @@ pub async fn update_privacy_info_sharing(
 )]
 #[get("/{id}/workgroups")]
 pub async fn find_workgroups(
+    session: Session,
     service: Data<dyn MemberRequestService>,
     id: Path<i32>,
 ) -> BackendResult<Json<Vec<WorkgroupResponse>>> {
-    Ok(Json(service.find_workgroups(id.into_inner())?))
+    Ok(Json(service.find_workgroups(session, id.into_inner())?))
 }
 
 /// Upload the picture of a member
@@ -253,12 +266,13 @@ pub async fn find_workgroups(
 )]
 #[post("/{id}/picture.png")]
 pub async fn upload_picture_asset(
+    session: Session,
     service: Data<dyn MemberPictureCommandService>,
     id: Path<i32>,
     data: Bytes,
 ) -> BackendResult<Json<String>> {
     let command = MemberImageUploadCommand::try_from(&data)?;
-    Ok(Json(service.upload(id.into_inner(), &command)?))
+    Ok(Json(service.upload(session, id.into_inner(), &command)?))
 }
 
 /// Retrieves the picture of a member, if available
@@ -274,11 +288,12 @@ pub async fn upload_picture_asset(
 )]
 #[get("/{id}/picture.png")]
 pub async fn picture_asset(
+    session: Session,
     service: Data<dyn MemberPictureRequestService>,
     id: Path<i32>,
     claims: UserClaims,
 ) -> BackendResult<HttpResponse> {
-    let result = service.find_asset_by_member_id(id.into_inner(), &claims)?;
+    let result = service.find_asset_by_member_id(session, id.into_inner(), &claims)?;
     match result {
         None => Ok(HttpResponse::Gone().finish()),
         Some(data) => Ok(HttpResponse::Ok()
@@ -302,13 +317,16 @@ pub async fn picture_asset(
 )]
 #[get("/{id}/picture")]
 pub async fn picture(
+    session: Session,
     service: Data<dyn MemberPictureRequestService>,
     id: Path<i32>,
     claims: UserClaims,
 ) -> BackendResult<Json<ImageAssetIdResponse>> {
-    Ok(Json(
-        service.find_asset_id_by_member_id(id.into_inner(), &claims)?,
-    ))
+    Ok(Json(service.find_asset_id_by_member_id(
+        session,
+        id.into_inner(),
+        &claims,
+    )?))
 }
 
 /// Generate an activation code
@@ -324,10 +342,11 @@ pub async fn picture(
 )]
 #[get("/activation/code/{activation_string}")]
 pub async fn activation_code(
+    session: Session,
     service: Data<dyn MemberRequestService>,
     activation_string: Path<String>,
 ) -> BackendResult<Json<String>> {
-    let member_response = service.find_by_activation_string(&activation_string)?;
+    let member_response = service.find_by_activation_string(session, &activation_string)?;
     let totp: TOTP = member_response.try_into()?;
     Ok(Json(
         totp.get_qr_base64()
@@ -350,10 +369,11 @@ pub async fn activation_code(
 )]
 #[post("/activation/activate")]
 pub async fn activate(
+    session: Session,
     service: Data<dyn MemberActivationCommandService>,
     command: Json<MemberActivationCommand>,
 ) -> BackendResult<HttpResponse> {
-    service.activate(&command)?;
+    service.activate(session, &command)?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -371,9 +391,10 @@ pub async fn activate(
 )]
 #[delete("/{id}")]
 pub async fn unregister(
+    session: Session,
     service: Data<dyn MemberCommandService>,
     id: Path<i32>,
 ) -> BackendResult<HttpResponse> {
-    service.unregister(id.into_inner())?;
+    service.unregister(session, id.into_inner())?;
     Ok(HttpResponse::Ok().finish())
 }

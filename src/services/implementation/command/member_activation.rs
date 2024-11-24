@@ -16,52 +16,40 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::generic::result::{BackendError, BackendResult};
-use crate::generic::storage::database::DatabaseConnectionPool;
+use crate::generic::result::BackendResult;
+use crate::generic::storage::session::Session;
 use crate::generic::Injectable;
+use crate::injection::ServiceDependencies;
 use crate::model::interface::commands::MemberActivationCommand;
 use crate::model::interface::responses::MemberResponse;
 use crate::repositories::definitions::MemberRepository;
 use crate::services::definitions::command::MemberActivationCommandService;
 use actix_web::web::Data;
-use diesel::Connection;
 use std::sync::Arc;
 use totp_rs::TOTP;
 
 pub struct Implementation {
-    pool: DatabaseConnectionPool,
     member_repository: Data<dyn MemberRepository>,
 }
 
 impl MemberActivationCommandService for Implementation {
-    fn activate(&self, data: &MemberActivationCommand) -> BackendResult<()> {
-        let mut conn = self.pool.get()?;
-        conn.transaction::<_, BackendError, _>(|conn| {
-            let extended_member = self
-                .member_repository
-                .find_extended_by_activation_string(conn, &data.activation_string)?;
-            let member_response = MemberResponse::from(&extended_member);
-            let totp: TOTP = member_response.try_into()?;
-            totp.check_current(&data.token)?;
-            self.member_repository
-                .activate_by_id(conn, *(&extended_member.id))?;
-            Ok(())
-        })
+    fn activate(&self, mut session: Session, data: &MemberActivationCommand) -> BackendResult<()> {
+        let extended_member = self
+            .member_repository
+            .find_extended_by_activation_string(&mut session, &data.activation_string)?;
+        let member_response = MemberResponse::from(&extended_member);
+        let totp: TOTP = member_response.try_into()?;
+        totp.check_current(&data.token)?;
+        self.member_repository
+            .activate_by_id(&mut session, *(&extended_member.id))?;
+        Ok(())
     }
 }
 
-impl
-    Injectable<
-        (&DatabaseConnectionPool, &Data<dyn MemberRepository>),
-        dyn MemberActivationCommandService,
-    > for Implementation
-{
-    fn injectable(
-        (pool, member_repository): (&DatabaseConnectionPool, &Data<dyn MemberRepository>),
-    ) -> Data<dyn MemberActivationCommandService> {
+impl Injectable<ServiceDependencies, dyn MemberActivationCommandService> for Implementation {
+    fn make(dependencies: &ServiceDependencies) -> Data<dyn MemberActivationCommandService> {
         let implementation = Self {
-            pool: pool.clone(),
-            member_repository: member_repository.clone(),
+            member_repository: dependencies.member_repository.clone(),
         };
         let arc: Arc<dyn MemberActivationCommandService> = Arc::new(implementation);
         Data::from(arc)

@@ -16,8 +16,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::generic::result::{BackendError, BackendResult};
-use crate::generic::storage::database::DatabaseConnection;
+use crate::generic::result::BackendResult;
+use crate::generic::storage::session::Session;
 use crate::generic::Injectable;
 use crate::repositories::definitions::PropertiesRepository;
 use crate::schema::*;
@@ -28,11 +28,13 @@ use std::sync::Arc;
 pub struct Implementation {}
 
 impl PropertiesRepository for Implementation {
-    fn maybe_int_property(&self, conn: &mut DatabaseConnection, key: &str) -> Option<i32> {
-        let result = properties::table
-            .filter(properties::key.eq(key))
-            .select(properties::value)
-            .first::<String>(conn);
+    fn maybe_int_property(&self, session: &mut Session, key: &str) -> Option<i32> {
+        let result = session.run(|conn| {
+            Ok(properties::table
+                .filter(properties::key.eq(key))
+                .select(properties::value)
+                .first::<String>(conn)?)
+        });
         if let Ok(value) = result {
             if let Ok(value) = value.parse() {
                 Some(value)
@@ -46,11 +48,11 @@ impl PropertiesRepository for Implementation {
 
     fn set_int_property(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         key: &str,
         value: Option<i32>,
     ) -> BackendResult<()> {
-        conn.transaction::<_, BackendError, _>(|conn| {
+        session.run(|conn| {
             let result: usize = properties::table
                 .filter(properties::key.eq(key))
                 .count()
@@ -84,7 +86,7 @@ impl PropertiesRepository for Implementation {
 }
 
 impl Injectable<(), dyn PropertiesRepository> for Implementation {
-    fn injectable(_: ()) -> Data<dyn PropertiesRepository> {
+    fn make(_: &()) -> Data<dyn PropertiesRepository> {
         let arc: Arc<dyn PropertiesRepository> = Arc::new(Self {});
         Data::from(arc)
     }

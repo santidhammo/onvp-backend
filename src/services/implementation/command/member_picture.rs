@@ -16,14 +16,14 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::generic::result::{BackendError, BackendResult};
-use crate::generic::storage::database::DatabaseConnectionPool;
+use crate::generic::result::BackendResult;
+use crate::generic::storage::session::Session;
 use crate::generic::Injectable;
+use crate::injection::ServiceDependencies;
 use crate::model::interface::commands::MemberImageUploadCommand;
 use crate::repositories::definitions::{MemberPictureRepository, MemberRepository};
 use crate::services::definitions::command::MemberPictureCommandService;
 use actix_web::web::Data;
-use diesel::Connection;
 use image::codecs::png::PngEncoder;
 use image::imageops::FilterType;
 use image::DynamicImage;
@@ -32,45 +32,45 @@ use std::fs::OpenOptions;
 use std::sync::Arc;
 
 pub struct Implementation {
-    pool: DatabaseConnectionPool,
     member_repository: Data<dyn MemberRepository>,
     member_picture_repository: Data<dyn MemberPictureRepository>,
 }
 
 impl MemberPictureCommandService for Implementation {
-    fn upload(&self, member_id: i32, command: &MemberImageUploadCommand) -> BackendResult<String> {
-        let mut conn = self.pool.get()?;
-        let result = conn.transaction::<String, BackendError, _>(|conn| {
-            let extended_member = self
-                .member_repository
-                .find_extended_by_id(conn, member_id)?;
-            // Mark the already existing picture for deletion, if it exists
-            let mark_for_deletion = extended_member.picture_asset_id.clone();
+    fn upload(
+        &self,
+        mut session: Session,
+        member_id: i32,
+        command: &MemberImageUploadCommand,
+    ) -> BackendResult<String> {
+        let extended_member = self
+            .member_repository
+            .find_extended_by_id(&mut session, member_id)?;
+        // Mark the already existing picture for deletion, if it exists
+        let mark_for_deletion = extended_member.picture_asset_id.clone();
 
-            let dynamic_image = Self::load_alien_member_picture(&command.dynamic_image)?;
+        let dynamic_image = Self::load_alien_member_picture(&command.dynamic_image)?;
 
-            // Create a new asset identifier
-            let asset_id = crate::generate_asset_id();
+        // Create a new asset identifier
+        let asset_id = crate::generate_asset_id();
+        let pb = crate::path_for_asset(&asset_id)?;
+        let w = OpenOptions::new().write(true).create_new(true).open(&pb)?;
+        dynamic_image.write_with_encoder(PngEncoder::new(w))?;
+
+        self.member_picture_repository
+            .save_by_member_id(&mut session, member_id, &asset_id)?;
+
+        info!(
+            "Stored asset into: {} for member: {member_id}",
+            pb.to_string_lossy()
+        );
+
+        if let Some(asset_id) = mark_for_deletion {
             let pb = crate::path_for_asset(&asset_id)?;
-            let w = OpenOptions::new().write(true).create_new(true).open(&pb)?;
-            dynamic_image.write_with_encoder(PngEncoder::new(w))?;
+            let _ = std::fs::remove_file(pb); // Ignore if this failed
+        }
 
-            self.member_picture_repository
-                .save_by_member_id(conn, member_id, &asset_id)?;
-
-            info!(
-                "Stored asset into: {} for member: {member_id}",
-                pb.to_string_lossy()
-            );
-
-            if let Some(asset_id) = mark_for_deletion {
-                let pb = crate::path_for_asset(&asset_id)?;
-                let _ = std::fs::remove_file(pb); // Ignore if this failed
-            }
-
-            Ok(asset_id)
-        })?;
-        Ok(result)
+        Ok(asset_id)
     }
 }
 
@@ -119,27 +119,11 @@ impl Implementation {
     }
 }
 
-impl
-    Injectable<
-        (
-            &DatabaseConnectionPool,
-            &Data<dyn MemberRepository>,
-            &Data<dyn MemberPictureRepository>,
-        ),
-        dyn MemberPictureCommandService,
-    > for Implementation
-{
-    fn injectable(
-        (pool, member_repository, member_picture_repository): (
-            &DatabaseConnectionPool,
-            &Data<dyn MemberRepository>,
-            &Data<dyn MemberPictureRepository>,
-        ),
-    ) -> Data<dyn MemberPictureCommandService> {
+impl Injectable<ServiceDependencies, dyn MemberPictureCommandService> for Implementation {
+    fn make(dependencies: &ServiceDependencies) -> Data<dyn MemberPictureCommandService> {
         let implementation = Self {
-            pool: pool.clone(),
-            member_repository: member_repository.clone(),
-            member_picture_repository: member_picture_repository.clone(),
+            member_repository: dependencies.member_repository.clone(),
+            member_picture_repository: dependencies.member_picture_repository.clone(),
         };
         let arc: Arc<dyn MemberPictureCommandService> = Arc::new(implementation);
         Data::from(arc)

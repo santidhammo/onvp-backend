@@ -18,6 +18,7 @@
  */
 use crate::generic::result::BackendResult;
 use crate::generic::security::ClaimRoles;
+use crate::generic::storage::session::Session;
 use crate::model::interface::commands::{CreatePageCommand, PublishPageCommand, UpdatePageCommand};
 use crate::model::interface::responses::{ExtendedPageResponse, PageResponse};
 use crate::model::interface::search::{SearchParams, SearchResult};
@@ -48,8 +49,13 @@ pub async fn search(
     service: Data<dyn PageRequestService>,
     search_params: Query<SearchParams>,
     roles: ClaimRoles,
+    session: Session,
 ) -> BackendResult<Json<SearchResult<PageResponse>>> {
-    Ok(Json(service.search(search_params.deref(), &roles)?))
+    Ok(Json(service.search(
+        session,
+        search_params.deref(),
+        &roles,
+    )?))
 }
 
 /// Return all main menu pages
@@ -66,8 +72,9 @@ pub async fn search(
 pub async fn main_menu(
     service: Data<dyn PageRequestService>,
     roles: ClaimRoles,
+    session: Session,
 ) -> BackendResult<Json<Vec<PageResponse>>> {
-    Ok(Json(service.list_by_parent_id(0, &roles)?))
+    Ok(Json(service.list_by_parent_id(session, 0, &roles)?))
 }
 
 /// Creates a new page
@@ -84,8 +91,9 @@ pub async fn main_menu(
 pub async fn create(
     command: Json<CreatePageCommand>,
     service: Data<dyn PageCommandService>,
+    session: Session,
 ) -> BackendResult<HttpResponse> {
-    service.create(&command)?;
+    service.create(session, &command)?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -104,8 +112,9 @@ pub async fn set_content(
     id: Path<i32>,
     data: String,
     service: Data<dyn PageCommandService>,
+    session: Session,
 ) -> BackendResult<HttpResponse> {
-    service.set_content(id.into_inner(), &data)?;
+    service.set_content(session, id.into_inner(), &data)?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -124,8 +133,13 @@ pub async fn find_by_id(
     id: Path<i32>,
     service: Data<dyn PageRequestService>,
     roles: ClaimRoles,
+    session: Session,
 ) -> BackendResult<Json<ExtendedPageResponse>> {
-    Ok(Json(service.find_by_id(id.into_inner(), &roles)?))
+    Ok(Json(service.find_by_id(
+        session,
+        id.into_inner(),
+        &roles,
+    )?))
 }
 
 /// Returns the default page if set
@@ -142,8 +156,9 @@ pub async fn find_by_id(
 pub async fn get_default(
     service: Data<dyn PageRequestService>,
     roles: ClaimRoles,
+    session: Session,
 ) -> BackendResult<Json<Option<ExtendedPageResponse>>> {
-    Ok(Json(service.default(&roles)?))
+    Ok(Json(service.default(session, &roles)?))
 }
 
 /// Sets the default page
@@ -160,8 +175,9 @@ pub async fn get_default(
 pub async fn put_default(
     id: Path<i32>,
     service: Data<dyn PageCommandService>,
+    session: Session,
 ) -> BackendResult<HttpResponse> {
-    service.set_default(id.into_inner())?;
+    service.set_default(session, id.into_inner())?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -180,8 +196,9 @@ pub async fn content(
     id: Path<i32>,
     service: Data<dyn PageRequestService>,
     roles: ClaimRoles,
+    session: Session,
 ) -> BackendResult<HttpResponse> {
-    let result = service.find_content_by_id(id.into_inner(), &roles)?;
+    let result = service.find_content_by_id(session, id.into_inner(), &roles)?;
     Ok(HttpResponse::Ok()
         .insert_header(("content-type", "text/plain"))
         .body(result))
@@ -202,8 +219,9 @@ pub async fn update(
     id: Path<i32>,
     command: Json<UpdatePageCommand>,
     service: Data<dyn PageCommandService>,
+    session: Session,
 ) -> BackendResult<HttpResponse> {
-    service.update(id.into_inner(), &command)?;
+    service.update(session, id.into_inner(), &command)?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -222,8 +240,9 @@ pub async fn publish(
     id: Path<i32>,
     command: Json<PublishPageCommand>,
     service: Data<dyn PageCommandService>,
+    session: Session,
 ) -> BackendResult<HttpResponse> {
-    service.publish(id.into_inner(), &command)?;
+    service.publish(session, id.into_inner(), &command)?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -241,8 +260,9 @@ pub async fn publish(
 pub async fn unpublish(
     id: Path<i32>,
     service: Data<dyn PageCommandService>,
+    session: Session,
 ) -> BackendResult<HttpResponse> {
-    service.unpublish(id.into_inner())?;
+    service.unpublish(session, id.into_inner())?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -260,7 +280,8 @@ pub async fn unpublish(
 pub async fn delete(
     id: Path<i32>,
     service: Data<dyn PageCommandService>,
+    session: Session,
 ) -> BackendResult<HttpResponse> {
-    service.delete(id.into_inner())?;
+    service.delete(session, id.into_inner())?;
     Ok(HttpResponse::Ok().finish())
 }

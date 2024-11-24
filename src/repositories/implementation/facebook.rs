@@ -18,13 +18,14 @@
  */
 use crate::generic::lazy::SEARCH_PAGE_SIZE;
 use crate::generic::result::{BackendError, BackendResult};
-use crate::generic::storage::database::DatabaseConnection;
 use crate::generic::{search_helpers, Injectable};
 use crate::model::storage::extended_entities::FacebookMember;
 use crate::repositories::definitions::FacebookRepository;
 use crate::schema::{member_details, members};
 use actix_web::web::Data;
 
+use crate::generic::storage::database::DatabaseConnection;
+use crate::generic::storage::session::Session;
 use crate::model::storage::entities::{Member, MemberDetail};
 use diesel::{
     BoolExpressionMethods, Connection, ExpressionMethods, PgTextExpressionMethods, QueryDsl,
@@ -39,16 +40,18 @@ pub struct Implementation {
 impl FacebookRepository for Implementation {
     fn search(
         &self,
-        conn: &mut DatabaseConnection,
+        session: &mut Session,
         page_offset: usize,
         term: &str,
     ) -> BackendResult<(usize, usize, Vec<FacebookMember>)> {
-        let like_search_string = search_helpers::create_like_string(term);
-        let (total_count, facebook_members) = conn
-            .transaction::<(usize, Vec<FacebookMember>), BackendError, _>(|conn| {
-                self.search(conn, page_offset, &like_search_string)
-            })?;
-        Ok((total_count, self.page_size, facebook_members))
+        session.run(|conn| {
+            let like_search_string = search_helpers::create_like_string(term);
+            let (total_count, facebook_members) = conn
+                .transaction::<(usize, Vec<FacebookMember>), BackendError, _>(|conn| {
+                    self.search(conn, page_offset, &like_search_string)
+                })?;
+            Ok((total_count, self.page_size, facebook_members))
+        })
     }
 }
 
@@ -99,7 +102,7 @@ impl Implementation {
 }
 
 impl Injectable<(), dyn FacebookRepository> for Implementation {
-    fn injectable(_: ()) -> Data<dyn FacebookRepository> {
+    fn make(_: &()) -> Data<dyn FacebookRepository> {
         let arc: Arc<dyn FacebookRepository> = Arc::new(Self {
             page_size: *SEARCH_PAGE_SIZE,
         });

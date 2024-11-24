@@ -27,8 +27,7 @@ use log::info;
 
 pub fn clean_late_non_activated_members(pool: DatabaseConnectionPool) -> BackendResult<()> {
     let mut conn = pool.get()?;
-
-    conn.transaction::<_, BackendError, _>(|conn| {
+    conn.transaction(|conn| {
         let activated_filter = schema::members::activated.eq(false);
         let activation_time_elapsed_filter =
             schema::members::activation_time.lt(chrono::Utc::now().naive_utc());

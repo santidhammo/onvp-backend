@@ -18,6 +18,7 @@
  */
 use crate::generic::result::BackendResult;
 use crate::generic::security::ClaimRoles;
+use crate::generic::storage::session::Session;
 use crate::model::interface::commands::{ImageUploadCommand, PublishImageCommand};
 use crate::model::interface::responses::ImageMetaDataResponse;
 use crate::model::interface::search::{SearchParams, SearchResult};
@@ -47,10 +48,11 @@ use utoipa::ToSchema;
 )]
 #[get("/search")]
 pub async fn search(
+    session: Session,
     service: Data<dyn ImageRequestService>,
     search_params: Query<SearchParams>,
 ) -> BackendResult<Json<SearchResult<ImageMetaDataResponse>>> {
-    Ok(Json(service.search(search_params.deref())?))
+    Ok(Json(service.search(session, search_params.deref())?))
 }
 
 /// Creates a new image
@@ -69,6 +71,7 @@ pub async fn search(
 )]
 #[post("/image/")]
 pub async fn upload(
+    session: Session,
     service: Data<dyn ImageCommandService>,
     upload_params: Query<ImageUploadParams>,
     data: Bytes,
@@ -78,7 +81,7 @@ pub async fn upload(
         title: r.title.clone(),
         data,
     };
-    Ok(Json(service.upload(&command)?))
+    Ok(Json(service.upload(session, &command)?))
 }
 
 /// Returns an existing image
@@ -93,11 +96,16 @@ pub async fn upload(
 )]
 #[get("/image/{id}")]
 pub async fn find_by_id(
+    session: Session,
     id: Path<i32>,
     service: Data<dyn ImageRequestService>,
     roles: ClaimRoles,
 ) -> BackendResult<Json<ImageMetaDataResponse>> {
-    Ok(Json(service.find_by_id(id.into_inner(), &roles)?))
+    Ok(Json(service.find_by_id(
+        session,
+        id.into_inner(),
+        &roles,
+    )?))
 }
 
 /// Returns an image asset
@@ -112,11 +120,12 @@ pub async fn find_by_id(
 )]
 #[get("/asset/{id}.png")]
 pub async fn asset(
+    session: Session,
     id: Path<i32>,
     service: Data<dyn ImageRequestService>,
     roles: ClaimRoles,
 ) -> BackendResult<HttpResponse> {
-    let result = service.find_content_by_id(id.into_inner(), &roles)?;
+    let result = service.find_content_by_id(session, id.into_inner(), &roles)?;
     Ok(HttpResponse::Ok()
         .insert_header(result.content_type)
         .body(Bytes::from(result.bytes)))
@@ -134,11 +143,12 @@ pub async fn asset(
 )]
 #[post("/image/{id}/publication")]
 pub async fn publish(
+    session: Session,
     id: Path<i32>,
     command: Json<PublishImageCommand>,
     service: Data<dyn ImageCommandService>,
 ) -> BackendResult<HttpResponse> {
-    service.publish(id.into_inner(), &command)?;
+    service.publish(session, id.into_inner(), &command)?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -154,10 +164,11 @@ pub async fn publish(
 )]
 #[delete("/image/{id}/publication")]
 pub async fn unpublish(
+    session: Session,
     id: Path<i32>,
     service: Data<dyn ImageCommandService>,
 ) -> BackendResult<HttpResponse> {
-    service.unpublish(id.into_inner())?;
+    service.unpublish(session, id.into_inner())?;
     Ok(HttpResponse::Ok().finish())
 }
 
@@ -173,10 +184,11 @@ pub async fn unpublish(
 )]
 #[delete("/image/{id}")]
 pub async fn delete(
+    session: Session,
     id: Path<i32>,
     service: Data<dyn ImageCommandService>,
 ) -> BackendResult<HttpResponse> {
-    service.delete(id.into_inner())?;
+    service.delete(session, id.into_inner())?;
     Ok(HttpResponse::Ok().finish())
 }
 
