@@ -22,8 +22,8 @@ use crate::generic::Injectable;
 use crate::model::interface::client::UserClaims;
 use crate::repositories::definitions::{
     AuthorizationRepository, FacebookRepository, ImageRepository, MemberPictureRepository,
-    MemberRepository, MemberRoleRepository, PageRepository, PropertiesRepository,
-    WorkgroupRepository, WorkgroupRoleRepository,
+    MemberRepository, MemberRoleRepository, MusicalInstrumentRepository, PageRepository,
+    PropertiesRepository, WorkgroupRepository, WorkgroupRoleRepository,
 };
 use crate::{repositories, services};
 use actix_jwt_auth_middleware::TokenSigner;
@@ -61,6 +61,7 @@ where
         .app_data(role::Implementation::make(service_deps))
         .app_data(page::Implementation::make(service_deps))
         .app_data(image::Implementation::make(service_deps))
+        .app_data(musical_instrument::Implementation::make(service_deps))
 }
 
 fn inject_request_services<T>(app: App<T>, service_deps: &ServiceDependencies) -> App<T>
@@ -77,6 +78,7 @@ where
         .app_data(facebook::Implementation::make(service_deps))
         .app_data(page::Implementation::make(service_deps))
         .app_data(image::Implementation::make(service_deps))
+        .app_data(musical_instrument::Implementation::make(service_deps))
 }
 
 pub struct ServiceDependencies {
@@ -90,6 +92,7 @@ pub struct ServiceDependencies {
     pub facebook_repository: Data<dyn FacebookRepository>,
     pub page_repository: Data<dyn PageRepository>,
     pub image_repository: Data<dyn ImageRepository>,
+    pub musical_instrument_repository: Data<dyn MusicalInstrumentRepository>,
     pub token_signer: Data<TokenSigner<UserClaims, Ed25519>>,
 }
 
@@ -107,6 +110,7 @@ impl ServiceDependencies {
             facebook_repository: facebook::Implementation::make(&()),
             page_repository: page::Implementation::make(&()),
             image_repository: image::Implementation::make(&()),
+            musical_instrument_repository: musical_instrument::Implementation::make(&()),
             token_signer: token_signer.clone(),
         };
         repositories

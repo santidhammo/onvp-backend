@@ -21,7 +21,7 @@ use crate::api::middleware::authority::Allowance;
 use crate::generic::http::Method;
 use crate::generic::security::ClaimRoles;
 use crate::model::interface::client::UserClaims;
-use crate::services::definitions::request::traits::RoleContainer;
+use crate::model::traits::RoleContainer;
 use actix_jwt_auth_middleware::Authority;
 use actix_web::body::MessageBody;
 use actix_web::dev::{forward_ready, Service, ServiceRequest, ServiceResponse};

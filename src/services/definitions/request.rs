@@ -16,7 +16,6 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-pub mod traits;
 
 use crate::generic::result::BackendResult;
 use crate::generic::security::ClaimRoles;
@@ -26,11 +25,11 @@ use crate::model::interface::requests::AuthorizationRequest;
 use crate::model::interface::responses::{
     AuthorizationResponse, ExtendedPageResponse, FacebookResponse, ImageAssetIdResponse,
     ImageMetaDataResponse, ImageResponse, MemberAddressResponse, MemberPrivacyInfoSharingResponse,
-    MemberResponse, PageResponse, WorkgroupResponse,
+    MemberResponse, MusicalInstrumentResponse, PageResponse, WorkgroupResponse,
 };
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::model::primitives::{Role, RoleClass};
-use crate::services::definitions::request::traits::RoleContainer;
+use crate::model::traits::RoleContainer;
 use actix_web::cookie::Cookie;
 use serde::Serialize;
 
@@ -216,6 +215,16 @@ pub trait ImageRequestService {
         session: Session,
         params: &SearchParams,
     ) -> BackendResult<SearchResult<ImageMetaDataResponse>>;
+}
+
+/// Controls actions for data retrieval belonging to musical instruments
+pub trait MusicalInstrumentRequestService {
+    /// Finds a musical instrument using the identifier
+    fn find_by_id(
+        &self,
+        session: Session,
+        image_id: i32,
+    ) -> BackendResult<MusicalInstrumentResponse>;
 }
 
 pub trait SearchController<T> {

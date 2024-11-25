@@ -22,6 +22,7 @@ pub mod image;
 pub mod member;
 pub mod member_picture;
 pub mod member_role;
+pub mod musical_instrument;
 pub mod page;
 pub mod properties;
 pub mod workgroup;

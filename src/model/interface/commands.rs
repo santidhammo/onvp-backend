@@ -220,3 +220,21 @@ pub struct ImageUploadCommand {
 pub struct PublishImageCommand {
     pub roles: Vec<Role>,
 }
+
+#[derive(Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct RegisterMusicalInstrumentCommand {
+    #[schema(example = "Foo")]
+    pub name: String,
+
+    pub wikipedia_url: Option<String>,
+}
+
+#[derive(Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateMusicalInstrumentCommand {
+    #[schema(example = "Foo")]
+    pub name: String,
+
+    pub wikipedia_url: Option<String>,
+}

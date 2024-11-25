@@ -23,7 +23,8 @@ use crate::model::interface::commands::{
     DissociateMemberFromWorkgroupCommand, DissociateRoleCommand, FirstOperatorRegisterCommand,
     ImageUploadCommand, MemberActivationCommand, MemberImageUploadCommand, MemberRegisterCommand,
     MemberUpdateAddressCommand, MemberUpdateCommand, MemberUpdatePrivacyInfoSharingCommand,
-    PublishImageCommand, PublishPageCommand, UpdatePageCommand, WorkgroupRegisterCommand,
+    PublishImageCommand, PublishPageCommand, RegisterMusicalInstrumentCommand,
+    UpdateMusicalInstrumentCommand, UpdatePageCommand, WorkgroupRegisterCommand,
     WorkgroupUpdateCommand,
 };
 
@@ -187,4 +188,25 @@ pub trait ImageCommandService {
 
     /// Deletes an existing image
     fn delete(&self, session: Session, image_id: i32) -> BackendResult<()>;
+}
+
+/// Controls actions which can be performed to manage musical instruments
+pub trait MusicalInstrumentCommandService {
+    /// Registers a new musical instrument
+    fn register(
+        &self,
+        session: Session,
+        command: &RegisterMusicalInstrumentCommand,
+    ) -> BackendResult<()>;
+
+    /// Updates a registered musical instrument
+    fn update(
+        &self,
+        session: Session,
+        musical_instrument_id: i32,
+        command: &UpdateMusicalInstrumentCommand,
+    ) -> BackendResult<()>;
+
+    /// Deletes a registered musical instrument
+    fn delete(&self, session: Session, musical_instrument_id: i32) -> BackendResult<()>;
 }

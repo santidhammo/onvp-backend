@@ -20,6 +20,7 @@ pub mod image;
 pub mod member;
 pub mod member_activation;
 pub mod member_picture;
+pub mod musical_instrument;
 pub mod page;
 pub mod role;
 pub mod setup;

@@ -19,9 +19,7 @@
 
 use crate::api;
 use crate::api::config;
-use crate::api::endpoints::v1::{
-    authorization, facebook, images, members, pages, roles, setup, source_code, workgroups,
-};
+use crate::api::endpoints::v1::*;
 use crate::api::middleware::authority::AuthorityMiddleware;
 use crate::api::middleware::database::DatabaseMiddleware;
 use crate::generic::storage::database;
@@ -146,6 +144,13 @@ pub async fn launch() -> std::io::Result<()> {
                     .service(images::publish)
                     .service(images::unpublish)
                     .service(images::delete),
+            )
+            .service(
+                scope("/api/musical-instruments/v1")
+                    .service(musical_instruments::register)
+                    .service(musical_instruments::find_by_id)
+                    .service(musical_instruments::update)
+                    .service(musical_instruments::delete),
             )
             .service(scope("/api/source_code_details/v1").service(source_code::details))
             .split_for_parts();

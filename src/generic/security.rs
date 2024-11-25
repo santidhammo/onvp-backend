@@ -19,7 +19,7 @@
 
 use crate::model::interface::client::UserClaims;
 use crate::model::primitives::Role;
-use crate::services::definitions::request::traits::RoleContainer;
+use crate::model::traits::RoleContainer;
 use actix_jwt_auth_middleware::FromRequest;
 use diesel::backend::{Backend, SqlDialect};
 use diesel::expression::is_aggregate::No;

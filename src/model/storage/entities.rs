@@ -17,7 +17,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::model::interface::commands::{
-    CreatePageCommand, ImageUploadCommand, UpdatePageCommand, WorkgroupRegisterCommand,
+    CreatePageCommand, ImageUploadCommand, RegisterMusicalInstrumentCommand,
+    UpdateMusicalInstrumentCommand, UpdatePageCommand, WorkgroupRegisterCommand,
     WorkgroupUpdateCommand,
 };
 use crate::model::interface::sub_commands;
@@ -220,6 +221,36 @@ impl From<&ImageUploadCommand> for Image {
 
             title: value.title.clone(),
             asset: crate::generate_asset_id(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Queryable, Selectable, Insertable, AsChangeset)]
+#[diesel(table_name = crate::schema::musical_instruments)]
+pub struct MusicalInstrument {
+    #[diesel(skip_insertion)]
+    pub id: i32,
+    pub name: String,
+    pub wikipedia_url: Option<String>,
+}
+
+impl From<&RegisterMusicalInstrumentCommand> for MusicalInstrument {
+    fn from(value: &RegisterMusicalInstrumentCommand) -> Self {
+        Self {
+            id: 0, // Skipped during creation
+
+            name: value.name.clone(),
+            wikipedia_url: value.wikipedia_url.clone(),
+        }
+    }
+}
+
+impl From<(&MusicalInstrument, &UpdateMusicalInstrumentCommand)> for MusicalInstrument {
+    fn from((origin, command): (&MusicalInstrument, &UpdateMusicalInstrumentCommand)) -> Self {
+        Self {
+            id: origin.id,
+            name: command.name.clone(),
+            wikipedia_url: command.wikipedia_url.clone(),
         }
     }
 }

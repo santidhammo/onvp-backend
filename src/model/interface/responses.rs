@@ -19,7 +19,7 @@
 use crate::generic::lazy::OTP_CIPHER;
 use crate::generic::result::{BackendError, BackendResult};
 use crate::model::primitives::{EventDate, Role};
-use crate::model::storage::entities::{Image, Page, Workgroup};
+use crate::model::storage::entities::{Image, MusicalInstrument, Page, Workgroup};
 use crate::model::storage::extended_entities::{ExtendedMember, FacebookMember};
 use actix_web::cookie::Cookie;
 use actix_web::http::header::ContentType;
@@ -355,6 +355,28 @@ impl From<(&Image, &Vec<Role>)> for ImageMetaDataResponse {
             title: image.title.clone(),
             asset: image.asset.clone(),
             roles: roles.clone(),
+        }
+    }
+}
+
+#[derive(Serialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct MusicalInstrumentResponse {
+    #[schema(example = 1)]
+    id: i32,
+
+    #[schema(example = "Foo")]
+    name: String,
+
+    wikipedia_url: Option<String>,
+}
+
+impl From<&MusicalInstrument> for MusicalInstrumentResponse {
+    fn from(value: &MusicalInstrument) -> Self {
+        Self {
+            id: value.id,
+            name: value.name.clone(),
+            wikipedia_url: value.wikipedia_url.clone(),
         }
     }
 }

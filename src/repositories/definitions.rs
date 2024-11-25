@@ -20,7 +20,7 @@ use crate::generic::result::BackendResult;
 use crate::generic::security::ClaimRoles;
 use crate::generic::storage::session::Session;
 use crate::model::primitives::Role;
-use crate::model::storage::entities::{Image, Page, Workgroup};
+use crate::model::storage::entities::{Image, MusicalInstrument, Page, Workgroup};
 use crate::model::storage::extended_entities::{ExtendedMember, FacebookMember};
 
 pub trait PropertiesRepository {
@@ -214,7 +214,7 @@ pub trait PageRepository {
     ) -> BackendResult<(usize, usize, Vec<Page>)>;
 }
 
-/// Manages the page repository
+/// Manages the image repository
 pub trait ImageRepository {
     /// Creates a new image and stores it into the database
     fn create(&self, session: &mut Session, image: Image) -> BackendResult<()>;
@@ -250,4 +250,19 @@ pub trait ImageRepository {
         page_offset: usize,
         term: &str,
     ) -> BackendResult<(usize, usize, Vec<Image>)>;
+}
+
+/// Manages the musical instrument repository
+pub trait MusicalInstrumentRepository {
+    /// Creates a new musical instrument and stores it into the database
+    fn create(&self, session: &mut Session, instrument: MusicalInstrument) -> BackendResult<()>;
+
+    /// Updates an existing musical instrument in the database
+    fn update(&self, session: &mut Session, instrument: MusicalInstrument) -> BackendResult<()>;
+
+    /// Removes an existing musical instrument from the database
+    fn delete(&self, session: &mut Session, instrument_id: i32) -> BackendResult<()>;
+
+    /// Finds a musical instrument from the database using the identifier
+    fn find_by_id(&self, session: &mut Session, image_id: i32) -> BackendResult<MusicalInstrument>;
 }
