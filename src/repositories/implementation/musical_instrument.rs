@@ -16,17 +16,20 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+use crate::generic::lazy::SEARCH_PAGE_SIZE;
 use crate::generic::result::BackendResult;
 use crate::generic::storage::session::Session;
-use crate::generic::Injectable;
+use crate::generic::{search_helpers, Injectable};
 use crate::model::storage::entities::MusicalInstrument;
 use crate::repositories::definitions::MusicalInstrumentRepository;
 use crate::schema::*;
 use actix_web::web::Data;
-use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
+use diesel::{ExpressionMethods, PgTextExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
 use std::sync::Arc;
 
-pub struct Implementation {}
+pub struct Implementation {
+    page_size: usize,
+}
 
 impl MusicalInstrumentRepository for Implementation {
     fn create(&self, session: &mut Session, instrument: MusicalInstrument) -> BackendResult<()> {
@@ -67,11 +70,39 @@ impl MusicalInstrumentRepository for Implementation {
             Ok(image)
         })
     }
+
+    fn search(
+        &self,
+        session: &mut Session,
+        page_offset: usize,
+        term: &str,
+    ) -> BackendResult<(usize, usize, Vec<MusicalInstrument>)> {
+        let like_search_string = search_helpers::create_like_string(term);
+        let (total_count, pages) = session.run(|conn| {
+            let total_count: usize = musical_instruments::table
+                .filter(&musical_instruments::name.ilike(&like_search_string))
+                .count()
+                .get_result::<i64>(conn)? as usize;
+
+            let result: Vec<MusicalInstrument> = musical_instruments::table
+                .filter(&musical_instruments::name.ilike(&like_search_string))
+                .order_by(musical_instruments::name)
+                .limit(self.page_size as i64)
+                .offset((page_offset * self.page_size) as i64)
+                .select(MusicalInstrument::as_select())
+                .load(conn)?;
+
+            Ok((total_count, result))
+        })?;
+        Ok((total_count, self.page_size, pages))
+    }
 }
 
 impl Injectable<(), dyn MusicalInstrumentRepository> for Implementation {
     fn make(_: &()) -> Data<dyn MusicalInstrumentRepository> {
-        let arc: Arc<dyn MusicalInstrumentRepository> = Arc::new(Self {});
+        let arc: Arc<dyn MusicalInstrumentRepository> = Arc::new(Self {
+            page_size: *SEARCH_PAGE_SIZE,
+        });
         Data::from(arc)
     }
 }

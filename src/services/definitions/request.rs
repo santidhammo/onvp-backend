@@ -218,7 +218,7 @@ pub trait ImageRequestService {
 }
 
 /// Controls actions for data retrieval belonging to musical instruments
-pub trait MusicalInstrumentRequestService {
+pub trait MusicalInstrumentRequestService: SearchController<MusicalInstrumentResponse> {
     /// Finds a musical instrument using the identifier
     fn find_by_id(
         &self,

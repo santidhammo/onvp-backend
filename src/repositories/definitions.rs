@@ -243,7 +243,7 @@ pub trait ImageRepository {
         roles: &Vec<Role>,
     ) -> BackendResult<()>;
 
-    /// Searches for all pages meeting any of the allowed roles
+    /// Searches for all images meeting any of the allowed roles
     fn search(
         &self,
         session: &mut Session,
@@ -265,4 +265,12 @@ pub trait MusicalInstrumentRepository {
 
     /// Finds a musical instrument from the database using the identifier
     fn find_by_id(&self, session: &mut Session, image_id: i32) -> BackendResult<MusicalInstrument>;
+
+    /// Searches for musical instruments matching with names matching the given term
+    fn search(
+        &self,
+        conn: &mut Session,
+        page_offset: usize,
+        term: &str,
+    ) -> BackendResult<(usize, usize, Vec<MusicalInstrument>)>;
 }

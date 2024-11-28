@@ -22,10 +22,37 @@ use crate::model::interface::commands::{
     RegisterMusicalInstrumentCommand, UpdateMusicalInstrumentCommand,
 };
 use crate::model::interface::responses::MusicalInstrumentResponse;
+use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::services::definitions::command::MusicalInstrumentCommandService;
 use crate::services::definitions::request::MusicalInstrumentRequestService;
-use actix_web::web::{Data, Json, Path};
+use actix_web::web::{Data, Json, Path, Query};
 use actix_web::{delete, get, post, put, HttpResponse};
+use std::ops::Deref;
+
+/// Search for musical instruments
+///
+/// Searches on names of musical instruments
+#[utoipa::path(
+    tag = "musical-instruments",
+    responses(
+        (status = 200, description = "A list of matching musical instruments", body=SearchResult<MusicalInstrumentResponse>),
+        (status = 400, description = "Bad Request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal Server Error", body=[String])
+    ),
+    params(
+        ("q" = String, Query, description = "Part of the name"),
+        ("p" = Option<String>, Query, description = "The page offset to use (counting from 0)")
+    )
+)]
+#[get("/search")]
+pub async fn search(
+    service: Data<dyn MusicalInstrumentRequestService>,
+    search_params: Query<SearchParams>,
+    session: Session,
+) -> BackendResult<Json<SearchResult<MusicalInstrumentResponse>>> {
+    Ok(Json(service.search(session, search_params.deref())?))
+}
 
 /// Registers a new musical instrument
 #[utoipa::path(

@@ -40,7 +40,7 @@ use std::ops::Deref;
         (status = 500, description = "Internal Server Error", body=[String])
     ),
     params(
-        ("q" = String, Query, description = "Part of the first name, last name and/or email address"),
+        ("q" = String, Query, description = "Part of the title of the page"),
         ("p" = Option<String>, Query, description = "The page offset to use (counting from 0)")
     )
 )]

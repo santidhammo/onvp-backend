@@ -18,12 +18,14 @@
  */
 use crate::generic::result::BackendResult;
 use crate::generic::storage::session::Session;
-use crate::generic::Injectable;
+use crate::generic::{search_helpers, Injectable};
 use crate::injection::ServiceDependencies;
 use crate::model::interface::responses::MusicalInstrumentResponse;
+use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::repositories::definitions::MusicalInstrumentRepository;
-use crate::services::definitions::request::MusicalInstrumentRequestService;
+use crate::services::definitions::request::{MusicalInstrumentRequestService, SearchController};
 use actix_web::web::Data;
+use serde::Serialize;
 use std::sync::Arc;
 
 pub struct Implementation {
@@ -40,6 +42,35 @@ impl MusicalInstrumentRequestService for Implementation {
             .musical_instrument_repository
             .find_by_id(&mut session, image_id)?;
         Ok(MusicalInstrumentResponse::from(&musical_instrument))
+    }
+}
+
+impl SearchController<MusicalInstrumentResponse> for Implementation {
+    fn search(
+        &self,
+        mut session: Session,
+        params: &SearchParams,
+    ) -> BackendResult<SearchResult<MusicalInstrumentResponse>>
+    where
+        MusicalInstrumentResponse: Serialize,
+    {
+        let term = params.term.clone().unwrap_or_default();
+        let (total_count, page_size, results) =
+            self.musical_instrument_repository
+                .search(&mut session, params.page_offset, &term)?;
+        let rows: Vec<MusicalInstrumentResponse> = results
+            .iter()
+            .map(MusicalInstrumentResponse::from)
+            .collect();
+        let row_len = rows.len();
+        Ok(SearchResult {
+            total_count,
+            page_offset: params.page_offset,
+            page_count: search_helpers::calculate_page_count(page_size, total_count),
+            rows,
+            start: params.page_offset * page_size,
+            end: (params.page_offset * page_size) + row_len,
+        })
     }
 }
 

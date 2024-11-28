@@ -147,6 +147,7 @@ pub async fn launch() -> std::io::Result<()> {
             )
             .service(
                 scope("/api/musical-instruments/v1")
+                    .service(musical_instruments::search)
                     .service(musical_instruments::register)
                     .service(musical_instruments::find_by_id)
                     .service(musical_instruments::update)
