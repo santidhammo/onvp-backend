@@ -36,9 +36,9 @@ use std::ops::Deref;
     tag = "musical-instruments",
     responses(
         (status = 200, description = "A list of matching musical instruments", body=SearchResult<MusicalInstrumentResponse>),
-        (status = 400, description = "Bad Request"),
-        (status = 401, description = "Unauthorized"),
-        (status = 500, description = "Internal Server Error", body=[String])
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal Server Error", body=Option<String>)
     ),
     params(
         ("q" = String, Query, description = "Part of the name"),
