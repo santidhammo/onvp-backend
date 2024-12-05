@@ -26,8 +26,11 @@ use crate::model::storage::entities::Page;
 use crate::repositories::definitions::PageRepository;
 use crate::schema::*;
 use actix_web::web::Data;
+use diesel::debug_query;
 use diesel::dsl::exists;
+use diesel::pg::Pg;
 use diesel::prelude::*;
+use log::info;
 use std::sync::Arc;
 
 pub struct Implementation {
@@ -77,10 +80,14 @@ impl PageRepository for Implementation {
             let sub_table = page_access_policies::table
                 .select(page_access_policies::page_id)
                 .distinct()
-                .filter(roles.generate_policy_expression(&page_access_policies::system_role));
+                .filter(
+                    roles
+                        .generate_policy_expression(&page_access_policies::system_role)
+                        .and(page_access_policies::page_id.eq(pages::id)),
+                );
 
             let pages = if parent_id == 0 {
-                pages::table
+                let q = pages::table
                     .filter(
                         pages::parent_id
                             .eq(parent_id)
@@ -88,14 +95,16 @@ impl PageRepository for Implementation {
                             .and(exists(sub_table)),
                     )
                     .select(Page::as_select())
-                    .order_by(pages::title)
-                    .load(conn)?
+                    .order_by(pages::title);
+                info!("{}", debug_query::<Pg, _>(&q).to_string());
+                q.load(conn)?
             } else {
-                pages::table
+                let q = pages::table
                     .filter(pages::parent_id.eq(parent_id).and(exists(sub_table)))
                     .select(Page::as_select())
-                    .order_by(pages::title)
-                    .load(conn)?
+                    .order_by(pages::title);
+                info!("{}", debug_query::<Pg, _>(&q).to_string());
+                q.load(conn)?
             };
 
             Ok(pages)
@@ -176,7 +185,11 @@ impl PageRepository for Implementation {
             let sub_table =
                 QueryDsl::select(page_access_policies::table, page_access_policies::page_id)
                     .distinct()
-                    .filter(roles.generate_policy_expression(&page_access_policies::system_role));
+                    .filter(
+                        roles
+                            .generate_policy_expression(&page_access_policies::system_role)
+                            .and(page_access_policies::page_id.eq(pages::id)),
+                    );
 
             let where_expression = pages::title
                 .ilike(like_search_string)
