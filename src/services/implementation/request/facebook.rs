@@ -30,7 +30,7 @@ use crate::model::interface::responses::FacebookResponse;
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::model::primitives::Role;
 use crate::repositories::definitions::{
-    AuthorizationRepository, FacebookRepository, MemberRepository,
+    AuthorizationRepository, FacebookRepository, MemberRepository, MusicalInstrumentRepository,
 };
 use crate::services::definitions::request::{FacebookRequestService, SearchController};
 use actix_web::web::Data;
@@ -41,6 +41,7 @@ pub struct Implementation {
     facebook_repository: Data<dyn FacebookRepository>,
     member_repository: Data<dyn MemberRepository>,
     authorization_repository: Data<dyn AuthorizationRepository>,
+    musical_instrument_repository: Data<dyn MusicalInstrumentRepository>,
 }
 
 impl SearchController<FacebookResponse> for Implementation {
@@ -64,6 +65,7 @@ impl SearchController<FacebookResponse> for Implementation {
                     .member_repository
                     .find_workgroups(&mut session, m.id)
                     .unwrap_or(vec![]);
+
                 let roles = self
                     .authorization_repository
                     .find_composite_roles_by_member_id(&mut session, m.id)
@@ -72,7 +74,16 @@ impl SearchController<FacebookResponse> for Implementation {
                     .map(|r| *r)
                     .filter(|r| r != &Role::Operator && r != &Role::Public && r != &Role::Member)
                     .collect();
-                FacebookResponse::from((m, &workgroup_names, &roles))
+
+                let musical_instrument = m
+                    .musical_instrument_id
+                    .map(|id| {
+                        self.musical_instrument_repository
+                            .find_by_id(&mut session, id)
+                            .ok()
+                    })
+                    .flatten();
+                FacebookResponse::from((m, &musical_instrument, &workgroup_names, &roles))
             })
             .collect();
         let row_len = rows.len();
@@ -95,6 +106,7 @@ impl Injectable<ServiceDependencies, dyn FacebookRequestService> for Implementat
             facebook_repository: dependencies.facebook_repository.clone(),
             member_repository: dependencies.member_repository.clone(),
             authorization_repository: dependencies.authorization_repository.clone(),
+            musical_instrument_repository: dependencies.musical_instrument_repository.clone(),
         };
 
         let arc: Arc<dyn FacebookRequestService> = Arc::new(implementation);

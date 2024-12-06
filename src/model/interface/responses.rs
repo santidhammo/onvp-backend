@@ -246,8 +246,11 @@ pub struct FacebookResponse {
     #[schema(example = 1)]
     pub id: i32,
 
-    #[schema(example = 1)]
-    pub musical_instrument_id: Option<i32>,
+    #[schema(example = "French Horn")]
+    pub musical_instrument_name: Option<String>,
+
+    #[schema(example = "https://someurl.void")]
+    pub musical_instrument_url: Option<String>,
 
     #[schema(example = "xyz.png")]
     pub picture_asset_id: Option<String>,
@@ -263,13 +266,35 @@ pub struct FacebookResponse {
     pub roles: Vec<Role>,
 }
 
-impl From<(&FacebookMember, &Vec<Workgroup>, &Vec<Role>)> for FacebookResponse {
+impl
+    From<(
+        &FacebookMember,
+        &Option<MusicalInstrument>,
+        &Vec<Workgroup>,
+        &Vec<Role>,
+    )> for FacebookResponse
+{
     fn from(
-        (facebook_member, workgroups, roles): (&FacebookMember, &Vec<Workgroup>, &Vec<Role>),
+        (facebook_member, instrument, workgroups, roles): (
+            &FacebookMember,
+            &Option<MusicalInstrument>,
+            &Vec<Workgroup>,
+            &Vec<Role>,
+        ),
     ) -> Self {
+        let (musical_instrument_name, musical_instrument_url): (Option<String>, Option<String>) =
+            match instrument {
+                None => (None, None),
+                Some(instrument) => (
+                    Some(instrument.name.clone()),
+                    instrument.wikipedia_url.clone(),
+                ),
+            };
+
         Self {
             id: facebook_member.id,
-            musical_instrument_id: facebook_member.musical_instrument_id.clone(),
+            musical_instrument_name,
+            musical_instrument_url,
             picture_asset_id: facebook_member.picture_asset_id.clone(),
             full_name: format!(
                 "{} {}",
