@@ -48,6 +48,7 @@ pub enum Role {
     Public = 0x0,
     Member = 0x1,
     OrchestraCommittee = 0x2,
+    Director = 0x3,
     Operator = 0xFF,
 }
 
@@ -76,6 +77,7 @@ where
             Role::Public => (Role::Public as i32).to_sql(out),
             Role::Member => (Role::Member as i32).to_sql(out),
             Role::OrchestraCommittee => (Role::OrchestraCommittee as i32).to_sql(out),
+            Role::Director => (Role::Director as i32).to_sql(out),
             Role::Operator => (Role::Operator as i32).to_sql(out),
         }
     }
@@ -89,6 +91,7 @@ impl TryFrom<u8> for Role {
             0 => Ok(Self::Public),
             1 => Ok(Self::Member),
             2 => Ok(Self::OrchestraCommittee),
+            3 => Ok(Self::Director),
             0xFF => Ok(Self::Operator),
             x => Err(BackendError::byte_conversion(format!(
                 "Could not expand variant into role: {}",
