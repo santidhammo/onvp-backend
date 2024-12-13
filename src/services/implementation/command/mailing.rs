@@ -49,7 +49,7 @@ impl MailingCommandService for Implementation {
             .mail_template_repository
             .find_by_id(&mut session, command.mail_template_id)?;
         let members = self.list_members_by_recipient_type(&mut session, command)?;
-        self.render_and_send_email(&command, mail_template, members)?;
+        self.render_and_send_email(command, mail_template, members)?;
         Ok(())
     }
 }
@@ -78,7 +78,7 @@ impl Implementation {
 
     fn render_and_send_email(
         &self,
-        command: &&SendMailCommand,
+        command: &SendMailCommand,
         mail_template: MailTemplate,
         members: Vec<ExtendedMember>,
     ) -> BackendResult<()> {
