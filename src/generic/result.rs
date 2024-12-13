@@ -77,6 +77,7 @@ pub enum ErrorKind {
     VarError(String),
     ConfigError(String),
     EmailError(String),
+    TemplateError(String),
     Forbidden,
 }
 
@@ -96,6 +97,7 @@ impl ErrorKind {
             ErrorKind::VarError(_) => "VAR_ERROR",
             ErrorKind::ConfigError(_) => "CONFIG_ERROR",
             ErrorKind::EmailError(_) => "EMAIL_ERROR",
+            ErrorKind::TemplateError(_) => "TEMPLATE_ERROR",
             ErrorKind::Forbidden => "FORBIDDEN",
         }
     }
@@ -123,6 +125,7 @@ impl ErrorKind {
             ErrorKind::VarError(s) => s.to_string(),
             ErrorKind::ConfigError(s) => s.to_string(),
             ErrorKind::EmailError(s) => s.to_string(),
+            ErrorKind::TemplateError(s) => s.to_string(),
             ErrorKind::Forbidden => "Access Denied".to_string(),
         }
     }
@@ -304,6 +307,22 @@ impl From<lettre::transport::smtp::Error> for BackendError {
     fn from(value: lettre::transport::smtp::Error) -> Self {
         Self {
             kind: ErrorKind::EmailError(value.to_string()),
+        }
+    }
+}
+
+impl From<handlebars::TemplateError> for BackendError {
+    fn from(value: handlebars::TemplateError) -> Self {
+        Self {
+            kind: ErrorKind::TemplateError(value.to_string()),
+        }
+    }
+}
+
+impl From<handlebars::RenderError> for BackendError {
+    fn from(value: handlebars::RenderError) -> Self {
+        Self {
+            kind: ErrorKind::TemplateError(value.to_string()),
         }
     }
 }

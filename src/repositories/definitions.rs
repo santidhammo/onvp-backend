@@ -70,6 +70,12 @@ pub trait MemberRepository {
     ) -> BackendResult<(usize, usize, Vec<ExtendedMember>)>;
 
     fn unregister(&self, session: &mut Session, member_id: i32) -> BackendResult<()>;
+
+    fn list_by_musical_instrument(
+        &self,
+        session: &mut Session,
+        musical_instrument_id: i32,
+    ) -> BackendResult<Vec<ExtendedMember>>;
 }
 
 pub trait WorkgroupRepository {

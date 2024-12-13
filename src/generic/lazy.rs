@@ -68,7 +68,7 @@ pub static TOKEN_EXPIRY_HIGH_WATER_MARK: LazyLock<u64> = LazyLock::new(|| {
         .unwrap_or(120)
 });
 
-pub static SEND_ACTIVATION_EMAIL_CONFIG: LazyLock<SendEmailConfig> = LazyLock::new(|| {
+pub static SEND_EMAIL_CONFIG: LazyLock<SendEmailConfig> = LazyLock::new(|| {
     let email_dev_mode: bool = var("EMAIL_DEV_MODE")
         .unwrap_or("false".to_owned())
         .parse()
@@ -77,9 +77,9 @@ pub static SEND_ACTIVATION_EMAIL_CONFIG: LazyLock<SendEmailConfig> = LazyLock::n
         .expect("EMAIL_FROM must be set")
         .parse()
         .expect("invalid EMAIL_FROM");
-    let email_subject =
+    let registration_subject =
         var("EMAIL_REGISTRATION_SUBJECT").expect("EMAIL_REGISTRATION_SUBJECT must be set");
-    let email_body_template =
+    let registration_body_template =
         var("EMAIL_REGISTRATION_BODY").expect("EMAIL_REGISTRATION_BODY must be set");
     let email_smtp_user = if !email_dev_mode {
         var("EMAIL_SMTP_USER").expect("EMAIL_SMTP_USER must be set")
@@ -100,8 +100,8 @@ pub static SEND_ACTIVATION_EMAIL_CONFIG: LazyLock<SendEmailConfig> = LazyLock::n
     SendEmailConfig {
         email_dev_mode,
         email_from,
-        email_subject,
-        email_body_template,
+        email_registration_subject: registration_subject,
+        email_registration_body_template: registration_body_template,
         email_smtp_user,
         email_smtp_password,
         email_smtp_relay,
@@ -113,8 +113,8 @@ pub static SEND_ACTIVATION_EMAIL_CONFIG: LazyLock<SendEmailConfig> = LazyLock::n
 pub struct SendEmailConfig {
     pub email_dev_mode: bool,
     pub email_from: Mailbox,
-    pub email_subject: String,
-    pub email_body_template: String,
+    pub email_registration_subject: String,
+    pub email_registration_body_template: String,
     pub email_smtp_user: String,
     pub email_smtp_password: String,
     pub email_smtp_relay: String,

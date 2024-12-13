@@ -17,6 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::generic::result::{BackendError, BackendResult};
+use crate::model::interface::commands::send_mail::MailRecipientType;
 use crate::model::interface::sub_commands::{AddressRegisterSubCommand, DetailRegisterSubCommand};
 use crate::model::primitives::{EventDate, Role, RoleClass};
 use actix_web::web::Bytes;
@@ -254,4 +255,33 @@ pub struct CreateMailTemplateCommand {
 pub struct UpdateMailTemplateCommand {
     #[schema(example = "Lorem ipsum dolor sit amet")]
     pub body: String,
+}
+
+#[derive(Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct SendMailCommand {
+    #[schema(example = 1)]
+    pub mail_template_id: i32,
+
+    #[schema(example = "Foo")]
+    pub subject: String,
+
+    #[schema(example = "MEMBER")]
+    pub recipient_type: MailRecipientType,
+
+    #[schema(example = 1)]
+    pub recipient_id: i32,
+}
+
+pub mod send_mail {
+    use serde::Deserialize;
+    use utoipa::ToSchema;
+
+    #[derive(Deserialize, ToSchema, Clone, Debug)]
+    #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+    pub enum MailRecipientType {
+        Member,
+        Workgroup,
+        MusicalInstrument,
+    }
 }

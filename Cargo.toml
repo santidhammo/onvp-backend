@@ -30,6 +30,7 @@ futures-util = "0.3.31"
 clap = { version = "4.5.20", features = ["derive"] }
 moka = { version = "0.12.8", features = ["sync"] }
 globset = "0.4.15"
+handlebars = "6.2.0"
 
 [dev-dependencies]
 diesel_migrations = { version = "2.2.0", features = ["postgres"] }

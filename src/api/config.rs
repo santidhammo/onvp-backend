@@ -49,4 +49,5 @@ pub fn configure_authority() -> AuthorityConfig {
         .allow(Post, "api/mail-templates/v1/**", director_authority.clone())
         .allow(Put, "api/mail-templates/v1/**", director_authority.clone())
         .allow(Del, "api/mail-templates/v1/**", director_authority.clone())
+        .allow(Post, "api/mailing/v1/**", director_authority.clone())
 }

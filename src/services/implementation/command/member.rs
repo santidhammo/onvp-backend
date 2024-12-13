@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::generic::lazy::{SendEmailConfig, SEND_ACTIVATION_EMAIL_CONFIG};
+use crate::generic::lazy::{SendEmailConfig, SEND_EMAIL_CONFIG};
 use crate::generic::result::BackendResult;
 use crate::generic::storage::session::Session;
 use crate::generic::Injectable;
@@ -118,12 +118,16 @@ impl Implementation {
     ) -> BackendResult<()> {
         let email_body = self
             .send_activation_email_config
-            .email_body_template
+            .email_registration_body_template
             .replace("{}", &activation_string);
         let email = Message::builder()
             .from(self.send_activation_email_config.email_from.clone())
             .to(email_address.parse()?)
-            .subject(self.send_activation_email_config.email_subject.clone())
+            .subject(
+                self.send_activation_email_config
+                    .email_registration_subject
+                    .clone(),
+            )
             .header(lettre::message::header::ContentType::TEXT_HTML)
             .body(email_body)?;
 
@@ -152,7 +156,7 @@ impl Injectable<ServiceDependencies, dyn MemberCommandService> for Implementatio
         let implementation = Self {
             member_repository: dependencies.member_repository.clone(),
             member_role_repository: dependencies.member_role_repository.clone(),
-            send_activation_email_config: SEND_ACTIVATION_EMAIL_CONFIG.clone(),
+            send_activation_email_config: SEND_EMAIL_CONFIG.clone(),
         };
         let arc: Arc<dyn MemberCommandService> = Arc::new(implementation);
         Data::from(arc)

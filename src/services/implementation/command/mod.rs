@@ -18,6 +18,7 @@
  */
 pub mod image;
 pub mod mail_template;
+mod mailing;
 pub mod member;
 pub mod member_activation;
 pub mod member_picture;

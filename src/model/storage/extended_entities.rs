@@ -46,6 +46,38 @@ pub struct ExtendedMember {
     pub description: Option<String>,
 }
 
+impl Default for ExtendedMember {
+    fn default() -> Self {
+        Self {
+            id: 0,
+            musical_instrument_id: None,
+            picture_asset_id: None,
+            activated: false,
+            creation_time: chrono::NaiveDateTime::default(),
+            activation_string: "".to_owned(),
+            activation_time: chrono::NaiveDateTime::default(),
+            allow_privacy_info_sharing: false,
+            nonce: "".to_owned(),
+            member_detail: MemberDetail {
+                id: 0,
+                first_name: "".to_owned(),
+                last_name: "".to_owned(),
+                email_address: "".to_owned(),
+                phone_number: "".to_owned(),
+            },
+            member_address_detail: MemberAddressDetail {
+                id: 0,
+                street: "".to_owned(),
+                house_number: 0,
+                house_number_postfix: None,
+                postal_code: "".to_owned(),
+                domicile: "".to_owned(),
+            },
+            description: None,
+        }
+    }
+}
+
 impl ExtendedMember {
     fn generate_encoded_nonce() -> String {
         let nonce = Aes256Gcm::generate_nonce(&mut OsRng);

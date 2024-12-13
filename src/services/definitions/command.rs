@@ -24,9 +24,9 @@ use crate::model::interface::commands::{
     FirstOperatorRegisterCommand, ImageUploadCommand, MemberActivationCommand,
     MemberImageUploadCommand, MemberRegisterCommand, MemberUpdateAddressCommand,
     MemberUpdateCommand, MemberUpdatePrivacyInfoSharingCommand, PublishImageCommand,
-    PublishPageCommand, RegisterMusicalInstrumentCommand, UpdateMailTemplateCommand,
-    UpdateMusicalInstrumentCommand, UpdatePageCommand, WorkgroupRegisterCommand,
-    WorkgroupUpdateCommand,
+    PublishPageCommand, RegisterMusicalInstrumentCommand, SendMailCommand,
+    UpdateMailTemplateCommand, UpdateMusicalInstrumentCommand, UpdatePageCommand,
+    WorkgroupRegisterCommand, WorkgroupUpdateCommand,
 };
 
 /// Controls actions which can be performed on member data
@@ -227,4 +227,10 @@ pub trait MailTemplateCommandService {
 
     /// Deletes a registered email template
     fn delete(&self, session: Session, mail_template_id: i32) -> BackendResult<()>;
+}
+
+/// Controls actions which can be performed to manage mailings
+pub trait MailingCommandService {
+    /// Sends a new email
+    fn send(&self, session: Session, command: &SendMailCommand) -> BackendResult<()>;
 }

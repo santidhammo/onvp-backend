@@ -161,6 +161,7 @@ pub async fn launch() -> std::io::Result<()> {
                     .service(mail_templates::update)
                     .service(mail_templates::delete),
             )
+            .service(scope("/api/mailing/v1").service(mailing::send))
             .service(scope("/api/source_code_details/v1").service(source_code::details))
             .split_for_parts();
 

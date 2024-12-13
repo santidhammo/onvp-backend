@@ -20,6 +20,7 @@ pub mod authorization;
 pub mod facebook;
 pub mod images;
 pub mod mail_templates;
+pub mod mailing;
 pub mod members;
 pub mod musical_instruments;
 pub mod pages;

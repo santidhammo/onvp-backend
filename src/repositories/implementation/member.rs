@@ -283,6 +283,34 @@ impl MemberRepository for Implementation {
             }
         })
     }
+
+    fn list_by_musical_instrument(
+        &self,
+        session: &mut Session,
+        musical_instrument_id: i32,
+    ) -> BackendResult<Vec<ExtendedMember>> {
+        let member_ids: Vec<i32> = session.run(|conn| {
+            Ok(members::table
+                .filter(members::musical_instrument_id.eq(musical_instrument_id))
+                .select(members::id)
+                .load(conn)?)
+        })?;
+        let results: Vec<BackendResult<ExtendedMember>> = member_ids
+            .iter()
+            .map(|id| self.find_extended_by_id(session, *id))
+            .collect();
+        for result in &results {
+            if let Err(err) = result {
+                return Err(err.clone());
+            }
+        }
+        let filtered: Vec<ExtendedMember> = results
+            .iter()
+            .filter(|v| v.is_ok())
+            .map(|v| v.clone().unwrap_or_default())
+            .collect();
+        Ok(filtered)
+    }
 }
 
 impl Implementation {
