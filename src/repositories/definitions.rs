@@ -20,7 +20,7 @@ use crate::generic::result::BackendResult;
 use crate::generic::security::ClaimRoles;
 use crate::generic::storage::session::Session;
 use crate::model::primitives::Role;
-use crate::model::storage::entities::{Image, MusicalInstrument, Page, Workgroup};
+use crate::model::storage::entities::{Image, MailTemplate, MusicalInstrument, Page, Workgroup};
 use crate::model::storage::extended_entities::{ExtendedMember, FacebookMember};
 
 pub trait PropertiesRepository {
@@ -269,8 +269,26 @@ pub trait MusicalInstrumentRepository {
     /// Searches for musical instruments matching with names matching the given term
     fn search(
         &self,
-        conn: &mut Session,
+        session: &mut Session,
         page_offset: usize,
         term: &str,
     ) -> BackendResult<(usize, usize, Vec<MusicalInstrument>)>;
+}
+
+/// Manages the email template repository
+pub trait MailTemplateRepository {
+    /// Creates a new email template and stores it into the database
+    fn create(&self, session: &mut Session, instrument: MailTemplate) -> BackendResult<()>;
+
+    /// Updates an existing email template in the database
+    fn update(&self, session: &mut Session, instrument: MailTemplate) -> BackendResult<()>;
+
+    /// Removes an existing email template from the database
+    fn delete(&self, session: &mut Session, instrument_id: i32) -> BackendResult<()>;
+
+    /// Finds an email template from the database using the identifier
+    fn find_by_id(&self, session: &mut Session, image_id: i32) -> BackendResult<MailTemplate>;
+
+    /// Lists all email templates stored in the databases
+    fn list(&self, session: &mut Session) -> BackendResult<Vec<(i32, String)>>;
 }

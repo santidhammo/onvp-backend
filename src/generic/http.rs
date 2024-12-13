@@ -24,7 +24,7 @@ pub enum Method {
     Get,
     Post,
     Put,
-    Delete,
+    Del,
     Options,
     Head,
     Patch,
@@ -36,7 +36,7 @@ impl Display for Method {
             Method::Get => write!(f, "GET"),
             Method::Post => write!(f, "POST"),
             Method::Put => write!(f, "PUT"),
-            Method::Delete => write!(f, "DELETE"),
+            Method::Del => write!(f, "DELETE"),
             Method::Options => write!(f, "OPTIONS"),
             Method::Head => write!(f, "HEAD"),
             Method::Patch => write!(f, "PATCH"),
@@ -60,7 +60,7 @@ impl From<&actix_web::http::Method> for Method {
         } else if value == &actix_web::http::Method::PUT {
             Method::Put
         } else if value == &actix_web::http::Method::DELETE {
-            Method::Delete
+            Method::Del
         } else if value == &actix_web::http::Method::OPTIONS {
             Method::Options
         } else if value == &actix_web::http::Method::HEAD {

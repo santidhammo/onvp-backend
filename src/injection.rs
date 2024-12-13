@@ -21,9 +21,9 @@ use crate::generic::storage::session::DefaultSessionManagerImplementation;
 use crate::generic::Injectable;
 use crate::model::interface::client::UserClaims;
 use crate::repositories::definitions::{
-    AuthorizationRepository, FacebookRepository, ImageRepository, MemberPictureRepository,
-    MemberRepository, MemberRoleRepository, MusicalInstrumentRepository, PageRepository,
-    PropertiesRepository, WorkgroupRepository, WorkgroupRoleRepository,
+    AuthorizationRepository, FacebookRepository, ImageRepository, MailTemplateRepository,
+    MemberPictureRepository, MemberRepository, MemberRoleRepository, MusicalInstrumentRepository,
+    PageRepository, PropertiesRepository, WorkgroupRepository, WorkgroupRoleRepository,
 };
 use crate::{repositories, services};
 use actix_jwt_auth_middleware::TokenSigner;
@@ -62,6 +62,7 @@ where
         .app_data(page::Implementation::make(service_deps))
         .app_data(image::Implementation::make(service_deps))
         .app_data(musical_instrument::Implementation::make(service_deps))
+        .app_data(mail_template::Implementation::make(service_deps))
 }
 
 fn inject_request_services<T>(app: App<T>, service_deps: &ServiceDependencies) -> App<T>
@@ -79,6 +80,7 @@ where
         .app_data(page::Implementation::make(service_deps))
         .app_data(image::Implementation::make(service_deps))
         .app_data(musical_instrument::Implementation::make(service_deps))
+        .app_data(mail_template::Implementation::make(service_deps))
 }
 
 pub struct ServiceDependencies {
@@ -93,6 +95,7 @@ pub struct ServiceDependencies {
     pub page_repository: Data<dyn PageRepository>,
     pub image_repository: Data<dyn ImageRepository>,
     pub musical_instrument_repository: Data<dyn MusicalInstrumentRepository>,
+    pub mail_template_repository: Data<dyn MailTemplateRepository>,
     pub token_signer: Data<TokenSigner<UserClaims, Ed25519>>,
 }
 
@@ -111,6 +114,7 @@ impl ServiceDependencies {
             page_repository: page::Implementation::make(&()),
             image_repository: image::Implementation::make(&()),
             musical_instrument_repository: musical_instrument::Implementation::make(&()),
+            mail_template_repository: mail_template::Implementation::make(&()),
             token_signer: token_signer.clone(),
         };
         repositories

@@ -19,11 +19,12 @@
 use crate::generic::result::BackendResult;
 use crate::generic::storage::session::Session;
 use crate::model::interface::commands::{
-    AssociateMemberToWorkgroupCommand, AssociateRoleCommand, CreatePageCommand,
-    DissociateMemberFromWorkgroupCommand, DissociateRoleCommand, FirstOperatorRegisterCommand,
-    ImageUploadCommand, MemberActivationCommand, MemberImageUploadCommand, MemberRegisterCommand,
-    MemberUpdateAddressCommand, MemberUpdateCommand, MemberUpdatePrivacyInfoSharingCommand,
-    PublishImageCommand, PublishPageCommand, RegisterMusicalInstrumentCommand,
+    AssociateMemberToWorkgroupCommand, AssociateRoleCommand, CreateMailTemplateCommand,
+    CreatePageCommand, DissociateMemberFromWorkgroupCommand, DissociateRoleCommand,
+    FirstOperatorRegisterCommand, ImageUploadCommand, MemberActivationCommand,
+    MemberImageUploadCommand, MemberRegisterCommand, MemberUpdateAddressCommand,
+    MemberUpdateCommand, MemberUpdatePrivacyInfoSharingCommand, PublishImageCommand,
+    PublishPageCommand, RegisterMusicalInstrumentCommand, UpdateMailTemplateCommand,
     UpdateMusicalInstrumentCommand, UpdatePageCommand, WorkgroupRegisterCommand,
     WorkgroupUpdateCommand,
 };
@@ -209,4 +210,21 @@ pub trait MusicalInstrumentCommandService {
 
     /// Deletes a registered musical instrument
     fn delete(&self, session: Session, musical_instrument_id: i32) -> BackendResult<()>;
+}
+
+/// Controls actions which can be performed to manage email templates
+pub trait MailTemplateCommandService {
+    /// Creates a new email template
+    fn create(&self, session: Session, command: &CreateMailTemplateCommand) -> BackendResult<()>;
+
+    /// Updates a registered email template
+    fn update(
+        &self,
+        session: Session,
+        mail_template_id: i32,
+        command: &UpdateMailTemplateCommand,
+    ) -> BackendResult<()>;
+
+    /// Deletes a registered email template
+    fn delete(&self, session: Session, mail_template_id: i32) -> BackendResult<()>;
 }

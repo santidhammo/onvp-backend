@@ -19,6 +19,7 @@
 pub mod authorization;
 pub mod facebook;
 pub mod image;
+pub mod mail_template;
 pub mod member;
 pub mod member_picture;
 pub mod musical_instrument;

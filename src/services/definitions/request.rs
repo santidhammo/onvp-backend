@@ -24,8 +24,9 @@ use crate::model::interface::client::UserClaims;
 use crate::model::interface::requests::AuthorizationRequest;
 use crate::model::interface::responses::{
     AuthorizationResponse, ExtendedPageResponse, FacebookResponse, ImageAssetIdResponse,
-    ImageMetaDataResponse, ImageResponse, MemberAddressResponse, MemberPrivacyInfoSharingResponse,
-    MemberResponse, MusicalInstrumentResponse, PageResponse, WorkgroupResponse,
+    ImageMetaDataResponse, ImageResponse, MailTemplateNameResponse, MailTemplateResponse,
+    MemberAddressResponse, MemberPrivacyInfoSharingResponse, MemberResponse,
+    MusicalInstrumentResponse, PageResponse, WorkgroupResponse,
 };
 use crate::model::interface::search::{SearchParams, SearchResult};
 use crate::model::primitives::{Role, RoleClass};
@@ -225,6 +226,19 @@ pub trait MusicalInstrumentRequestService: SearchController<MusicalInstrumentRes
         session: Session,
         image_id: i32,
     ) -> BackendResult<MusicalInstrumentResponse>;
+}
+
+/// Controls actions for data retrieval belonging to email templates
+pub trait MailTemplateRequestService {
+    /// Lists all the defined mail templates
+    fn list(&self, session: Session) -> BackendResult<Vec<MailTemplateNameResponse>>;
+
+    /// Finds a mail template using the identifier, includes the body of the template
+    fn find_by_id(
+        &self,
+        session: Session,
+        mail_template_id: i32,
+    ) -> BackendResult<MailTemplateResponse>;
 }
 
 pub trait SearchController<T> {

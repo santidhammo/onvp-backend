@@ -17,10 +17,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::api::middleware::authority::config::AuthorityConfig;
-use crate::api::middleware::authority::Allowance::{Any, LoggedInMember};
-use crate::generic::http::Method::{Get, Post};
+use crate::api::middleware::authority::Allowance::{Any, LoggedInMember, RoleAuthority};
+use crate::generic::http::Method::{Del, Get, Post, Put};
+use crate::model::primitives::{Role, RoleComposition};
 
 pub fn configure_authority() -> AuthorityConfig {
+    let director_authority = RoleAuthority(RoleComposition::from(Role::Director));
     AuthorityConfig::new()
         .allow(Get, "/docs", Any)
         .allow(Get, "/api/facebook/v1/**", Any)
@@ -43,4 +45,8 @@ pub fn configure_authority() -> AuthorityConfig {
         .allow(Get, "/api/images/v1/image/**", Any)
         .allow(Get, "/api/images/v1/asset/**", Any)
         .allow(Get, "/api/musical-instruments/v1/**", Any)
+        .allow(Get, "api/mail-templates/v1/**", director_authority.clone())
+        .allow(Post, "api/mail-templates/v1/**", director_authority.clone())
+        .allow(Put, "api/mail-templates/v1/**", director_authority.clone())
+        .allow(Del, "api/mail-templates/v1/**", director_authority.clone())
 }

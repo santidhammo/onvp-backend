@@ -16,15 +16,10 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-pub mod authorization;
-pub mod facebook;
-pub mod image;
-pub mod mail_template;
-pub mod member;
-pub mod member_picture;
-pub mod member_role;
-pub mod musical_instrument;
-pub mod page;
-pub mod properties;
-pub mod workgroup;
-pub mod workgroup_role;
+
+CREATE TABLE mail_templates
+(
+    id   SERIAL PRIMARY KEY,
+    name VARCHAR NOT NULL UNIQUE,
+    body TEXT    NOT NULL
+);

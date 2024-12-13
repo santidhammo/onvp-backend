@@ -153,6 +153,14 @@ pub async fn launch() -> std::io::Result<()> {
                     .service(musical_instruments::update)
                     .service(musical_instruments::delete),
             )
+            .service(
+                scope("/api/mail-templates/v1")
+                    .service(mail_templates::list)
+                    .service(mail_templates::create)
+                    .service(mail_templates::find_by_id)
+                    .service(mail_templates::update)
+                    .service(mail_templates::delete),
+            )
             .service(scope("/api/source_code_details/v1").service(source_code::details))
             .split_for_parts();
 

@@ -17,9 +17,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use crate::model::interface::commands::{
-    CreatePageCommand, ImageUploadCommand, RegisterMusicalInstrumentCommand,
-    UpdateMusicalInstrumentCommand, UpdatePageCommand, WorkgroupRegisterCommand,
-    WorkgroupUpdateCommand,
+    CreateMailTemplateCommand, CreatePageCommand, ImageUploadCommand,
+    RegisterMusicalInstrumentCommand, UpdateMailTemplateCommand, UpdateMusicalInstrumentCommand,
+    UpdatePageCommand, WorkgroupRegisterCommand, WorkgroupUpdateCommand,
 };
 use crate::model::interface::sub_commands;
 use crate::model::storage::extended_entities::ExtendedMember;
@@ -251,6 +251,36 @@ impl From<(&MusicalInstrument, &UpdateMusicalInstrumentCommand)> for MusicalInst
             id: origin.id,
             name: command.name.clone(),
             wikipedia_url: command.wikipedia_url.clone(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Queryable, Selectable, Insertable, AsChangeset)]
+#[diesel(table_name = crate::schema::mail_templates)]
+pub struct MailTemplate {
+    #[diesel(skip_insertion)]
+    pub id: i32,
+    pub name: String,
+    pub body: String,
+}
+
+impl From<&CreateMailTemplateCommand> for MailTemplate {
+    fn from(command: &CreateMailTemplateCommand) -> Self {
+        Self {
+            id: 0, // Skipped during creation
+
+            name: command.name.clone(),
+            body: command.body.clone(),
+        }
+    }
+}
+
+impl From<(&MailTemplate, &UpdateMailTemplateCommand)> for MailTemplate {
+    fn from((origin, command): (&MailTemplate, &UpdateMailTemplateCommand)) -> Self {
+        Self {
+            id: origin.id,
+            name: origin.name.clone(),
+            body: command.body.clone(),
         }
     }
 }

@@ -70,9 +70,9 @@ pub async fn register(
     tag = "members",
     responses(
         (status = 200, description = "A list of matching members", body=SearchResult<MemberResponse>),
-        (status = 400, description = "Bad Request"),
-        (status = 401, description = "Unauthorized"),
-        (status = 500, description = "Internal Server Error", body=[String])
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal Server Error", body=Option<String>)
     ),
     params(
         ("q" = String, Query, description = "Part of the first name, last name and/or email address"),

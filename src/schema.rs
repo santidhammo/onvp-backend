@@ -35,6 +35,14 @@ diesel::table! {
 }
 
 diesel::table! {
+    mail_templates (id) {
+        id -> Int4,
+        name -> Varchar,
+        body -> Text,
+    }
+}
+
+diesel::table! {
     member_address_details (id) {
         id -> Int4,
         street -> Varchar,
@@ -147,6 +155,7 @@ diesel::joinable!(workgroup_role_associations -> workgroups (workgroup_id));
 diesel::allow_tables_to_appear_in_same_query!(
     image_access_policies,
     images,
+    mail_templates,
     member_address_details,
     member_details,
     member_role_associations,

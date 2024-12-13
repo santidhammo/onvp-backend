@@ -17,6 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 pub mod image;
+pub mod mail_template;
 pub mod member;
 pub mod member_activation;
 pub mod member_picture;

@@ -19,7 +19,7 @@
 use crate::generic::lazy::OTP_CIPHER;
 use crate::generic::result::{BackendError, BackendResult};
 use crate::model::primitives::{EventDate, Role};
-use crate::model::storage::entities::{Image, MusicalInstrument, Page, Workgroup};
+use crate::model::storage::entities::{Image, MailTemplate, MusicalInstrument, Page, Workgroup};
 use crate::model::storage::extended_entities::{ExtendedMember, FacebookMember};
 use actix_web::cookie::Cookie;
 use actix_web::http::header::ContentType;
@@ -402,6 +402,55 @@ impl From<&MusicalInstrument> for MusicalInstrumentResponse {
             id: value.id,
             name: value.name.clone(),
             wikipedia_url: value.wikipedia_url.clone(),
+        }
+    }
+}
+
+/// Mail template containing the body of the template
+#[derive(Serialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct MailTemplateResponse {
+    /// The identifier of the email template
+    #[schema(example = 1)]
+    id: i32,
+
+    /// The (unique) name of the email template
+    #[schema(example = "Foo")]
+    name: String,
+
+    /// The body (content) of the email template
+    #[schema(example = "Lorem ipsum dolor sit amet")]
+    body: String,
+}
+
+impl From<&MailTemplate> for MailTemplateResponse {
+    fn from(value: &MailTemplate) -> Self {
+        Self {
+            id: value.id,
+            name: value.name.clone(),
+            body: value.body.clone(),
+        }
+    }
+}
+
+/// Identification of the mail template
+#[derive(Serialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct MailTemplateNameResponse {
+    /// The identifier of the email template
+    #[schema(example = 1)]
+    id: i32,
+
+    /// The (unique) name of the email template
+    #[schema(example = "Foo")]
+    name: String,
+}
+
+impl From<(i32, &str)> for MailTemplateNameResponse {
+    fn from((id, name): (i32, &str)) -> Self {
+        Self {
+            id,
+            name: name.to_string(),
         }
     }
 }

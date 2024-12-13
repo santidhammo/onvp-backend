@@ -238,3 +238,20 @@ pub struct UpdateMusicalInstrumentCommand {
 
     pub wikipedia_url: Option<String>,
 }
+
+#[derive(Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateMailTemplateCommand {
+    #[schema(example = "Foo")]
+    pub name: String,
+
+    #[schema(example = "Lorem ipsum dolor sit amet")]
+    pub body: String,
+}
+
+#[derive(Deserialize, ToSchema, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateMailTemplateCommand {
+    #[schema(example = "Lorem ipsum dolor sit amet")]
+    pub body: String,
+}
