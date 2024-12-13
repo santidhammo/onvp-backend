@@ -63,6 +63,7 @@ where
         .app_data(image::Implementation::make(service_deps))
         .app_data(musical_instrument::Implementation::make(service_deps))
         .app_data(mail_template::Implementation::make(service_deps))
+        .app_data(mailing::Implementation::make(service_deps))
 }
 
 fn inject_request_services<T>(app: App<T>, service_deps: &ServiceDependencies) -> App<T>
