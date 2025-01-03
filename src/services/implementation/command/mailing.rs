@@ -1,7 +1,7 @@
 /*
  *  ONVP Backend - Backend API provider for the ONVP website
  *
- * Copyright (c) 2024.  Sjoerd van Leent
+ * Copyright (c) 2024-2025.  Sjoerd van Leent
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -103,7 +103,7 @@ impl Implementation {
             .from(self.send_email_config.email_from.clone())
             .to(email_address.parse()?)
             .subject(subject)
-            .header(lettre::message::header::ContentType::TEXT_HTML)
+            .header(lettre::message::header::ContentType::TEXT_PLAIN)
             .body(body.to_string())?;
 
         let mut builder = SmtpTransport::relay(&self.send_email_config.email_smtp_relay)?
