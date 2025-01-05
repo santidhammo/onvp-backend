@@ -1,7 +1,7 @@
 /*
  *  ONVP Backend - Backend API provider for the ONVP website
  *
- * Copyright (c) 2024.  Sjoerd van Leent
+ * Copyright (c) 2025.  Sjoerd van Leent
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -111,6 +111,7 @@ diesel::table! {
         event_date -> Nullable<Date>,
         etag -> Varchar,
         title -> Text,
+        order_number -> Int4,
     }
 }
 

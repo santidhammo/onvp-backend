@@ -1,7 +1,7 @@
 /*
  *  ONVP Backend - Backend API provider for the ONVP website
  *
- * Copyright (c) 2024.  Sjoerd van Leent
+ * Copyright (c) 2024-2025.  Sjoerd van Leent
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -177,6 +177,22 @@ pub trait PageRepository {
 
     /// Updates an existing page and stores it into the database
     fn update(&self, session: &mut Session, page: Page) -> BackendResult<()>;
+
+    /// Sets the order of an existing page and stores it into the database
+    fn set_order_by_id(
+        &self,
+        session: &mut Session,
+        page_id: i32,
+        order_number: i32,
+    ) -> BackendResult<()>;
+
+    /// Sets or unsets the parent id of an existing page and stores it into the database
+    fn set_or_unset_parent_id_by_id(
+        &self,
+        session: &mut Session,
+        page_id: i32,
+        parent_id: Option<i32>,
+    ) -> BackendResult<()>;
 
     /// Finds the page by the identifier
     fn find_by_id(&self, session: &mut Session, page_id: i32) -> BackendResult<Page>;

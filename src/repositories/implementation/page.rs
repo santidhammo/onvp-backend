@@ -1,7 +1,7 @@
 /*
  *  ONVP Backend - Backend API provider for the ONVP website
  *
- * Copyright (c) 2024.  Sjoerd van Leent
+ * Copyright (c) 2024-2025.  Sjoerd van Leent
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -60,6 +60,36 @@ impl PageRepository for Implementation {
         })
     }
 
+    fn set_order_by_id(
+        &self,
+        session: &mut Session,
+        page_id: i32,
+        order_number: i32,
+    ) -> BackendResult<()> {
+        session.run(|conn| {
+            diesel::update(pages::table)
+                .filter(pages::id.eq(page_id))
+                .set((pages::order_number.eq(order_number),))
+                .execute(conn)?;
+            Ok(())
+        })
+    }
+
+    fn set_or_unset_parent_id_by_id(
+        &self,
+        session: &mut Session,
+        page_id: i32,
+        maybe_parent_id: Option<i32>,
+    ) -> BackendResult<()> {
+        session.run(|conn| {
+            diesel::update(pages::table)
+                .filter(pages::id.eq(page_id))
+                .set((pages::parent_id.eq(maybe_parent_id),))
+                .execute(conn)?;
+            Ok(())
+        })
+    }
+
     fn find_by_id(&self, session: &mut Session, page_id: i32) -> BackendResult<Page> {
         session.run(|conn| {
             let page = pages::table
@@ -95,14 +125,14 @@ impl PageRepository for Implementation {
                             .and(exists(sub_table)),
                     )
                     .select(Page::as_select())
-                    .order_by(pages::title);
+                    .order_by(pages::order_number);
                 info!("{}", debug_query::<Pg, _>(&q).to_string());
                 q.load(conn)?
             } else {
                 let q = pages::table
                     .filter(pages::parent_id.eq(parent_id).and(exists(sub_table)))
                     .select(Page::as_select())
-                    .order_by(pages::title);
+                    .order_by(pages::order_number);
                 info!("{}", debug_query::<Pg, _>(&q).to_string());
                 q.load(conn)?
             };
@@ -204,7 +234,7 @@ impl PageRepository for Implementation {
                 QueryDsl::limit(
                     pages::table
                         .filter(&where_expression)
-                        .order_by(pages::title),
+                        .order_by(pages::order_number),
                     self.page_size as i64,
                 )
                 .offset((page_offset * self.page_size) as i64),

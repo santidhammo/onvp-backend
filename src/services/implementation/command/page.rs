@@ -1,7 +1,7 @@
 /*
  *  ONVP Backend - Backend API provider for the ONVP website
  *
- * Copyright (c) 2024.  Sjoerd van Leent
+ * Copyright (c) 2024-2025.  Sjoerd van Leent
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::generic::result::BackendResult;
+use crate::generic::result::{BackendError, BackendResult};
 use crate::generic::storage::session::Session;
 use crate::generic::Injectable;
 use crate::injection::ServiceDependencies;
@@ -92,6 +92,38 @@ impl PageCommandService for Implementation {
         let _ = self.page_repository.find_by_id(&mut session, page_id)?;
         self.properties_repository
             .set_int_property(&mut session, "default-page", Some(page_id))
+    }
+
+    fn set_order(
+        &self,
+        mut session: Session,
+        page_id: i32,
+        order_number: i32,
+    ) -> BackendResult<()> {
+        // Verify that the page really exists
+        let _ = self.page_repository.find_by_id(&mut session, page_id)?;
+        self.page_repository
+            .set_order_by_id(&mut session, page_id, order_number)
+    }
+
+    fn set_or_unset_parent_id(
+        &self,
+        mut session: Session,
+        page_id: i32,
+        maybe_parent_id: Option<i32>,
+    ) -> BackendResult<()> {
+        // Verify that the page really exists
+        let _ = self.page_repository.find_by_id(&mut session, page_id)?;
+
+        if let Some(parent_id) = maybe_parent_id {
+            // Verify that the parent page really exists, and has no parent page itself
+            let parent_page = self.page_repository.find_by_id(&mut session, parent_id)?;
+            if let Some(_) = parent_page.parent_id {
+                return Err(BackendError::bad());
+            }
+        }
+        self.page_repository
+            .set_or_unset_parent_id_by_id(&mut session, page_id, maybe_parent_id)
     }
 }
 

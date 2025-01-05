@@ -1,7 +1,7 @@
 /*
  *  ONVP Backend - Backend API provider for the ONVP website
  *
- * Copyright (c) 2024.  Sjoerd van Leent
+ * Copyright (c) 2024-2025.  Sjoerd van Leent
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -343,6 +343,11 @@ pub struct PageResponse {
     #[schema(example = "Foo")]
     title: String,
 
+    #[schema(example = 0)]
+    order_number: i32,
+
+    parent_id: Option<i32>,
+
     event_date: Option<EventDate>,
 }
 
@@ -350,7 +355,9 @@ impl From<&Page> for PageResponse {
     fn from(value: &Page) -> Self {
         Self {
             id: value.id,
+            parent_id: value.parent_id,
             title: value.title.clone(),
+            order_number: value.order_number,
             event_date: value.event_date.map(|e| EventDate::from(&e)),
         }
     }

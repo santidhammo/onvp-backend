@@ -1,7 +1,7 @@
 /*
  *  ONVP Backend - Backend API provider for the ONVP website
  *
- * Copyright (c) 2024.  Sjoerd van Leent
+ * Copyright (c) 2024-2025.  Sjoerd van Leent
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -169,6 +169,17 @@ pub trait PageCommandService {
 
     /// Sets the default page
     fn set_default(&self, session: Session, page_id: i32) -> BackendResult<()>;
+
+    /// Sets the order of the page
+    fn set_order(&self, session: Session, page_id: i32, order_number: i32) -> BackendResult<()>;
+
+    /// Sets the parent id of the page
+    fn set_or_unset_parent_id(
+        &self,
+        session: Session,
+        page_id: i32,
+        maybe_parent_id: Option<i32>,
+    ) -> BackendResult<()>;
 }
 
 /// Controls actions which can be performed to manage images

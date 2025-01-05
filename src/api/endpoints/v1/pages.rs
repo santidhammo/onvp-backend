@@ -1,7 +1,7 @@
 /*
  *  ONVP Backend - Backend API provider for the ONVP website
  *
- * Copyright (c) 2024.  Sjoerd van Leent
+ * Copyright (c) 2024-2025.  Sjoerd van Leent
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -54,6 +54,30 @@ pub async fn search(
     Ok(Json(service.search(
         session,
         search_params.deref(),
+        &roles,
+    )?))
+}
+
+/// Return all sub menu entries of a given page, if there are any
+#[utoipa::path(
+    tag = "pages",
+    responses(
+        (status = 200, description = "The pages", body=Vec<PageResponse>),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal Server Error", body=Option<String>)
+    )
+)]
+#[get("/sub-menu/{id}")]
+pub async fn sub_menu(
+    id: Path<i32>,
+    service: Data<dyn PageRequestService>,
+    roles: ClaimRoles,
+    session: Session,
+) -> BackendResult<Json<Vec<PageResponse>>> {
+    Ok(Json(service.list_by_parent_id(
+        session,
+        id.into_inner(),
         &roles,
     )?))
 }
@@ -222,6 +246,69 @@ pub async fn update(
     session: Session,
 ) -> BackendResult<HttpResponse> {
     service.update(session, id.into_inner(), &command)?;
+    Ok(HttpResponse::Ok().finish())
+}
+
+/// Updates the order of an existing page
+#[utoipa::path(
+    tag = "pages",
+    responses(
+        (status = 200, description = "Page order is updated"),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal Server Error", body=Option<String>)
+    )
+)]
+#[put("/page/{id}/order")]
+pub async fn set_order(
+    id: Path<i32>,
+    number: Json<i32>,
+    service: Data<dyn PageCommandService>,
+    session: Session,
+) -> BackendResult<HttpResponse> {
+    service.set_order(session, id.into_inner(), number.into_inner())?;
+    Ok(HttpResponse::Ok().finish())
+}
+
+/// Sets the parent page for a page, a parent page can only be set if the parent page
+/// does not have a parent.
+#[utoipa::path(
+    tag = "pages",
+    responses(
+        (status = 200, description = "Parent page is set"),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal Server Error", body=Option<String>)
+    )
+)]
+#[put("/page/{id}/parent")]
+pub async fn set_parent(
+    id: Path<i32>,
+    parent_id: Json<i32>,
+    service: Data<dyn PageCommandService>,
+    session: Session,
+) -> BackendResult<HttpResponse> {
+    service.set_or_unset_parent_id(session, id.into_inner(), Some(parent_id.into_inner()))?;
+    Ok(HttpResponse::Ok().finish())
+}
+
+/// Unsets the parent page for a page
+#[utoipa::path(
+    tag = "pages",
+    responses(
+        (status = 200, description = "Parent page is unset"),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal Server Error", body=Option<String>)
+    )
+)]
+#[delete("/page/{id}/parent")]
+pub async fn unset_parent(
+    id: Path<i32>,
+    service: Data<dyn PageCommandService>,
+    session: Session,
+) -> BackendResult<HttpResponse> {
+    service.set_or_unset_parent_id(session, id.into_inner(), None)?;
     Ok(HttpResponse::Ok().finish())
 }
 

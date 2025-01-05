@@ -1,7 +1,7 @@
 /*
  *  ONVP Backend - Backend API provider for the ONVP website
  *
- * Copyright (c) 2024.  Sjoerd van Leent
+ * Copyright (c) 2024-2025.  Sjoerd van Leent
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -171,6 +171,7 @@ pub struct Page {
     pub event_date: Option<chrono::NaiveDate>,
     pub etag: String,
     pub title: String,
+    pub order_number: i32,
 }
 
 impl From<&CreatePageCommand> for Page {
@@ -188,6 +189,7 @@ impl From<&CreatePageCommand> for Page {
                 .flatten(),
             etag: crate::generate_asset_id(),
             title: value.title.clone(),
+            order_number: 0,
         }
     }
 }

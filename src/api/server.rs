@@ -1,7 +1,7 @@
 /*
  *  ONVP Backend - Backend API provider for the ONVP website
  *
- * Copyright (c) 2024.  Sjoerd van Leent
+ * Copyright (c) 2024-2025.  Sjoerd van Leent
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -126,11 +126,15 @@ pub async fn launch() -> std::io::Result<()> {
                     .service(pages::create)
                     .service(pages::find_by_id)
                     .service(pages::main_menu)
+                    .service(pages::sub_menu)
                     .service(pages::set_content)
                     .service(pages::content)
                     .service(pages::put_default)
                     .service(pages::get_default)
                     .service(pages::update)
+                    .service(pages::set_order)
+                    .service(pages::set_parent)
+                    .service(pages::unset_parent)
                     .service(pages::publish)
                     .service(pages::unpublish)
                     .service(pages::delete),
