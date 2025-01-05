@@ -318,6 +318,9 @@ pub struct ExtendedPageResponse {
     #[schema(example = "Foo")]
     title: String,
 
+    #[schema(example = 0)]
+    order_number: i32,
+
     event_date: Option<EventDate>,
 
     parent_id: Option<i32>,
@@ -333,6 +336,7 @@ impl From<(&Page, &Vec<Role>)> for ExtendedPageResponse {
             event_date: page.event_date.map(|e| EventDate::from(&e)),
             roles: roles.clone(),
             parent_id: page.parent_id,
+            order_number: page.order_number,
         }
     }
 }
