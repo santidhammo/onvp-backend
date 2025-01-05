@@ -320,6 +320,8 @@ pub struct ExtendedPageResponse {
 
     event_date: Option<EventDate>,
 
+    parent_id: Option<i32>,
+
     roles: Vec<Role>,
 }
 
@@ -330,6 +332,7 @@ impl From<(&Page, &Vec<Role>)> for ExtendedPageResponse {
             title: page.title.clone(),
             event_date: page.event_date.map(|e| EventDate::from(&e)),
             roles: roles.clone(),
+            parent_id: page.parent_id,
         }
     }
 }
