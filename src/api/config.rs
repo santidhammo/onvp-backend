@@ -1,7 +1,7 @@
 /*
  *  ONVP Backend - Backend API provider for the ONVP website
  *
- * Copyright (c) 2024.  Sjoerd van Leent
+ * Copyright (c) 2024-2025.  Sjoerd van Leent
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -39,6 +39,7 @@ pub fn configure_authority() -> AuthorityConfig {
         .allow(Get, "/api/workgroups/v1/**", LoggedInMember)
         .allow(Get, "/api/source_code_details/v1/**", Any)
         .allow(Get, "/api/pages/v1/main-menu", Any)
+        .allow(Get, "/api/pages/v1/sub-menu/**", Any)
         .allow(Get, "/api/pages/v1/default", Any)
         .allow(Get, "/api/pages/v1/search", Any)
         .allow(Get, "/api/pages/v1/page/**", Any)
