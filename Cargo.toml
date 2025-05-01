@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 
 chrono = { version = "0.4.38", features = ["serde"] }
-diesel = { version = "2.2.5", features = ["postgres", "r2d2", "chrono"] }
+diesel = { version = "2.2.9", features = ["postgres", "r2d2", "chrono"] }
 actix-web = { version = "4.9.0", features = ["rustls", "compress-gzip"] }
 actix-jwt-auth-middleware = { version = "0.5.0" }
 aes-gcm = { version = "0.10.3" }
