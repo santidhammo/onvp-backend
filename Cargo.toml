@@ -14,7 +14,7 @@ utoipa = { version = "5.2.0", features = ["actix_extras"] }
 utoipa-scalar = { version = "0.2.0", features = ["actix-web"] }
 utoipa-actix-web = "0.1.2"
 env_logger = { version = "0.11.5" }
-serde = { version = "1.0.215", features = ["derive"] }
+serde = { version = "1.0.219", features = ["derive"] }
 serde_json = { version = "1.0.133" }
 dotenv = { version = "0.15.0" }
 rand = "0.8.5"
