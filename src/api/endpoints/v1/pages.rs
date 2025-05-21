@@ -166,6 +166,25 @@ pub async fn find_by_id(
     )?))
 }
 
+/// Finds the events for the upcoming months
+#[utoipa::path(
+    tag = "events",
+    responses(
+        (status = 200, description = "The events", body=[PageResponse]),
+        (status = 400, description = "Bad Request", body=Option<String>),
+        (status = 401, description = "Unauthorized", body=Option<String>),
+        (status = 500, description = "Internal Server Error", body=Option<String>)
+    )
+)]
+#[get("/events")]
+pub async fn events(
+    service: Data<dyn PageRequestService>,
+    roles: ClaimRoles,
+    session: Session,
+) -> BackendResult<Json<Vec<PageResponse>>> {
+    Ok(Json(service.events(session, &roles)?))
+}
+
 /// Returns the default page if set
 #[utoipa::path(
     tag = "pages",

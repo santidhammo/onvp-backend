@@ -1,7 +1,7 @@
 /*
  *  ONVP Backend - Backend API provider for the ONVP website
  *
- * Copyright (c) 2024.  Sjoerd van Leent
+ * Copyright (c) 2024-2025.  Sjoerd van Leent
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -16,6 +16,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+use crate::generic::lazy::MAX_EVENT_DAYS;
 use crate::generic::result::{BackendError, BackendResult};
 use crate::generic::security::ClaimRoles;
 use crate::generic::storage::session::Session;
@@ -28,6 +29,7 @@ use crate::model::traits::RoleContainer;
 use crate::repositories::definitions::{PageRepository, PropertiesRepository};
 use crate::services::definitions::request::PageRequestService;
 use actix_web::web::Data;
+use chrono::{Days, Utc};
 use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::io::Read;
@@ -133,6 +135,25 @@ impl PageRequestService for Implementation {
             start: params.page_offset * page_size,
             end: (params.page_offset * page_size) + row_len,
         })
+    }
+
+    fn events(&self, mut session: Session, roles: &ClaimRoles) -> BackendResult<Vec<PageResponse>> {
+        let max_event_days = *MAX_EVENT_DAYS;
+        let start_scan_date = Utc::now().date_naive();
+
+        if let Some(end_scan_date) =
+            start_scan_date.checked_add_days(Days::new(max_event_days as u64))
+        {
+            let events = self.page_repository.find_events(
+                &mut session,
+                roles,
+                &start_scan_date,
+                &end_scan_date,
+            );
+            events.map(|pages| pages.iter().map(PageResponse::from).collect())
+        } else {
+            Err(BackendError::bad())
+        }
     }
 }
 

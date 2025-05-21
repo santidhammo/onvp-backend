@@ -1,7 +1,7 @@
 /*
  *  ONVP Backend - Backend API provider for the ONVP website
  *
- * Copyright (c) 2024.  Sjoerd van Leent
+ * Copyright (c) 2024-2025.  Sjoerd van Leent
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -154,7 +154,7 @@ impl SessionManager for FauxSessionManagerImplementation {
 
 #[cfg(test)]
 impl Injectable<(), dyn SessionManager> for FauxSessionManagerImplementation {
-    fn make((): ()) -> Data<dyn SessionManager> {
+    fn make((): &()) -> Data<dyn SessionManager> {
         let implementation = Self;
         let arc: Arc<dyn SessionManager> = Arc::new(implementation);
         Data::from(arc)

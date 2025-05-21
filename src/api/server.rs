@@ -137,7 +137,8 @@ pub async fn launch() -> std::io::Result<()> {
                     .service(pages::unset_parent)
                     .service(pages::publish)
                     .service(pages::unpublish)
-                    .service(pages::delete),
+                    .service(pages::delete)
+                    .service(pages::events),
             )
             .service(
                 scope("/api/images/v1")

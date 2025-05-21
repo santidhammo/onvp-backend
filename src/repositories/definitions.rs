@@ -22,6 +22,7 @@ use crate::generic::storage::session::Session;
 use crate::model::primitives::Role;
 use crate::model::storage::entities::{Image, MailTemplate, MusicalInstrument, Page, Workgroup};
 use crate::model::storage::extended_entities::{ExtendedMember, FacebookMember};
+use chrono::NaiveDate;
 
 pub trait PropertiesRepository {
     fn maybe_int_property(&self, session: &mut Session, key: &str) -> Option<i32>;
@@ -234,6 +235,15 @@ pub trait PageRepository {
         term: &str,
         roles: &ClaimRoles,
     ) -> BackendResult<(usize, usize, Vec<Page>)>;
+
+    /// Finds events given the roles between a start date and end date
+    fn find_events(
+        &self,
+        session: &mut Session,
+        roles: &ClaimRoles,
+        start_date: &NaiveDate,
+        end_date: &NaiveDate,
+    ) -> BackendResult<Vec<Page>>;
 }
 
 /// Manages the image repository

@@ -26,6 +26,7 @@ use crate::model::storage::entities::Page;
 use crate::repositories::definitions::PageRepository;
 use crate::schema::*;
 use actix_web::web::Data;
+use chrono::NaiveDate;
 use diesel::debug_query;
 use diesel::dsl::exists;
 use diesel::pg::Pg;
@@ -245,6 +246,43 @@ impl PageRepository for Implementation {
             Ok((total_count, result.iter().map(|(p,)| p.clone()).collect()))
         })?;
         Ok((total_count, self.page_size, pages))
+    }
+
+    fn find_events(
+        &self,
+        session: &mut Session,
+        roles: &ClaimRoles,
+        start_date: &NaiveDate,
+        end_date: &NaiveDate,
+    ) -> BackendResult<Vec<Page>> {
+        let mut pages = session.run(|conn| {
+            let sub_table =
+                QueryDsl::select(page_access_policies::table, page_access_policies::page_id)
+                    .distinct()
+                    .filter(
+                        roles
+                            .generate_policy_expression(&page_access_policies::system_role)
+                            .and(page_access_policies::page_id.eq(pages::id)),
+                    );
+            let where_expression = pages::event_date
+                .ge(start_date)
+                .and(pages::event_date.le(end_date))
+                .and(exists(sub_table));
+            Ok(pages::table.filter(&where_expression).load::<Page>(conn)?)
+        });
+
+        // If there are pages with no end event date, set the end event date to the event date
+        if let Ok(pages) = pages.as_mut() {
+            for page in &mut pages.iter_mut() {
+                if let Some(event_date) = &page.event_date {
+                    if page.end_event_date.is_none() {
+                        page.end_event_date = Some(event_date.clone())
+                    }
+                }
+            }
+        }
+
+        pages
     }
 }
 

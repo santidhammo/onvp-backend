@@ -326,6 +326,8 @@ pub struct ExtendedPageResponse {
     parent_id: Option<i32>,
 
     roles: Vec<Role>,
+
+    end_event_date: Option<EventDate>,
 }
 
 impl From<(&Page, &Vec<Role>)> for ExtendedPageResponse {
@@ -337,6 +339,7 @@ impl From<(&Page, &Vec<Role>)> for ExtendedPageResponse {
             roles: roles.clone(),
             parent_id: page.parent_id,
             order_number: page.order_number,
+            end_event_date: page.end_event_date.map(|e| EventDate::from(&e)),
         }
     }
 }
@@ -356,6 +359,8 @@ pub struct PageResponse {
     parent_id: Option<i32>,
 
     event_date: Option<EventDate>,
+
+    end_event_date: Option<EventDate>,
 }
 
 impl From<&Page> for PageResponse {
@@ -366,6 +371,7 @@ impl From<&Page> for PageResponse {
             title: value.title.clone(),
             order_number: value.order_number,
             event_date: value.event_date.map(|e| EventDate::from(&e)),
+            end_event_date: value.end_event_date.map(|e| EventDate::from(&e)),
         }
     }
 }

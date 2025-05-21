@@ -43,6 +43,7 @@ pub fn configure_authority() -> AuthorityConfig {
         .allow(Get, "/api/pages/v1/default", Any)
         .allow(Get, "/api/pages/v1/search", Any)
         .allow(Get, "/api/pages/v1/page/**", Any)
+        .allow(Get, "/api/pages/v1/events", Any)
         .allow(Get, "/api/images/v1/image/**", Any)
         .allow(Get, "/api/images/v1/asset/**", Any)
         .allow(Get, "/api/musical-instruments/v1/**", Any)

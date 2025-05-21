@@ -112,6 +112,7 @@ diesel::table! {
         etag -> Varchar,
         title -> Text,
         order_number -> Int4,
+        end_event_date -> Nullable<Date>,
     }
 }
 

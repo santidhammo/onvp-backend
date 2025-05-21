@@ -172,6 +172,7 @@ pub struct Page {
     pub etag: String,
     pub title: String,
     pub order_number: i32,
+    pub end_event_date: Option<chrono::NaiveDate>,
 }
 
 impl From<&CreatePageCommand> for Page {
@@ -190,6 +191,11 @@ impl From<&CreatePageCommand> for Page {
             etag: crate::generate_asset_id(),
             title: value.title.clone(),
             order_number: 0,
+            end_event_date: value
+                .event_date
+                .clone()
+                .map(|d| d.as_validated().ok())
+                .flatten(),
         }
     }
 }

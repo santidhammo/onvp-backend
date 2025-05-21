@@ -1,7 +1,7 @@
 /*
  *  ONVP Backend - Backend API provider for the ONVP website
  *
- * Copyright (c) 2024.  Sjoerd van Leent
+ * Copyright (c) 2024-2025.  Sjoerd van Leent
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -40,6 +40,7 @@ pub static FIRST_OPERATOR_ACTIVATION_MINUTES: LazyLock<TimeDelta> = LazyLock::ne
         .expect("FIRST_OPERATOR_ACTIVATION_MINUTES must be integer");
     TimeDelta::minutes(value as i64)
 });
+
 /// Returns the page size of each page for a search, defaults to 10 if the environment variable
 /// SEARCH_PAGE_SIZE is not set.
 pub static SEARCH_PAGE_SIZE: LazyLock<usize> = LazyLock::new(|| {
@@ -48,6 +49,17 @@ pub static SEARCH_PAGE_SIZE: LazyLock<usize> = LazyLock::new(|| {
         .parse()
         .expect("invalid SEARCH_PAGE_SIZE, should be an unsigned integer")
 });
+
+/// Returns the maximum days past the current date from which events are to be fetched
+/// from the database
+pub static MAX_EVENT_DAYS: LazyLock<u32> = LazyLock::new(|| {
+    var("MAX_EVENT_DAYS")
+        .unwrap_or("90".to_owned())
+        .parse()
+        .expect("invalid MAX_EVENT_DAYS")
+});
+
+/// Returns the Cipher used for one-time password validation
 pub static OTP_CIPHER: LazyLock<Aes256Gcm> = LazyLock::new(|| {
     let key = var("OTP_KEY").expect("OTP_KEY must be set");
     let buffer = general_purpose::STANDARD

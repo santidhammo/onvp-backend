@@ -1,7 +1,7 @@
 /*
  *  ONVP Backend - Backend API provider for the ONVP website
  *
- * Copyright (c) 2024.  Sjoerd van Leent
+ * Copyright (c) 2024-2025.  Sjoerd van Leent
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -193,6 +193,8 @@ pub struct CreatePageCommand {
     pub title: String,
 
     pub event_date: Option<EventDate>,
+
+    pub end_event_date: Option<EventDate>,
 }
 
 #[derive(Deserialize, ToSchema, Clone, Debug)]
@@ -202,6 +204,8 @@ pub struct UpdatePageCommand {
     pub title: String,
 
     pub event_date: Option<EventDate>,
+
+    pub end_event_date: Option<EventDate>,
 }
 
 #[derive(Deserialize, ToSchema, Clone, Debug)]

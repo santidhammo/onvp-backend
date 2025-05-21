@@ -1,7 +1,7 @@
 /*
  *  ONVP Backend - Backend API provider for the ONVP website
  *
- * Copyright (c) 2024.  Sjoerd van Leent
+ * Copyright (c) 2024-2025.  Sjoerd van Leent
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -190,6 +190,9 @@ pub trait PageRequestService {
         params: &SearchParams,
         roles: &ClaimRoles,
     ) -> BackendResult<SearchResult<PageResponse>>;
+
+    /// Returns all the events within a preconfigured period
+    fn events(&self, session: Session, roles: &ClaimRoles) -> BackendResult<Vec<PageResponse>>;
 }
 
 /// Controls actions for data retrieval belonging to images
