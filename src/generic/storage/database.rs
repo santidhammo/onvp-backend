@@ -1,7 +1,7 @@
 /*
  *  ONVP Backend - Backend API provider for the ONVP website
  *
- * Copyright (c) 2024.  Sjoerd van Leent
+ * Copyright (c) 2024-2025.  Sjoerd van Leent
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -26,6 +26,7 @@ pub type DatabaseConnection = PgConnection;
 pub type DatabaseBackend = Pg;
 pub type DatabaseTransactionBuilder<'a> = TransactionBuilder<'a, DatabaseConnection>;
 
+//noinspection SpellCheckingInspection
 pub fn initialize_database_connection_pool() -> DatabaseConnectionPool {
     let conn_spec = std::env::var("DATABASE_URL").expect("DATABASE_URL should be set");
     let manager = ConnectionManager::<DatabaseConnection>::new(conn_spec);

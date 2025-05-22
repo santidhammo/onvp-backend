@@ -1,7 +1,7 @@
 /*
  *  ONVP Backend - Backend API provider for the ONVP website
  *
- * Copyright (c) 2024.  Sjoerd van Leent
+ * Copyright (c) 2024-2025.  Sjoerd van Leent
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -25,10 +25,10 @@ use crate::services::definitions::request::SetupRequestService;
 use actix_web::web::{Data, Json};
 use actix_web::{get, post};
 
-/// Should set up be started
+/// Should setup be started?
 ///
-/// Checks if the software should run the set up procedure. Returns true when there are no
-/// (operator) members. In that case, the set up procedure should be started.
+/// Checks if the software should run the set-up procedure. Returns true when there are no
+/// (operator) members. In that case, the set-up procedure should be started.
 #[utoipa::path(
     tag = "setup",
     responses(

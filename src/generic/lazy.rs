@@ -69,7 +69,7 @@ pub static OTP_CIPHER: LazyLock<Aes256Gcm> = LazyLock::new(|| {
     Aes256Gcm::new(&key)
 });
 
-/// Returns the token expiry high water mark, defaults to 120 seconds if the environment variable
+/// Returns the token expiry highwater mark, defaults to 120 seconds if the environment variable
 /// TOKEN_EXPIRY_HIGH_WATER_MARK is not set.
 pub static TOKEN_EXPIRY_HIGH_WATER_MARK: LazyLock<u64> = LazyLock::new(|| {
     var("TOKEN_EXPIRY_HIGH_WATER_MARK")
