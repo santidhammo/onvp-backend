@@ -264,11 +264,22 @@ impl PageRepository for Implementation {
                             .generate_policy_expression(&page_access_policies::system_role)
                             .and(page_access_policies::page_id.eq(pages::id)),
                     );
-            let where_expression = pages::event_date
-                .ge(start_date)
+
+            let event_date_filter = pages::event_date.ge(start_date).or(pages::event_date
+                .lt(start_date)
+                .and(pages::end_event_date.ge(start_date)));
+
+            let where_expression = event_date_filter
                 .and(pages::event_date.le(end_date))
                 .and(exists(sub_table));
-            Ok(pages::table.filter(&where_expression).load::<Page>(conn)?)
+
+            let result = debug_query::<Pg, _>(&where_expression);
+            info!("{}", result.to_string());
+
+            Ok(pages::table
+                .filter(&where_expression)
+                .order_by(pages::event_date)
+                .load::<Page>(conn)?)
         });
 
         // If there are pages with no end event date, set the end event date to the event date

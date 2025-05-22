@@ -26,7 +26,7 @@ use crate::model::storage::extended_entities::ExtendedMember;
 use diesel::{AsChangeset, Insertable, Queryable, Selectable};
 
 #[derive(Clone, Debug, Queryable, Selectable, Insertable)]
-#[diesel(table_name = crate::schema::members)]
+#[diesel(table_name = crate::schema::members, treat_none_as_null = true)]
 pub struct Member {
     #[diesel(skip_insertion)]
     pub id: i32,
@@ -96,7 +96,7 @@ impl From<&sub_commands::DetailRegisterSubCommand> for MemberDetail {
 }
 
 #[derive(Clone, Debug, Queryable, Selectable, Insertable, AsChangeset)]
-#[diesel(table_name = crate::schema::member_address_details)]
+#[diesel(table_name = crate::schema::member_address_details, treat_none_as_null = true)]
 pub struct MemberAddressDetail {
     #[diesel(skip_insertion)]
     pub id: i32,
@@ -161,7 +161,7 @@ impl From<(&Workgroup, &WorkgroupUpdateCommand)> for Workgroup {
 }
 
 #[derive(Clone, Debug, Queryable, Selectable, Insertable, AsChangeset)]
-#[diesel(table_name = crate::schema::pages)]
+#[diesel(table_name = crate::schema::pages, treat_none_as_null = true)]
 pub struct Page {
     #[diesel(skip_insertion)]
     pub id: i32,
@@ -208,6 +208,11 @@ impl From<(&Page, &UpdatePageCommand)> for Page {
             .clone()
             .map(|d| d.as_validated().ok())
             .flatten();
+        cloned.end_event_date = command
+            .end_event_date
+            .clone()
+            .map(|d| d.as_validated().ok())
+            .flatten();
         cloned.title = command.title.clone();
         cloned
     }
@@ -234,7 +239,7 @@ impl From<&ImageUploadCommand> for Image {
 }
 
 #[derive(Clone, Debug, Queryable, Selectable, Insertable, AsChangeset)]
-#[diesel(table_name = crate::schema::musical_instruments)]
+#[diesel(table_name = crate::schema::musical_instruments, treat_none_as_null = true)]
 pub struct MusicalInstrument {
     #[diesel(skip_insertion)]
     pub id: i32,
