@@ -116,7 +116,7 @@ impl PageCommandService for Implementation {
         let _ = self.page_repository.find_by_id(&mut session, page_id)?;
 
         if let Some(parent_id) = maybe_parent_id {
-            // Verify that the parent page really exists, and has no parent page itself
+            // Verify that the parent page really exists and has no parent page itself
             let parent_page = self.page_repository.find_by_id(&mut session, parent_id)?;
             if let Some(_) = parent_page.parent_id {
                 return Err(BackendError::bad());

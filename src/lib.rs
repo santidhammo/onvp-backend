@@ -1,7 +1,7 @@
 /*
  *  ONVP Backend - Backend API provider for the ONVP website
  *
- * Copyright (c) 2024.  Sjoerd van Leent
+ * Copyright (c) 2024-2025.  Sjoerd van Leent
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -28,14 +28,14 @@ pub mod schema;
 pub mod services;
 
 use crate::generic::result::BackendResult;
-use rand::distributions::{Alphanumeric, DistString};
-use rand::thread_rng;
+use rand::distr::{Alphanumeric, SampleString};
+use rand::rng;
 use std::env::var;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
 fn generate_asset_id() -> String {
-    Alphanumeric.sample_string(&mut thread_rng(), 16)
+    Alphanumeric.sample_string(&mut rng(), 16)
 }
 
 fn path_for_asset(asset_id: &str) -> BackendResult<PathBuf> {

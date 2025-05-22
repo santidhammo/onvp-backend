@@ -1,7 +1,7 @@
 /*
  *  ONVP Backend - Backend API provider for the ONVP website
  *
- * Copyright (c) 2024.  Sjoerd van Leent
+ * Copyright (c) 2024-2025.  Sjoerd van Leent
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -32,13 +32,14 @@ use diesel::{
     AppearsOnTable, BoolExpressionMethods, BoxableExpression, Expression, ExpressionMethods,
     SelectableExpression,
 };
-use rand::distributions::{Alphanumeric, DistString};
-use rand::thread_rng;
+
+use rand::distr::{Alphanumeric, SampleString};
+use rand::rng;
 use std::collections::HashSet;
 pub use totp_rs::TOTP;
 
 pub fn generate_activation_string() -> String {
-    let validation_string = Alphanumeric.sample_string(&mut thread_rng(), 32);
+    let validation_string = Alphanumeric.sample_string(&mut rng(), 32);
     validation_string
 }
 
